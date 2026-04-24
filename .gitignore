@@ -1,0 +1,20 @@
+# Dependencies
+app/node_modules/
+
+# Build output
+app/dist/
+
+# Environment
+app/.env
+app/.env.local
+app/.env.production
+
+# Editor
+.DS_Store
+*.swp
+*.swo
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
