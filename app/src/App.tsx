@@ -12,6 +12,7 @@ import ProductPage from './pages/ProductPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import AboutPage from './pages/AboutPage';
+import CommunityPage from './pages/CommunityPage';
 import SupportPage from './pages/SupportPage';
 import HomePage from './pages/HomePage';
 import SignupPage from './pages/SignupPage';
@@ -42,6 +43,7 @@ function App() {
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/community" element={<CommunityPage />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/login" element={<LoginRedirect />} />

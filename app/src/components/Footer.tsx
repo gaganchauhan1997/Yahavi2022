@@ -237,10 +237,10 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  to="/about"
+                  to="/community"
                   className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors"
                 >
-                  Careers
+                  Community
                 </Link>
               </li>
               <li>
