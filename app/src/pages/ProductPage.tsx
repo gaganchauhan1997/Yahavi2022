@@ -14,6 +14,7 @@ export default function ProductPage() {
   const product = slug ? getProductBySlug(state.products, slug) : undefined;
   const relatedProducts = product ? getRelatedProducts(state.products, product) : [];
   const isInWishlist = product ? state.wishlist.includes(product.id) : false;
+  const productImage = product?.image?.sourceUrl?.trim();
 
   if (!product) {
     return (
@@ -69,11 +70,19 @@ export default function ProductPage() {
             {/* Image */}
             <div className="relative">
               <div className="aspect-[4/3] rounded-2xl lg:rounded-3xl overflow-hidden bg-hack-black/5">
-                <img
-                  src={product.image?.sourceUrl}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
+                {productImage ? (
+                  <img
+                    src={productImage}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-hack-black/5 to-hack-yellow/20 px-8 text-center">
+                    <span className="font-display text-2xl font-bold text-hack-black/50">
+                      {product.name}
+                    </span>
+                  </div>
+                )}
               </div>
               {product.isNew && (
                 <Badge className="absolute top-4 left-4 bg-hack-yellow text-hack-black font-bold">

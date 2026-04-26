@@ -104,10 +104,10 @@ export default function CartDrawer() {
                               productId: item.product.id,
                             })
                           }
-                          className="ml-auto p-1.5 text-hack-black/40 hover:text-red-500 transition-colors"
+                          className="ml-auto p-2 text-hack-black/40 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
                           aria-label="Remove item"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
                     </div>

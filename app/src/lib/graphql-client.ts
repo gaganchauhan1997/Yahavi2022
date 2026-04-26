@@ -6,6 +6,7 @@ export async function fetchGraphQL(query: string, variables = {}) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
     body: JSON.stringify({
       query,
@@ -23,24 +24,30 @@ export async function fetchGraphQL(query: string, variables = {}) {
 
 export const GET_PRODUCTS_QUERY = `
   query GetProducts {
-    products(first: 20) {
+    products(first: 50) {
       nodes {
         id
+        databaseId
         name
         slug
         description
         shortDescription
-        image {
-          sourceUrl
-        }
+        status
         ... on SimpleProduct {
           price
           regularPrice
         }
         productCategories {
           nodes {
+            id
+            databaseId
+            name
             slug
           }
+        }
+        image {
+          sourceUrl
+          altText
         }
       }
     }

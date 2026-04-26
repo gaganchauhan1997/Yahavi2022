@@ -6,6 +6,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import CartDrawer from './components/CartDrawer';
 import CategorySidebar from './components/CategorySidebar';
+import ScrollToTop from './components/ScrollToTop';
 import YahaviAI from './components/YahaviAI';
 import ShopPage from './pages/ShopPage';
 import ProductPage from './pages/ProductPage';
@@ -32,6 +33,7 @@ function App() {
     <StoreProvider>
       <YahaviAI />
       <Router>
+        <ScrollToTop />
         <Header />
         <CategorySidebar />
         <CartDrawer />

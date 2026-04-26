@@ -1,4 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Optimized font imports - Only load used weights */
+/* Space Grotesk: 400, 500, 700 (Headings) */
+/* Inter: 400, 500, 700 (Body text) */
+/* JetBrains Mono: 400, 500 (Code/mono) */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -17,7 +21,7 @@
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 10%;
     --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted-foreground: 0 0% 35%; /* Darker for better contrast - WCAG AA compliant */
     --accent: 310 100% 67%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;

@@ -34,6 +34,9 @@ export const initializeRazorpayPayment = async (options: any) => {
   try {
     const rzp = new (window as any).Razorpay({
       key: razorpayKey,
+      name: 'Hackknow',
+      description: 'Digital Products Marketplace',
+      // image: 'https://hackknow.com/logo.png', // Add your logo URL here
       ...options,
       theme: {
         color: '#FFD700', // HackKnow yellow

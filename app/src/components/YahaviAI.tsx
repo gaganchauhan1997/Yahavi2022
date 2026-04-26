@@ -1,21 +1,8 @@
 
-import { useEffect } from 'react';
-
+// Disabled: Yahavi AI Widget not available (cdn.yahavi.ai returns 404)
+// TODO: Replace with HackKnow custom support widget or chat system
 const YahaviAI = () => {
-  useEffect(() => {
-    // Replace with your actual Yahavi AI Widget Script
-    const script = document.createElement('script');
-    script.src = 'https://cdn.yahavi.ai/widget.js';
-    script.async = true;
-    script.setAttribute('data-id', 'YOUR_YAHAVI_ID');
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  return null; // The script handles the UI injection
+  return null; // Widget disabled - no external script loading
 };
 
 export default YahaviAI;

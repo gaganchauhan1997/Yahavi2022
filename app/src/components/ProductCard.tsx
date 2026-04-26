@@ -11,6 +11,7 @@ interface ProductCardProps {
 export default function ProductCard({ product, className = "" }: ProductCardProps) {
   const { dispatch, state } = useStore();
   const isInWishlist = state.wishlist.includes(product.id);
+  const productImage = product.image?.sourceUrl?.trim();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -31,11 +32,19 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
     >
       {/* Image Container */}
       <div className="relative aspect-[4/3] overflow-hidden bg-hack-black/5">
-        <img
-          src={product.image?.sourceUrl}
-          alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {productImage ? (
+          <img
+            src={productImage}
+            alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-hack-black/5 to-hack-yellow/20 px-6 text-center">
+            <span className="font-display text-lg font-bold text-hack-black/50">
+              {product.name}
+            </span>
+          </div>
+        )}
 
         {/* Badges */}
         <div className="absolute top-3 left-3 flex gap-2">
@@ -56,14 +65,14 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
           )}
         </div>
 
-        {/* Wishlist Button */}
+        {/* Wishlist Button - 44px touch target for accessibility */}
         <button
           onClick={handleToggleWishlist}
-          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-white"
+          className="absolute top-3 right-3 w-11 h-11 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-white"
           aria-label="Toggle wishlist"
         >
           <Heart
-            className={`w-4 h-4 ${
+            className={`w-5 h-5 ${
               isInWishlist
                 ? "fill-red-500 text-red-500"
                 : "text-hack-black/60"
@@ -78,7 +87,7 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
             className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-hack-black text-hack-white flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-200 hover:bg-hack-black/80"
             aria-label="Add to cart"
           >
-            <ShoppingCart className="w-4 h-4" />
+            <ShoppingCart className="w-5 h-5" />
           </button>
         )}
       </div>

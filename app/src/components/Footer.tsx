@@ -1,12 +1,19 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Twitter, Instagram, Youtube, Linkedin } from "lucide-react";
 
+const socialLinks = [
+  { href: "https://twitter.com/hackknow", icon: Twitter, label: "Twitter" },
+  { href: "https://instagram.com/hackknow", icon: Instagram, label: "Instagram" },
+  { href: "https://youtube.com/hackknow", icon: Youtube, label: "YouTube" },
+  { href: "https://linkedin.com/company/hackknow", icon: Linkedin, label: "LinkedIn" },
+];
+
 export default function Footer() {
   const navigate = useNavigate();
   
   const scrollToTop = (path: string) => {
     navigate(path);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   };
 
   return (
@@ -54,30 +61,18 @@ export default function Footer() {
               India. Built for the World.
             </p>
             <div className="flex items-center gap-3">
-              <a
-                href="#"
-                className="w-10 h-10 rounded-full bg-hack-white/10 flex items-center justify-center hover:bg-hack-yellow hover:text-hack-black transition-colors"
-              >
-                <Twitter className="w-4 h-4" />
-              </a>
-              <a
-                href="#"
-                className="w-10 h-10 rounded-full bg-hack-white/10 flex items-center justify-center hover:bg-hack-yellow hover:text-hack-black transition-colors"
-              >
-                <Instagram className="w-4 h-4" />
-              </a>
-              <a
-                href="#"
-                className="w-10 h-10 rounded-full bg-hack-white/10 flex items-center justify-center hover:bg-hack-yellow hover:text-hack-black transition-colors"
-              >
-                <Youtube className="w-4 h-4" />
-              </a>
-              <a
-                href="#"
-                className="w-10 h-10 rounded-full bg-hack-white/10 flex items-center justify-center hover:bg-hack-yellow hover:text-hack-black transition-colors"
-              >
-                <Linkedin className="w-4 h-4" />
-              </a>
+              {socialLinks.map((social) => (
+                <a
+                  key={social.label}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={social.label}
+                  className="w-10 h-10 rounded-full bg-hack-white/10 flex items-center justify-center hover:bg-hack-yellow hover:text-hack-black transition-colors"
+                >
+                  <social.icon className="w-4 h-4" />
+                </a>
+              ))}
             </div>
           </div>
 
@@ -187,14 +182,6 @@ export default function Footer() {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToTop('/community')}
-                  className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
-                >
-                  Community
-                </button>
-              </li>
-              <li>
-                <button
                   onClick={() => scrollToTop('/support')}
                   className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
@@ -235,20 +222,20 @@ export default function Footer() {
                 </button>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors"
+                <button
+                  onClick={() => scrollToTop('/community')}
+                  className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
                   Blog
-                </a>
+                </button>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors"
+                <button
+                  onClick={() => scrollToTop('/about')}
+                  className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
                   Affiliate Program
-                </a>
+                </button>
               </li>
             </ul>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { Search, SlidersHorizontal, Loader2 } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
@@ -17,25 +17,38 @@ export default function ShopPage() {
 
   const [sortBy, setSortBy] = useState<string>("featured");
   const [showFilters, setShowFilters] = useState(false);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
 
   const currentCategory = categorySlug
     ? categories.find((c) => c.slug === categorySlug)
     : null;
 
-  // Helper to parse price string
   const parsePrice = (price?: string): number => {
     if (!price) return 0;
-    const numeric = price.replace(/[^0-9.]/g, '');
-    return parseFloat(numeric) || 0;
+    const numeric = price.replace(/[^0-9.]/g, "");
+    return Number.parseFloat(numeric) || 0;
   };
+
+  const maxProductPrice = useMemo(() => {
+    if (!products.length) return 1000;
+    return Math.max(...products.map((product) => parsePrice(product.price)), 1000);
+  }, [products]);
+
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+
+  useEffect(() => {
+    if (!products.length) return;
+    setPriceRange([0, maxProductPrice]);
+  }, [products.length, maxProductPrice]);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
     // Filter by category
     if (categorySlug) {
-      result = result.filter((p) => p.category === categorySlug);
+      result = result.filter((product) => {
+        if (product.category === categorySlug) return true;
+        return product.categories?.includes(categorySlug) ?? false;
+      });
     }
 
     // Filter by subcategory
@@ -74,7 +87,7 @@ export default function ShopPage() {
     }
 
     return result;
-  }, [categorySlug, subParam, filterParam, sortBy, priceRange]);
+  }, [categorySlug, filterParam, priceRange, products, sortBy, subParam]);
 
   const getPageTitle = () => {
     if (currentCategory) return currentCategory.title;
@@ -168,18 +181,19 @@ export default function ShopPage() {
                     Price Range
                   </h4>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-mono">${priceRange[0]}</span>
+                    <span className="text-sm font-mono">₹{priceRange[0]}</span>
                     <input
                       type="range"
                       min="0"
-                      max="100"
+                      max={maxProductPrice}
+                      step={Math.ceil(maxProductPrice / 20)}
                       value={priceRange[1]}
                       onChange={(e) =>
                         setPriceRange([priceRange[0], Number(e.target.value)])
                       }
                       className="flex-1 accent-hack-yellow"
                     />
-                    <span className="text-sm font-mono">${priceRange[1]}</span>
+                    <span className="text-sm font-mono">₹{priceRange[1]}</span>
                   </div>
                 </div>
 
@@ -246,7 +260,8 @@ export default function ShopPage() {
                   <input
                     type="range"
                     min="0"
-                    max="100"
+                    max={maxProductPrice}
+                    step={Math.ceil(maxProductPrice / 20)}
                     value={priceRange[1]}
                     onChange={(e) =>
                       setPriceRange([priceRange[0], Number(e.target.value)])
@@ -275,23 +290,51 @@ export default function ShopPage() {
                 </div>
               ) : (
                 <div className="text-center py-20">
-                  <Search className="w-12 h-12 text-hack-black/20 mx-auto mb-4" />
+                  <Search className="w-12 h-12 text-hack-black/30 mx-auto mb-4" />
                   <p className="font-display font-bold text-lg mb-2">
-                    No products found
+                    {products.length === 0 ? "No products available" : "No products match your filters"}
                   </p>
-                  <p className="text-sm text-hack-black/50">
+                  <p className="text-sm text-hack-black/70 mb-6 max-w-md mx-auto">
                     {products.length === 0 
-                      ? "Products are loading from server. Please wait or refresh."
-                      : "Try adjusting your filters or browse all products."}
+                      ? "We're having trouble loading products. Please check your connection or refresh."
+                      : "Try adjusting your filters or browse all products to find what you're looking for."}
                   </p>
-                  {products.length === 0 && (
-                    <button 
-                      onClick={() => window.location.reload()}
-                      className="mt-4 px-6 py-2 bg-hack-yellow text-hack-black rounded-full font-bold hover:bg-hack-yellow/90 transition-colors"
-                    >
-                      Refresh Page
-                    </button>
-                  )}
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    {products.length === 0 ? (
+                      <>
+                        <button 
+                          onClick={() => window.location.reload()}
+                          className="px-6 py-2.5 bg-hack-yellow text-hack-black rounded-full font-bold hover:bg-hack-yellow/90 transition-colors"
+                        >
+                          Refresh Page
+                        </button>
+                        <Link
+                          to="/support"
+                          className="px-6 py-2.5 bg-hack-black/5 text-hack-black rounded-full font-medium hover:bg-hack-black/10 transition-colors"
+                        >
+                          Contact Support
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={() => {
+                            setPriceRange([0, maxProductPrice]);
+                            window.location.href = '/shop';
+                          }}
+                          className="px-6 py-2.5 bg-hack-yellow text-hack-black rounded-full font-bold hover:bg-hack-yellow/90 transition-colors"
+                        >
+                          Clear Filters
+                        </button>
+                        <Link
+                          to="/shop"
+                          className="px-6 py-2.5 bg-hack-black/5 text-hack-black rounded-full font-medium hover:bg-hack-black/10 transition-colors"
+                        >
+                          Browse All Products
+                        </Link>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

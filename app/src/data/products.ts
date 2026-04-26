@@ -11,6 +11,7 @@ export interface Product {
     sourceUrl: string;
   };
   category?: string;
+  categories?: string[];
   subcategory?: string;
   // Local UI-only optional fields
   rating?: number;

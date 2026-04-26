@@ -5,6 +5,22 @@ import { fallbackProducts } from "@/data/products";
 import { fetchGraphQL, GET_PRODUCTS_QUERY } from "@/lib/graphql-client";
 import { initializeRazorpayPayment } from "@/lib/razorpay";
 
+// Backend provides canonical slugs - no frontend normalization needed
+function parsePriceValue(price?: string): number {
+  if (!price) return 0;
+  const numeric = price.replace(/[^0-9.]/g, "");
+  return Number.parseFloat(numeric) || 0;
+}
+
+function extractCategorySlugs(categoryNodes?: Array<{ slug?: string | null }>): string[] {
+  const slugs = new Set<string>();
+  for (const node of categoryNodes ?? []) {
+    const slug = node.slug?.trim();
+    if (slug) slugs.add(slug);
+  }
+  return [...slugs];
+}
+
 export interface CartItem {
   product: Product;
   quantity: number;
@@ -136,17 +152,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         const data = await fetchGraphQL(GET_PRODUCTS_QUERY);
         if (data?.products?.nodes?.length > 0) {
-          const mappedProducts: Product[] = data.products.nodes.map((node: any) => ({
-            id: node.id,
-            name: node.name,
-            slug: node.slug,
-            description: node.description,
-            shortDescription: node.shortDescription,
-            price: node.price,
-            regularPrice: node.regularPrice,
-            image: node.image,
-            category: node.productCategories?.nodes[0]?.slug || 'uncategorized',
-          }));
+          const mappedProducts: Product[] = data.products.nodes.map((node: any) => {
+            const categories = extractCategorySlugs(node.productCategories?.nodes);
+            const price = node.price;
+
+            return {
+              id: node.databaseId?.toString() || node.id,
+              name: node.name,
+              slug: node.slug,
+              description: node.description,
+              shortDescription: node.shortDescription,
+              price,
+              regularPrice: node.regularPrice,
+              image: node.image,
+              category: categories[0] || 'uncategorized',
+              categories,
+              isFree: parsePriceValue(price) === 0 || categories.includes('free-resources'),
+            };
+          });
           dispatch({ type: 'SET_PRODUCTS', payload: mappedProducts });
           console.log('✅ Products loaded from WordPress:', mappedProducts.length);
         } else {
