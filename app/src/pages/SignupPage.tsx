@@ -35,7 +35,9 @@ const SignupPage: FC = () => {
   );
 
   const handleGoogleSignIn = () => {
-    window.location.href = 'https://shop.hackknow.com/wp-login.php?action=google_auth';
+    // Google auth disabled until backend OAuth is configured
+    // TODO: Implement Google OAuth via Nextend Social Login plugin on WordPress
+    alert('Google Sign In coming soon. Please use email signup.');
   };
 
   const handleSubmit = (e: FormEvent) => {
