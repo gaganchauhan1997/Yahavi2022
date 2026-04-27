@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 interface AuthGuardProps {
@@ -57,12 +57,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to React signup page if not authenticated (keeps user on hackknow.com)
   if (!isAuth) {
-    // Redirect to WordPress login with return URL
-    const returnUrl = encodeURIComponent(location.pathname);
-    window.location.href = `https://shop.hackknow.com/my-account?redirect_to=${returnUrl}`;
-    return null;
+    return <Navigate to="/signup" state={{ from: location.pathname }} replace />;
   }
 
   // Render protected content
