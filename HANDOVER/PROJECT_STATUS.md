@@ -10,7 +10,7 @@
 
 ---
 
-## Current Status (Last Updated: April 26, 2026)
+## Current Status (Last Updated: April 27, 2026)
 
 ### ✅ Completed Features
 
@@ -329,3 +329,16 @@ npm run build
 cp -r dist/* /var/www/hackknow/dist/
 sudo systemctl restart nginx
 ```
+
+
+---
+
+## April 27, 2026 Changelog Entry
+- Synced against the current GitHub main repo and fixed the live working copy instead of the stale overview folder.
+- Replaced the old login redirect with the React LoginPage route and added reusable auth helpers in app/src/lib/auth.ts.
+- Protected account routes with AuthGuard and added working /account/:section navigation so wishlist and related account sections resolve correctly.
+- Added missing routes for /contact, /affiliate, /blog, /faq, /privacy, /terms, and /refund-policy.
+- Fixed shop search so header search now filters product results on ShopPage.
+- Restored clean npm run lint and npm run build after removing lint-breaking effect/state patterns and typing the GraphQL product mapping.
+- Cleaned visible currency and encoding drift in the touched checkout/cart utility text.
+

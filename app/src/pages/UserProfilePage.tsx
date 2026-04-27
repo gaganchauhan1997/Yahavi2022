@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { 
   User, Package, Heart, Download, CreditCard, MapPin,
   Bell, Shield, LogOut, ChevronRight, ShoppingBag,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { getCurrentUser, logout } from '@/lib/auth';
 
 // Mock user data - replace with actual API calls when JWT auth is fully wired
 const mockUser = {
@@ -68,9 +69,17 @@ const sidebarItems = [
 ];
 
 export default function UserProfilePage() {
-  const [activeTab, setActiveTab] = useState('profile');
+  const { section } = useParams<{ section?: string }>();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
-  const [userData, setUserData] = useState(mockUser);
+  const [userData, setUserData] = useState(() => ({
+    ...mockUser,
+    ...getCurrentUser(),
+  }));
+  const activeTab = useMemo(() => {
+    const allowedSections = new Set(sidebarItems.map((item) => item.id));
+    return section && allowedSections.has(section) ? section : 'profile';
+  }, [section]);
 
   const renderProfile = () => (
     <div className="space-y-6">
@@ -276,6 +285,11 @@ export default function UserProfilePage() {
       case 'profile': return renderProfile();
       case 'orders': return renderOrders();
       case 'downloads': return renderDownloads();
+      case 'wishlist': return <div className="bg-white rounded-xl border border-gray-200 p-6"><h2 className="text-2xl font-bold">My Wishlist</h2><p className="mt-2 text-sm text-gray-500">Saved items will appear here.</p></div>;
+      case 'payments': return <div className="bg-white rounded-xl border border-gray-200 p-6"><h2 className="text-2xl font-bold">Payment Methods</h2><p className="mt-2 text-sm text-gray-500">Saved payment methods will appear here.</p></div>;
+      case 'addresses': return <div className="bg-white rounded-xl border border-gray-200 p-6"><h2 className="text-2xl font-bold">Manage Addresses</h2><p className="mt-2 text-sm text-gray-500">Your billing and shipping addresses will appear here.</p></div>;
+      case 'notifications': return <div className="bg-white rounded-xl border border-gray-200 p-6"><h2 className="text-2xl font-bold">Notifications</h2><p className="mt-2 text-sm text-gray-500">Notification preferences will appear here.</p></div>;
+      case 'security': return <div className="bg-white rounded-xl border border-gray-200 p-6"><h2 className="text-2xl font-bold">Login & Security</h2><p className="mt-2 text-sm text-gray-500">Security settings will appear here.</p></div>;
       default: return renderProfile();
     }
   };
@@ -308,7 +322,7 @@ export default function UserProfilePage() {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => navigate(item.id === 'profile' ? '/account' : `/account/${item.id}`)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
                         activeTab === item.id
                           ? 'bg-hack-yellow/10 text-hack-black font-medium'
@@ -321,7 +335,13 @@ export default function UserProfilePage() {
                   );
                 })}
                 <div className="border-t mt-2 pt-2">
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors">
+                  <button
+                    onClick={() => {
+                      logout();
+                      navigate('/login');
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
                     <LogOut className="w-5 h-5" />
                     Logout
                   </button>

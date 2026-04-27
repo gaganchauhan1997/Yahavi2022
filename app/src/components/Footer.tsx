@@ -190,7 +190,7 @@ export default function Footer() {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToTop('/support')}
+                  onClick={() => scrollToTop('/faq')}
                   className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
                   FAQ
@@ -198,7 +198,7 @@ export default function Footer() {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToTop('/support')}
+                  onClick={() => scrollToTop('/contact')}
                   className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
                   Contact Us
@@ -231,7 +231,7 @@ export default function Footer() {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToTop('/support')}
+                  onClick={() => scrollToTop('/contact')}
                   className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
                   Contact
@@ -249,7 +249,7 @@ export default function Footer() {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToTop('/about')}
+                  onClick={() => scrollToTop('/affiliate')}
                   className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
                   Affiliate Program
@@ -268,13 +268,13 @@ export default function Footer() {
           </p>
           <div className="flex items-center gap-6">
             <button
-              onClick={() => scrollToTop('/support')}
+              onClick={() => scrollToTop('/terms')}
               className="text-xs text-hack-white/40 hover:text-hack-white/70 transition-colors"
             >
               Terms & Conditions
             </button>
             <button
-              onClick={() => scrollToTop('/support')}
+              onClick={() => scrollToTop('/privacy')}
               className="text-xs text-hack-white/40 hover:text-hack-white/70 transition-colors"
             >
               Privacy Policy

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Search, ShoppingCart, Menu, X, Heart, User } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { categories } from "@/data/products";
@@ -11,7 +11,7 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,10 +20,6 @@ export default function Header() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [location]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +63,7 @@ export default function Header() {
               </button>
               <Link
                 to="/"
+                onClick={closeMobileMenu}
                 className="font-display font-bold text-xl lg:text-2xl tracking-tight"
               >
                 HACKKNOW
@@ -80,30 +77,35 @@ export default function Header() {
             <nav className="hidden lg:flex items-center gap-8">
               <Link
                 to="/shop"
+                onClick={closeMobileMenu}
                 className="text-sm font-medium hover:text-hack-magenta transition-colors"
               >
                 Shop
               </Link>
               <Link
                 to="/shop?filter=new"
+                onClick={closeMobileMenu}
                 className="text-sm font-medium hover:text-hack-magenta transition-colors"
               >
                 New Arrivals
               </Link>
               <Link
                 to="/shop?filter=bestseller"
+                onClick={closeMobileMenu}
                 className="text-sm font-medium hover:text-hack-magenta transition-colors"
               >
                 Best Sellers
               </Link>
               <Link
                 to="/shop/free-resources"
+                onClick={closeMobileMenu}
                 className="text-sm font-medium hover:text-hack-magenta transition-colors"
               >
                 Freebies
               </Link>
               <Link
                 to="/about"
+                onClick={closeMobileMenu}
                 className="text-sm font-medium hover:text-hack-magenta transition-colors"
               >
                 About
@@ -125,6 +127,7 @@ export default function Header() {
               </button>
               <Link
                 to="/account/wishlist"
+                onClick={closeMobileMenu}
                 className="p-2 hover:bg-hack-black/5 rounded-full transition-colors relative hidden sm:block"
               >
                 <Heart className="w-5 h-5" />
@@ -136,6 +139,7 @@ export default function Header() {
               </Link>
               <Link
                 to="/account"
+                onClick={closeMobileMenu}
                 className="p-2 hover:bg-hack-black/5 rounded-full transition-colors hidden sm:block"
               >
                 <User className="w-5 h-5" />
@@ -185,18 +189,21 @@ export default function Header() {
           <div className="px-6 py-8 space-y-6">
             <Link
               to="/shop"
+              onClick={closeMobileMenu}
               className="block text-2xl font-display font-bold"
             >
               Shop All
             </Link>
             <Link
               to="/shop?filter=new"
+              onClick={closeMobileMenu}
               className="block text-2xl font-display font-bold"
             >
               New Arrivals
             </Link>
             <Link
               to="/shop?filter=bestseller"
+              onClick={closeMobileMenu}
               className="block text-2xl font-display font-bold"
             >
               Best Sellers
@@ -210,6 +217,7 @@ export default function Header() {
                   <Link
                     key={cat.id}
                     to={`/shop/${cat.slug}`}
+                    onClick={closeMobileMenu}
                     className="flex items-center justify-between text-lg"
                   >
                     <span>{cat.title}</span>
@@ -221,10 +229,10 @@ export default function Header() {
               </div>
             </div>
             <div className="border-t border-hack-black/10 pt-6 space-y-3">
-              <Link to="/about" className="block text-lg">
+              <Link to="/about" onClick={closeMobileMenu} className="block text-lg">
                 About
               </Link>
-              <Link to="/support" className="block text-lg">
+              <Link to="/support" onClick={closeMobileMenu} className="block text-lg">
                 Support
               </Link>
             </div>

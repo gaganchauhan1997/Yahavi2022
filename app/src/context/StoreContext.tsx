@@ -1,13 +1,32 @@
-
-import React, { createContext, useContext, useReducer, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 import type { Product } from "@/data/products";
 import { fallbackProducts } from "@/data/products";
 import { fetchGraphQL, GET_PRODUCTS_QUERY } from "@/lib/graphql-client";
 import { initializeRazorpayPayment } from "@/lib/razorpay";
 import { parsePriceValue } from "@/lib/utils";
 
-// Backend provides canonical slugs - no frontend normalization needed
-function extractCategorySlugs(categoryNodes?: Array<{ slug?: string | null }>): string[] {
+interface ProductCategoryNode {
+  slug?: string | null;
+}
+
+interface ProductNode {
+  id: string;
+  databaseId?: number | null;
+  name: string;
+  slug: string;
+  description?: string;
+  shortDescription?: string;
+  price?: string;
+  regularPrice?: string;
+  image?: {
+    sourceUrl: string;
+  };
+  productCategories?: {
+    nodes?: ProductCategoryNode[];
+  };
+}
+
+function extractCategorySlugs(categoryNodes?: ProductCategoryNode[]): string[] {
   const slugs = new Set<string>();
   for (const node of categoryNodes ?? []) {
     const slug = node.slug?.trim();
@@ -32,16 +51,16 @@ interface StoreState {
 }
 
 type StoreAction =
-  | { type: 'SET_PRODUCTS'; payload: Product[] }
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'ADD_TO_CART'; product: Product }
-  | { type: 'REMOVE_FROM_CART'; productId: string }
-  | { type: 'UPDATE_QUANTITY'; productId: string; quantity: number }
-  | { type: 'CLEAR_CART' }
-  | { type: 'TOGGLE_CART' }
-  | { type: 'TOGGLE_SIDEBAR' }
-  | { type: 'TOGGLE_WISHLIST'; productId: string }
-  | { type: 'SET_SEARCH'; query: string };
+  | { type: "SET_PRODUCTS"; payload: Product[] }
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "ADD_TO_CART"; product: Product }
+  | { type: "REMOVE_FROM_CART"; productId: string }
+  | { type: "UPDATE_QUANTITY"; productId: string; quantity: number }
+  | { type: "CLEAR_CART" }
+  | { type: "TOGGLE_CART" }
+  | { type: "TOGGLE_SIDEBAR" }
+  | { type: "TOGGLE_WISHLIST"; productId: string }
+  | { type: "SET_SEARCH"; query: string };
 
 const initialState: StoreState = {
   cart: [],
@@ -50,7 +69,7 @@ const initialState: StoreState = {
   isCartOpen: false,
   isSidebarOpen: false,
   wishlist: [],
-  searchQuery: '',
+  searchQuery: "",
 };
 
 interface StoreContextValue {
@@ -65,49 +84,55 @@ const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
 function storeReducer(state: StoreState, action: StoreAction): StoreState {
   switch (action.type) {
-    case 'SET_PRODUCTS':
+    case "SET_PRODUCTS":
       return { ...state, products: action.payload, loading: false };
-    case 'SET_LOADING':
+    case "SET_LOADING":
       return { ...state, loading: action.payload };
-    case 'ADD_TO_CART': {
-      const existing = state.cart.find(i => i.product.id === action.product.id);
+    case "ADD_TO_CART": {
+      const existing = state.cart.find((item) => item.product.id === action.product.id);
       if (existing) {
         return {
           ...state,
-          cart: state.cart.map(i =>
-            i.product.id === action.product.id ? { ...i, quantity: i.quantity + 1 } : i
+          cart: state.cart.map((item) =>
+            item.product.id === action.product.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
           ),
           isCartOpen: true,
         };
       }
-      return { ...state, cart: [...state.cart, { product: action.product, quantity: 1 }], isCartOpen: true };
+      return {
+        ...state,
+        cart: [...state.cart, { product: action.product, quantity: 1 }],
+        isCartOpen: true,
+      };
     }
-    case 'REMOVE_FROM_CART':
-      return { ...state, cart: state.cart.filter(i => i.product.id !== action.productId) };
-    case 'UPDATE_QUANTITY':
+    case "REMOVE_FROM_CART":
+      return { ...state, cart: state.cart.filter((item) => item.product.id !== action.productId) };
+    case "UPDATE_QUANTITY":
       if (action.quantity <= 0) {
-        return { ...state, cart: state.cart.filter(i => i.product.id !== action.productId) };
+        return { ...state, cart: state.cart.filter((item) => item.product.id !== action.productId) };
       }
       return {
         ...state,
-        cart: state.cart.map(i =>
-          i.product.id === action.productId ? { ...i, quantity: action.quantity } : i
+        cart: state.cart.map((item) =>
+          item.product.id === action.productId ? { ...item, quantity: action.quantity } : item
         ),
       };
-    case 'CLEAR_CART':
+    case "CLEAR_CART":
       return { ...state, cart: [] };
-    case 'TOGGLE_CART':
+    case "TOGGLE_CART":
       return { ...state, isCartOpen: !state.isCartOpen };
-    case 'TOGGLE_SIDEBAR':
+    case "TOGGLE_SIDEBAR":
       return { ...state, isSidebarOpen: !state.isSidebarOpen };
-    case 'TOGGLE_WISHLIST':
+    case "TOGGLE_WISHLIST":
       return {
         ...state,
         wishlist: state.wishlist.includes(action.productId)
-          ? state.wishlist.filter(id => id !== action.productId)
+          ? state.wishlist.filter((id) => id !== action.productId)
           : [...state.wishlist, action.productId],
       };
-    case 'SET_SEARCH':
+    case "SET_SEARCH":
       return { ...state, searchQuery: action.query };
     default:
       return state;
@@ -115,39 +140,34 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
 }
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load cart from localStorage on init
   const loadCartFromStorage = (): CartItem[] => {
     try {
-      const saved = localStorage.getItem('hackknow-cart');
+      const saved = localStorage.getItem("hackknow-cart");
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   };
 
-  const initialStateWithCart: StoreState = {
+  const [state, dispatch] = useReducer(storeReducer, {
     ...initialState,
-    cart: loadCartFromStorage()
-  };
+    cart: loadCartFromStorage(),
+  });
 
-  const [state, dispatch] = useReducer(storeReducer, initialStateWithCart);
-
-  // Persist cart to localStorage whenever it changes
   useEffect(() => {
     try {
-      localStorage.setItem('hackknow-cart', JSON.stringify(state.cart));
+      localStorage.setItem("hackknow-cart", JSON.stringify(state.cart));
     } catch (error) {
-      console.error('Failed to save cart:', error);
+      console.error("Failed to save cart:", error);
     }
   }, [state.cart]);
 
-  // Load products from WPGraphQL with fallback
   useEffect(() => {
     const loadProducts = async () => {
       try {
         const data = await fetchGraphQL(GET_PRODUCTS_QUERY);
         if (data?.products?.nodes?.length > 0) {
-          const mappedProducts: Product[] = data.products.nodes.map((node: any) => {
+          const mappedProducts: Product[] = data.products.nodes.map((node: ProductNode) => {
             const categories = extractCategorySlugs(node.productCategories?.nodes);
             const price = node.price;
 
@@ -160,22 +180,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               price,
               regularPrice: node.regularPrice,
               image: node.image,
-              category: categories[0] || 'uncategorized',
+              category: categories[0] || "uncategorized",
               categories,
-              isFree: parsePriceValue(price) === 0 || categories.includes('free-resources'),
+              isFree: parsePriceValue(price) === 0 || categories.includes("free-resources"),
             };
           });
-          dispatch({ type: 'SET_PRODUCTS', payload: mappedProducts });
-          console.log('✅ Products loaded from WordPress:', mappedProducts.length);
+
+          dispatch({ type: "SET_PRODUCTS", payload: mappedProducts });
+          console.log("Products loaded from WordPress:", mappedProducts.length);
         } else {
-          throw new Error('No products returned from API');
+          throw new Error("No products returned from API");
         }
       } catch (error) {
-        console.warn('⚠️ WPGraphQL failed, using fallback products:', error);
-        dispatch({ type: 'SET_PRODUCTS', payload: fallbackProducts });
-        console.log('✅ Fallback products loaded:', fallbackProducts.length);
+        console.warn("WPGraphQL failed, using fallback products:", error);
+        dispatch({ type: "SET_PRODUCTS", payload: fallbackProducts });
+        console.log("Fallback products loaded:", fallbackProducts.length);
       }
     };
+
     loadProducts();
   }, []);
 
@@ -186,9 +208,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const cartTotal = useMemo(
     () =>
-      state.cart.reduce((sum, item) => {
-        return sum + parsePriceValue(item.product.price) * item.quantity;
-      }, 0),
+      state.cart.reduce((sum, item) => sum + parsePriceValue(item.product.price) * item.quantity, 0),
     [state.cart]
   );
 

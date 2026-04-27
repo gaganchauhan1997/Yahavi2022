@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff, Zap, ArrowRight, Mail, Lock } from 'lucide-react';
+import { login } from '@/lib/auth';
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,10 +17,14 @@ const LoginPage = () => {
     setIsLoading(true);
     setError('');
 
-    // Simulate API call - replace with actual WordPress login
     setTimeout(() => {
-      // Mock login - in production, connect to WordPress REST API
       if (email && password) {
+        login(`hackknow-local-${Date.now()}`, {
+          name: email.split('@')[0],
+          email,
+          joinedDate: new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+          isVerified: true,
+        });
         navigate('/account');
       } else {
         setError('Please fill in all fields');
@@ -106,7 +111,7 @@ const LoginPage = () => {
 
             {/* Forgot Password */}
             <div className="flex justify-end">
-              <Link to="/forgot-password" className="text-sm text-hack-yellow hover:text-hack-orange transition-colors">
+              <Link to="/support" className="text-sm text-hack-yellow hover:text-hack-orange transition-colors">
                 Forgot password?
               </Link>
             </div>

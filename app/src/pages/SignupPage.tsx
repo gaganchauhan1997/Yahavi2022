@@ -2,7 +2,7 @@ import type { FC, FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, BadgeCheck, Lock, Mail, Phone, Sparkles, User } from 'lucide-react';
-import { login } from '@/components/AuthGuard';
+import { login } from '@/lib/auth';
 
 const perks = [
   'Fast order tracking',
