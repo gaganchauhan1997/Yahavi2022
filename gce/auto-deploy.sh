@@ -46,17 +46,19 @@ fi
 
 cd "$REPO_DIR"
 
-# Stash any local changes
-git stash || true
+# Reject dirty working tree — avoid silent stash
+if [ -n "$(git status --porcelain)" ]; then
+    error "Dirty working tree — aborting. Clean manually."
+    exit 1
+fi
 
-# Fetch latest
-git fetch origin
+# Fetch latest with prune
+log "Fetching origin..."
+git fetch --prune origin
 
-# Checkout branch
-git checkout "$BRANCH" || error "Failed to checkout branch $BRANCH"
-
-# Pull latest
-git pull origin "$BRANCH" || error "Failed to pull latest code"
+# Hard-reset to target branch
+git checkout "$BRANCH" || { error "Failed to checkout $BRANCH"; exit 1; }
+git reset --hard "origin/$BRANCH"
 
 # Get latest commit info
 COMMIT=$(git log -1 --pretty=format:"%h - %s (%ci)")
