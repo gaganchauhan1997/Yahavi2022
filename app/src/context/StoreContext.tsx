@@ -4,6 +4,7 @@ import { fallbackProducts } from "@/data/products";
 import { fetchGraphQL, GET_PRODUCTS_QUERY } from "@/lib/graphql-client";
 import { initializeRazorpayPayment } from "@/lib/razorpay";
 import { parsePriceValue } from "@/lib/utils";
+import type { RazorpayResponse } from "@/types/razorpay";
 
 interface ProductCategoryNode {
   slug?: string | null;
@@ -75,7 +76,14 @@ const initialState: StoreState = {
 interface StoreContextValue {
   state: StoreState;
   dispatch: React.Dispatch<StoreAction>;
-  checkout: (amount: number) => void;
+  checkout: (
+    amount: number,
+    callbacks?: {
+      onSuccess?: (resp: RazorpayResponse) => void;
+      onFailure?: (message: string) => void;
+      onDismiss?: () => void;
+    }
+  ) => void;
   cartCount: number;
   cartTotal: number;
 }
@@ -212,12 +220,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [state.cart]
   );
 
-  const checkout = (amount: number) => {
+  const checkout = (
+    amount: number,
+    callbacks?: {
+      onSuccess?: (resp: RazorpayResponse) => void;
+      onFailure?: (message: string) => void;
+      onDismiss?: () => void;
+    }
+  ) => {
     initializeRazorpayPayment({
-      amount: amount * 100,
+      amount: Math.round(amount * 100),
       currency: "INR",
       name: "HackKnow Store",
       description: "Purchase from HackKnow",
+      callbacks,
     });
   };
 

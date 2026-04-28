@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 export default function CheckoutPage() {
   const { state, cartTotal, dispatch, checkout } = useStore();
   const [isComplete, setIsComplete] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -57,9 +58,18 @@ export default function CheckoutPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    checkout(cartTotal);
-    dispatch({ type: "CLEAR_CART" });
-    setIsComplete(true);
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    checkout(cartTotal, {
+      onSuccess: () => {
+        dispatch({ type: 'CLEAR_CART' });
+        setIsComplete(true);
+        setIsProcessing(false);
+      },
+      onFailure: () => setIsProcessing(false),
+      onDismiss: () => setIsProcessing(false),
+    });
   };
 
   return (
@@ -131,10 +141,11 @@ export default function CheckoutPage() {
 
               <Button
                 type="submit"
-                className="w-full h-14 bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full font-bold text-base gap-2"
+                disabled={isProcessing}
+                className="w-full h-14 bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full font-bold text-base gap-2 disabled:opacity-50"
               >
                 <Lock className="w-4 h-4" />
-                Pay with Razorpay — ₹{cartTotal.toFixed(2)}
+                {isProcessing ? 'Processing…' : `Pay with Razorpay — ₹${cartTotal.toFixed(2)}`}
               </Button>
               <p className="text-center text-xs text-hack-black/40">
                 Secured by Razorpay · SSL Encrypted
