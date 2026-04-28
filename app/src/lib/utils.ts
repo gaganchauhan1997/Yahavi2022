@@ -15,3 +15,16 @@ export function parsePriceValue(price?: string): number {
   const numeric = price.replace(/[^0-9.]/g, "");
   return Number.parseFloat(numeric) || 0;
 }
+
+const WP_HOSTS_TO_HIDE = [
+  'https://shop.hackknow.com',
+  'http://shop.hackknow.com',
+];
+
+export function rewriteWpUrl(url: string | undefined): string | undefined {
+  if (!url) return url;
+  for (const host of WP_HOSTS_TO_HIDE) {
+    if (url.startsWith(host)) return url.slice(host.length);
+  }
+  return url;
+}

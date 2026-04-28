@@ -3,7 +3,7 @@ import type { Product } from "@/data/products";
 import { fallbackProducts } from "@/data/products";
 import { fetchGraphQL, GET_PRODUCTS_QUERY } from "@/lib/graphql-client";
 import { initializeRazorpayPayment } from "@/lib/razorpay";
-import { parsePriceValue } from "@/lib/utils";
+import { parsePriceValue, rewriteWpUrl } from "@/lib/utils";
 import type { RazorpayResponse } from "@/types/razorpay";
 
 interface ProductCategoryNode {
@@ -187,7 +187,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               shortDescription: node.shortDescription,
               price,
               regularPrice: node.regularPrice,
-              image: node.image,
+              image: node.image
+                ? { sourceUrl: rewriteWpUrl(node.image.sourceUrl) ?? '', altText: undefined }
+                : undefined,
               category: categories[0] || "uncategorized",
               categories,
               isFree: parsePriceValue(price) === 0 || categories.includes("free-resources"),

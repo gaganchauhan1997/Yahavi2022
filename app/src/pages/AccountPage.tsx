@@ -1,3 +1,4 @@
-// AccountPage now shows React Frontend UI instead of WordPress redirect
-// This keeps users on hackknow.com for better UX and Razorpay integration
+// /account renders the React UserProfilePage on hackknow.com.
+// Do NOT redirect to shop.hackknow.com — the WordPress backend must remain
+// invisible to end users.
 export { default } from './UserProfilePage';
