@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff, Zap, ArrowRight, Mail, Lock } from 'lucide-react';
-import { login } from '@/lib/auth';
+import { loginWithWordPress } from '@/lib/auth';
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,21 +16,14 @@ const LoginPage = () => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-
-    setTimeout(() => {
-      if (email && password) {
-        login(`hackknow-local-${Date.now()}`, {
-          name: email.split('@')[0],
-          email,
-          joinedDate: new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
-          isVerified: true,
-        });
-        navigate('/account');
-      } else {
-        setError('Please fill in all fields');
-      }
+    try {
+      await loginWithWordPress(email, password);
+      navigate('/account');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

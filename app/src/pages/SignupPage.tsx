@@ -2,7 +2,7 @@ import type { FC, FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, BadgeCheck, Lock, Mail, Phone, Sparkles, User } from 'lucide-react';
-import { login } from '@/lib/auth';
+import { registerWithWordPress } from '@/lib/auth';
 
 const perks = [
   'Fast order tracking',
@@ -40,30 +40,17 @@ const SignupPage: FC = () => {
     alert('Google Sign In coming soon. Please use email signup.');
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    if (!passwordsMatch) {
-      setError('Passwords must match and be at least 8 characters.');
-      return;
+    if (!passwordsMatch) { setError('Passwords must match and be at least 8 characters.'); return; }
+    if (!agreeTerms)     { setError('Accept the terms before creating the account.');       return; }
+    try {
+      await registerWithWordPress(formData.fullName, formData.email, formData.password);
+      setError('');
+      navigate('/account');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign up failed');
     }
-
-    if (!agreeTerms) {
-      setError('Accept the terms before creating the account.');
-      return;
-    }
-
-    const user = {
-      name: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      joinedDate: new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
-      isVerified: true,
-    };
-
-    login(`hackknow-local-${Date.now()}`, user);
-    setError('');
-    navigate('/account');
   };
 
   return (
