@@ -33,7 +33,7 @@ const ContactPage = () => {
       'your-message':       formData.message,
       'your-issues':        'Other',
       'your-country':       'India',
-      'your-mobile':        'N/A',
+      'your-mobile':        '0000000000',
     };
 
     const parts = Object.entries(fields).map(([k, v]) =>
