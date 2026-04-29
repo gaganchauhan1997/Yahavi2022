@@ -85,10 +85,10 @@ const ContactPage = () => {
                     <h3 className="font-bold text-lg mb-1">Call Us</h3>
                     <p className="text-hack-black/60 text-sm mb-1">Mon-Fri, 9AM-6PM IST</p>
                     <a 
-                      href="tel:+919999999999" 
+                      href="tel:+918796018700" 
                       className="text-hack-magenta hover:text-hack-orange transition-colors"
                     >
-                      +91 99999 99999
+                      +91 87960 18700
                     </a>
                   </div>
                 </div>
