@@ -5,7 +5,6 @@ import { fetchGraphQL, GET_PRODUCTS_QUERY } from "@/lib/graphql-client";
 import { initializeRazorpayPayment } from "@/lib/razorpay";
 import { parsePriceValue, rewriteWpUrl } from "@/lib/utils";
 import type { RazorpayResponse } from "@/types/razorpay";
-import { toast } from "sonner";
 import { getCurrentUser } from "@/lib/auth";
 
 interface ProductCategoryNode {
@@ -172,8 +171,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     try {
       localStorage.setItem(cartKey(), JSON.stringify(state.cart));
-    } catch (error) {
-      console.error("Failed to save cart:", error);
+    } catch {
+      // Cart persistence failed — silently ignore (non-critical)
     }
   }, [state.cart]);
 
@@ -210,16 +209,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else {
           throw new Error("No products returned from API");
         }
-      } catch (error) {
+      } catch {
         if (cancelled) return;
-        const isTimeout = error instanceof Error && error.message === 'Request timed out';
-        console.warn("WPGraphQL failed, using fallback products:", error);
+        // Silently fall back to static products — no disruptive toast
         dispatch({ type: "SET_PRODUCTS", payload: fallbackProducts });
-        toast.error(
-          isTimeout
-            ? "Store is taking too long to respond — showing cached products."
-            : "Could not reach the store — showing cached products."
-        );
       }
     };
 
