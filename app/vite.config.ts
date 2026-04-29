@@ -17,26 +17,23 @@ export default defineConfig({
   build: {
     target: 'es2020',
     cssCodeSplit: true,
+    sourcemap: false,
     reportCompressedSize: true,
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Core React
+          // Core React + Router
           if (id.includes('react-dom') || id.includes('react/') || id.includes('react-router')) {
             return 'vendor-react';
           }
-          // Radix UI
+          // Radix UI primitives
           if (id.includes('@radix-ui')) {
             return 'vendor-radix';
           }
           // Charts
           if (id.includes('recharts') || id.includes('d3-')) {
             return 'vendor-charts';
-          }
-          // Lucide icons
-          if (id.includes('lucide-react')) {
-            return 'vendor-icons';
           }
           // Sonner toast
           if (id.includes('sonner')) {
