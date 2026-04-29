@@ -30,8 +30,6 @@ const FAQPage             = lazy(() => import('./pages/FAQPage'));
 const PrivacyPolicyPage   = lazy(() => import('./pages/PrivacyPolicyPage'));
 const RefundPolicyPage    = lazy(() => import('./pages/RefundPolicyPage'));
 const TermsPage           = lazy(() => import('./pages/TermsPage'));
-const DMCAPage            = lazy(() => import('./pages/DMCAPage'));
-const TestimonialsPage    = lazy(() => import('./pages/TestimonialsPage'));
 const SignupPage          = lazy(() => import('./pages/SignupPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const ForgotPasswordPage  = lazy(() => import('./pages/ForgotPasswordPage'));
@@ -111,8 +109,6 @@ function App() {
                 <Route path="/privacy"             element={<PrivacyPolicyPage />} />
                 <Route path="/refund-policy"       element={<RefundPolicyPage />} />
                 <Route path="/terms"               element={<TermsPage />} />
-                <Route path="/dmca"                element={<DMCAPage />} />
-                <Route path="/testimonials"        element={<TestimonialsPage />} />
                 <Route path="/signup"              element={<SignupPage />} />
                 <Route path="/login"               element={<LoginPage />} />
                 <Route path="/forgot-password"     element={<ForgotPasswordPage />} />
