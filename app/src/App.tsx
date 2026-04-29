@@ -33,6 +33,7 @@ const TermsPage           = lazy(() => import('./pages/TermsPage'));
 const SignupPage          = lazy(() => import('./pages/SignupPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const ForgotPasswordPage  = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage   = lazy(() => import('./pages/ResetPasswordPage'));
 const UserProfilePage     = lazy(() => import('./pages/UserProfilePage'));
 const OrderPendingPage    = lazy(() => import('./pages/OrderPendingPage'));
 
@@ -111,6 +112,7 @@ function App() {
                 <Route path="/signup"              element={<SignupPage />} />
                 <Route path="/login"               element={<LoginPage />} />
                 <Route path="/forgot-password"     element={<ForgotPasswordPage />} />
+                <Route path="/reset-password"      element={<ResetPasswordPage />} />
                 <Route path="/account"             element={<AuthGuard><UserProfilePage /></AuthGuard>} />
                 <Route path="/account/:section"    element={<AuthGuard><UserProfilePage /></AuthGuard>} />
                 <Route path="/profile"             element={<Navigate to="/account" replace />} />

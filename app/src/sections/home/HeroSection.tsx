@@ -45,12 +45,12 @@ export default function HeroSection() {
                 alt="Hackknow App"
                 width="380"
                 height="760"
-                className="w-[320px] xl:w-[380px] h-auto drop-shadow-2xl animate-float"
+                className="w-[320px] xl:w-[380px] h-auto drop-shadow-2xl animate-float rounded-[2.5rem] ring-1 ring-hack-black/15"
                 fetchPriority="high"
               />
             </picture>
             {/* Floating Badge */}
-            <div className="absolute -bottom-4 -right-8 bg-hack-yellow text-hack-black px-4 py-2 rounded-full font-display font-bold text-sm shadow-lg animate-bounce-subtle">
+            <div className="absolute -bottom-4 -right-8 bg-hack-yellow text-hack-black px-4 py-2 rounded-full font-display font-bold text-sm shadow-lg animate-bounce-subtle border border-hack-black/20">
               10K+ Happy Customers
             </div>
           </div>
@@ -88,11 +88,11 @@ export default function HeroSection() {
                   alt="Hackknow App"
                   width="160"
                   height="320"
-                  className="w-[130px] h-auto drop-shadow-2xl animate-float opacity-95"
+                  className="w-[130px] h-auto drop-shadow-2xl animate-float opacity-95 rounded-2xl ring-1 ring-hack-black/20"
                   loading="lazy"
                 />
               </picture>
-              <div className="absolute -bottom-2 -right-3 bg-hack-yellow text-hack-black px-2 py-1 rounded-full font-display font-bold text-[9px] shadow-lg animate-bounce-subtle whitespace-nowrap">
+              <div className="absolute -bottom-2 -right-3 bg-hack-yellow text-hack-black px-2 py-1 rounded-full font-display font-bold text-[9px] shadow-lg animate-bounce-subtle whitespace-nowrap border border-hack-black/20">
                 10K+ Customers
               </div>
             </div>
@@ -112,7 +112,7 @@ export default function HeroSection() {
           <div className="flex flex-wrap gap-4 mb-12 lg:mb-16">
             <Link
               to="/shop"
-              className="inline-flex items-center gap-2 px-7 py-4 bg-hack-yellow text-hack-black lg:bg-hack-black lg:text-hack-white rounded-full text-sm font-bold hover:opacity-90 transition-colors shadow-lg"
+              className="inline-flex items-center gap-2 px-7 py-4 bg-hack-yellow text-hack-black lg:bg-hack-black lg:text-hack-white rounded-full text-sm font-bold hover:opacity-90 transition-colors shadow-lg border border-hack-black/20 lg:border-transparent"
             >
               Explore All Assets
               <ArrowRight className="w-4 h-4" />
@@ -126,7 +126,7 @@ export default function HeroSection() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-6 lg:gap-10">
+          <div className="grid grid-cols-3 gap-6 lg:gap-10 lg:p-5 lg:rounded-2xl lg:border lg:border-hack-black/15 lg:bg-hack-white/60 lg:backdrop-blur-sm">
             <div className="text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start gap-2 mb-1">
                 <Users className="w-5 h-5 text-hack-magenta" />
