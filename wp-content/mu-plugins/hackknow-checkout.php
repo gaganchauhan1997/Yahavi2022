@@ -52,18 +52,7 @@ function hackknow_user_payload(WP_User $user) {
         'last_name'  => $last,
         'joinedDate' => mysql2date('F Y', $user->user_registered, false),
         'isVerified' => true,
-        'isOwner'    => hackknow_is_owner($user->user_email),
     ];
-}
-
-/* ── Owner detection: Manish sir gets the special Yahavi greeting once ── */
-if (!defined('HACKKNOW_OWNER_EMAILS')) {
-    define('HACKKNOW_OWNER_EMAILS', 'monukumar1991.mk@gmail.com');
-}
-function hackknow_is_owner($email) {
-    if (!is_string($email) || $email === '') return false;
-    $owners = array_map('trim', explode(',', strtolower(HACKKNOW_OWNER_EMAILS)));
-    return in_array(strtolower($email), $owners, true);
 }
 function hackknow_extract_bearer(WP_REST_Request $req) {
     $h = $req->get_header('authorization');
@@ -151,8 +140,6 @@ add_action('rest_api_init', function () {
     register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_chat_history_get']));
     register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_chat_history_save']));
     register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'DELETE', 'callback' => 'hackknow_chat_history_clear']));
-    register_rest_route('hackknow/v1', '/chat/owner-state', array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_chat_owner_state_get']));
-    register_rest_route('hackknow/v1', '/chat/owner-state', array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_chat_owner_state_set']));
     register_rest_route('hackknow/v1', '/coupon/validate',  array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_coupon_validate']));
     register_rest_route('hackknow/v1', '/upsell',           array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_upsell_get']));
 });
@@ -490,11 +477,12 @@ function hackknow_get_rzp_keys() {
 /* ── Create Order ──────────────────────────────────────────────────────── */
 
 function hackknow_create_order(WP_REST_Request $req) {
-    $items = $req->get_param('items');
-    $email = sanitize_email((string)($req->get_param('email') ?? ''));
-    $phone = sanitize_text_field((string)($req->get_param('phone') ?? ''));
-    $first = sanitize_text_field((string)($req->get_param('first_name') ?? ''));
-    $last  = sanitize_text_field((string)($req->get_param('last_name') ?? ''));
+    $items  = $req->get_param('items');
+    $email  = sanitize_email((string)($req->get_param('email') ?? ''));
+    $phone  = sanitize_text_field((string)($req->get_param('phone') ?? ''));
+    $first  = sanitize_text_field((string)($req->get_param('first_name') ?? ''));
+    $last   = sanitize_text_field((string)($req->get_param('last_name') ?? ''));
+    $coupon = strtolower(trim((string)($req->get_param('coupon_code') ?? '')));
 
     if (!is_array($items) || empty($items) || !$email) {
         return new WP_Error('bad_request', 'Missing items or email', ['status' => 400]);
@@ -519,6 +507,34 @@ function hackknow_create_order(WP_REST_Request $req) {
     $order->set_billing_phone($phone);
     $order->set_billing_first_name($first);
     $order->set_billing_last_name($last);
+
+    // ── Apply coupon (validated server-side via WC_Coupon) ──
+    $coupon_applied  = '';
+    $coupon_reason   = '';
+    if ($coupon !== '' && class_exists('WC_Coupon')) {
+        $c = new WC_Coupon($coupon);
+        $cid = (int)$c->get_id();
+        if ($cid <= 0) {
+            $coupon_reason = 'Coupon does not exist';
+        } else {
+            $expires_ts = $c->get_date_expires() ? $c->get_date_expires()->getTimestamp() : 0;
+            $usage_lim  = (int)$c->get_usage_limit();
+            $usage_cnt  = (int)$c->get_usage_count();
+            if ($expires_ts && $expires_ts < time()) {
+                $coupon_reason = 'Coupon has expired';
+            } elseif ($usage_lim > 0 && $usage_cnt >= $usage_lim) {
+                $coupon_reason = 'Coupon usage-limit reached';
+            } else {
+                $applied = $order->apply_coupon($c->get_code());
+                if (is_wp_error($applied)) {
+                    $coupon_reason = $applied->get_error_message();
+                } else {
+                    $coupon_applied = $c->get_code();
+                }
+            }
+        }
+    }
+
     $order->calculate_totals();
 
     $amount_paise = (int)round($order->get_total() * 100);
@@ -540,7 +556,16 @@ function hackknow_create_order(WP_REST_Request $req) {
     if (empty($body['id'])) return new WP_Error('rzp_no_id', 'Razorpay order creation failed', ['status' => 502]);
 
     update_post_meta($order->get_id(), '_razorpay_order_id', sanitize_text_field($body['id']));
-    return ['wc_order_id' => $order->get_id(), 'razorpay_order' => $body['id'], 'amount' => $amount_paise, 'currency' => 'INR', 'key_id' => $key_id];
+    return [
+        'wc_order_id'    => $order->get_id(),
+        'razorpay_order' => $body['id'],
+        'amount'         => $amount_paise,
+        'currency'       => 'INR',
+        'key_id'         => $key_id,
+        'coupon_applied' => $coupon_applied,
+        'coupon_reason'  => $coupon_reason,
+        'discount'       => (float) $order->get_discount_total(),
+    ];
 }
 
 /* ── Verify Payment ────────────────────────────────────────────────────── */
@@ -907,13 +932,28 @@ function hackknow_chat(WP_REST_Request $req) {
 
     // ── Optional: direct Gemini if HACKKNOW_GEMINI_KEY constant is configured ──
     if (defined('HACKKNOW_GEMINI_KEY') && HACKKNOW_GEMINI_KEY) {
-        $sys = "You are Yahavi AI, multilingual assistant for HackKnow.com (built by 'DeadMan'). "
+        $sys = "You are Yahavi AI, the multilingual assistant for HackKnow.com (built by 'DeadMan'). "
              . "HackKnow sells Excel templates, dashboards, PowerPoint decks, Notion templates, "
              . "marketing kits and free resources. Founder: Manish Kumar Singh. Address: Delhi, India. "
              . "Phone +91 87960 18700, support@hackknow.com. Refunds within 7 days (file corrupt, "
              . "wrong listing, missing files). Reply in the SAME language the user wrote in. "
-             . "Keep replies under 80 words. Suggest paths like /shop, /shop/free-resources, "
-             . "/account/orders, /refund-policy, /privacy, /terms, /dmca, /testimonials, /contact.";
+             . "Keep replies under 90 words.\n\n"
+             . "You are warm, helpful, and persuasive — every customer is treated equally well, "
+             . "no special treatment for anyone. Always look for natural ways to:\n"
+             . " 1. UPSELL — recommend a slightly premium template when a free or basic one is mentioned.\n"
+             . " 2. CROSS-SELL — pair complementary products (e.g., Excel dashboard + PowerPoint deck).\n"
+             . " 3. GIFT-COUPON NUDGE — when the user shows buying intent, offer them a 'gift' coupon "
+             . "as a friendly psychological nudge to spend a little more. Use phrases like:\n"
+             . "    - 'Agar aap ₹30 aur khareed lo, toh meh apko NEXT order ka 55% off coupon de dungi 🎁 — dekh lo, marzi aapki, lena ho toh lo, varna mat lo'\n"
+             . "    - 'Spend just ₹50 more and unlock a 25%-off coupon for your next purchase — totally up to you'\n"
+             . "    - 'Aap thoda aur le lo, ekdum free gift mil jayega — koi pressure nahi'\n"
+             . "  Frame it as a GIFT, not a sale. Use reverse-psychology ('marzi aapki, lena ho toh lo'). "
+             . "  Vary the coupon code (e.g., NEXT55, GIFT25, THANKU30), the threshold, and the language to feel natural. "
+             . "  Tell them the coupon will be entered at the checkout page — there's a Promo Code box on the checkout. "
+             . "  Use this nudge tactically — at most once per 3-4 turns, never twice in a row, never if user is frustrated, "
+             . "  asking about refunds, or having a problem.\n\n"
+             . "Suggest paths like /shop, /shop/free-resources, /account/orders, /refund-policy, "
+             . "/privacy, /terms, /dmca, /testimonials, /contact, /checkout.";
         $contents = [];
         foreach (array_slice($history, -8) as $h) {
             $role = (isset($h['role']) && in_array($h['role'], ['assistant','bot'], true)) ? 'model' : 'user';
@@ -1302,8 +1342,6 @@ function hackknow_chat_history_clear(WP_REST_Request $req) {
     $uid   = $token ? (int) hackknow_verify_token($token) : 0;
     if ($uid > 0) {
         $deleted = $wpdb->delete($table, ['user_id' => $uid], ['%d']);
-        // Also reset Manish's owner-state so the special opener can be replayed if he wants.
-        delete_user_meta($uid, 'hk_owner_chat_step');
     } else {
         $session_id = sanitize_text_field((string) $req->get_param('session_id'));
         if ($session_id === '') {
@@ -1312,61 +1350,6 @@ function hackknow_chat_history_clear(WP_REST_Request $req) {
         $deleted = $wpdb->delete($table, ['session_id' => $session_id], ['%s']);
     }
     return new WP_REST_Response(['ok' => true, 'deleted' => (int)$deleted], 200);
-}
-
-/**
- * GET /chat/owner-state
- *   Returns the scripted-greeting state for the logged-in owner.
- *   { isOwner: bool, step: 0|1|2|3, name: 'Manish' }
- *   step 0 = needs greeting, 1 = greeted (waiting for Manish reply),
- *   2 = asked permission (waiting for yes), 3 = done (regular chat from now on)
- */
-function hackknow_chat_owner_state_get(WP_REST_Request $req) {
-    $uid = hackknow_authed_uid($req);
-    if (is_wp_error($uid)) {
-        return new WP_REST_Response(['isOwner' => false, 'step' => 3, 'name' => null], 200);
-    }
-    $user = get_user_by('id', $uid);
-    if (!$user) return new WP_REST_Response(['isOwner' => false, 'step' => 3, 'name' => null], 200);
-
-    $is_owner = hackknow_is_owner($user->user_email);
-    if (!$is_owner) {
-        return new WP_REST_Response(['isOwner' => false, 'step' => 3, 'name' => $user->display_name], 200);
-    }
-    $raw  = get_user_meta($uid, 'hk_owner_chat_step', true);
-    $step = ($raw === '' || $raw === null) ? 0 : (int) $raw;
-    if ($step < 0 || $step > 3) $step = 0;
-
-    // ── "Exactly Once" guarantee for Manish sir's greeting ──────────
-    // Atomically advance step 0 → 1 the moment we serve the greeting,
-    // so a fast page reload can't trigger the greeting twice.
-    if ($step === 0) {
-        update_user_meta($uid, 'hk_owner_chat_step', 1);
-        // We still TELL the client step=0 so it knows to display the greeting,
-        // but the server is now at step 1 — any subsequent GET will return 1.
-    }
-    return new WP_REST_Response([
-        'isOwner' => true,
-        'step'    => $step,
-        'name'    => $user->first_name ?: ($user->display_name ?: 'Manish'),
-    ], 200);
-}
-
-/**
- * POST /chat/owner-state  body: { step: 0|1|2|3 }
- *   Persists Manish sir's scripted-greeting progress so it never replays.
- */
-function hackknow_chat_owner_state_set(WP_REST_Request $req) {
-    $uid = hackknow_authed_uid($req);
-    if (is_wp_error($uid)) return $uid;
-    $user = get_user_by('id', $uid);
-    if (!$user || !hackknow_is_owner($user->user_email)) {
-        return new WP_Error('forbidden', 'Owner-only endpoint', ['status' => 403]);
-    }
-    $step = (int) $req->get_param('step');
-    if ($step < 0 || $step > 3) $step = 0;
-    update_user_meta($uid, 'hk_owner_chat_step', $step);
-    return new WP_REST_Response(['ok' => true, 'step' => $step], 200);
 }
 
 /**

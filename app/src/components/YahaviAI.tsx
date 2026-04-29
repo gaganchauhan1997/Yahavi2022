@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bot, Send, X, Sparkles, ShoppingBag, Tag, Ticket, CheckCircle2, AlertCircle } from "lucide-react";
+import { Bot, Send, X, Sparkles, ShoppingBag, Tag } from "lucide-react";
 import { WP_REST_BASE } from "@/lib/api-base";
-import { getAuthToken, getCurrentUser } from "@/lib/auth";
+import { getAuthToken } from "@/lib/auth";
 
 type Suggestion = { label: string; href: string };
 type Product    = { id: number; name: string; price: string; href: string; image?: string };
@@ -15,15 +15,9 @@ type ChatMsg = {
   upsell?: Product[];
 };
 
-type CouponResult =
-  | { valid: true; code: string; human: string; description?: string }
-  | { valid: false; reason: string };
-
-const STORAGE_KEY      = "hackknow-chat-history";
-const SESSION_KEY      = "hackknow-chat-session-id";
-const OPEN_KEY         = "hackknow-chat-open";
-const MANISH_LOCAL_KEY = "hackknow-manish-step";   // mirror of server state for offline
-const OWNER_EMAIL      = "monukumar1991.mk@gmail.com";
+const STORAGE_KEY = "hackknow-chat-history";
+const SESSION_KEY = "hackknow-chat-session-id";
+const OPEN_KEY    = "hackknow-chat-open";
 
 const seed: ChatMsg = {
   role: "bot",
@@ -37,49 +31,7 @@ const seed: ChatMsg = {
   ],
 };
 
-/* ── Manish sir's scripted opener ────────────────────────────────────────
- * Step 0 → show greeting, advance to 1
- * Step 1 → on Manish's next reply, show "if you don't mind…" question, advance to 2
- * Step 2 → if Manish says yes/haan/ok, show Excel joke + 4 templates, advance to 3
- * Step 3 → normal Gemini chat from now on (forever, persisted in user_meta)
- * ────────────────────────────────────────────────────────────────────── */
-const MANISH_GREETING: ChatMsg = {
-  role: "bot",
-  text:
-    "Hello Manish sir 🙏 — Welcome to your store. We have hundreds of varieties and we are now selling across the whole world. " +
-    "And no need to worry — I am Yahavi, your store manager, and my developer trained me so well… " +
-    "arrey template to kya, meh Taj Mahal bech dungi logo ko 😎. " +
-    "Apko dikhau kuch bdhiya sa?",
-  suggestions: [
-    { label: "Haan, dikhao",   href: "/shop/best-sellers" },
-    { label: "Free templates", href: "/shop/free-resources" },
-    { label: "Today's stats",  href: "/account/dashboard" },
-  ],
-};
-const MANISH_QUESTION: ChatMsg = {
-  role: "bot",
-  text:
-    "Manish sir, agar aap mind na karein toh ek baat pooch sakti hu meh aapse… voh kaise he…\n" +
-    "Bole 'haan' ya 'yes' — agree krre toh, toh boliyo… 😊",
-};
-const MANISH_EXCEL_JOKE: ChatMsg = {
-  role: "bot",
-  text:
-    "Mrko pta hai apko Excel nahi aata chlana… Pulak sir ne bola rha 😂😂😂 — mrko maloom hai, maine sun rha tha. " +
-    "Apke liye 4 Excel ke tutorial-cum-templates ekdum garma garam taiyaar — koi dikkat aaye toh meh toh hu he 💛",
-  suggestions: [
-    { label: "Excel Tutorials Bundle",   href: "/shop/excel-templates" },
-    { label: "Founder's Dashboard",      href: "/product/founders-dashboard" },
-    { label: "Sales Tracker Pro",        href: "/product/sales-tracker-pro" },
-    { label: "Free Inventory Tracker",   href: "/product/free-inventory-tracker" },
-  ],
-};
-
-const isAffirmative = (s: string): boolean =>
-  /\b(haan|haa|han|ji|ji haan|yes|yeah|yep|sure|ok(ay)?|hmm+|theek hai|kar|chalo|bilkul|of course)\b/i.test(s);
-
 function newSessionId(): string {
-  // Prefer crypto.randomUUID when available
   try {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   } catch { /* noop */ }
@@ -112,22 +64,12 @@ export default function YahaviChat() {
   });
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  // We deliberately do NOT seed manishStep from localStorage. The server is the
-  // source of truth (user_meta), and seeding from localStorage would let a
-  // different user on the same device inherit Manish's scripted-state and
-  // accidentally trigger the owner branches in send().
-  const [manishStep, setManishStep] = useState<number>(3); // 3 = normal chat
-  const [isOwnerLocal, setIsOwnerLocal] = useState<boolean>(false);
-  const [showCoupon, setShowCoupon] = useState(false);
-  const [couponInput, setCouponInput] = useState("");
-  const [couponBusy, setCouponBusy] = useState(false);
-  const [couponResult, setCouponResult] = useState<CouponResult | null>(null);
 
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string>(getSessionId());
 
-  /* ── Helpers: server-side history ────────────────────────────────── */
+  /* ── Helpers ─────────────────────────────────────────────────────── */
   const authHeaders = useCallback((): Record<string, string> => {
     const h: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
     const t = getAuthToken();
@@ -135,113 +77,28 @@ export default function YahaviChat() {
     return h;
   }, []);
 
-  const persistMessage = useCallback(async (m: ChatMsg) => {
-    try {
-      await fetch(`${WP_REST_BASE}/chat/history`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          session_id:  sessionIdRef.current,
-          role:        m.role,
-          text:        m.text,
-          suggestions: m.suggestions ?? [],
-          products:    m.products ?? [],
-        }),
-      });
-    } catch { /* fire-and-forget */ }
-  }, [authHeaders]);
-
-  const setManishStepBoth = useCallback(async (step: number) => {
-    setManishStep(step);
-    try { localStorage.setItem(MANISH_LOCAL_KEY, String(step)); } catch { /* noop */ }
-    if (getAuthToken()) {
-      try {
-        await fetch(`${WP_REST_BASE}/chat/owner-state`, {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({ step }),
-        });
-      } catch { /* noop */ }
-    }
-  }, [authHeaders]);
-
-  /* ── On mount: hydrate from server + detect Manish ───────────────── */
+  /* ── On mount: hydrate from server-side history ──────────────────── */
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const user = getCurrentUser();
-      const emailIsOwner = user?.email?.toLowerCase() === OWNER_EMAIL;
-
-      // 1. Pull server history if we have a token (covers cross-device)
-      if (getAuthToken()) {
-        try {
-          const r = await fetch(`${WP_REST_BASE}/chat/history?limit=100`, { headers: authHeaders() });
-          if (r.ok) {
-            const j = await r.json() as { messages?: Array<{ role: string; text: string; suggestions?: Suggestion[]; products?: Product[] }> };
-            if (!cancelled && Array.isArray(j.messages) && j.messages.length > 0) {
-              setMessages(j.messages.map((m) => ({
-                role: m.role === "bot" ? "bot" : "user",
-                text: m.text,
-                suggestions: m.suggestions ?? [],
-                products: m.products ?? [],
-              })));
-            }
-          }
-        } catch { /* noop */ }
-      } else {
-        // Anon: try fetching by session id
-        try {
-          const r = await fetch(`${WP_REST_BASE}/chat/history?session_id=${encodeURIComponent(sessionIdRef.current)}&limit=100`);
-          if (r.ok) {
-            const j = await r.json() as { messages?: Array<{ role: string; text: string; suggestions?: Suggestion[]; products?: Product[] }> };
-            if (!cancelled && Array.isArray(j.messages) && j.messages.length > 0) {
-              setMessages(j.messages.map((m) => ({
-                role: m.role === "bot" ? "bot" : "user",
-                text: m.text,
-                suggestions: m.suggestions ?? [],
-                products: m.products ?? [],
-              })));
-            }
-          }
-        } catch { /* noop */ }
-      }
-
-      // 2. Owner-state detection (server is the source of truth for "isOwner"
-      //    and the scripted-greeting step, so we never trust localStorage here)
-      if (emailIsOwner && getAuthToken()) {
-        try {
-          const r = await fetch(`${WP_REST_BASE}/chat/owner-state`, { headers: authHeaders() });
-          if (r.ok) {
-            const j = await r.json() as { isOwner?: boolean; step?: number };
-            if (!cancelled && j.isOwner) {
-              setIsOwnerLocal(true);
-              // Server returns the step it WAS at, then atomically advances 0→1
-              // so a fast reload can't replay the greeting.
-              const serverStep = Number.isFinite(j.step) ? Number(j.step) : 0;
-              if (serverStep === 0) {
-                // We display the greeting; server has already moved to step 1,
-                // so locally we set 1 too — Manish's next message will trigger
-                // MANISH_QUESTION via the send() interceptor.
-                setMessages((prev) => {
-                  const alreadyHasGreeting = prev.some((m) => m.text.startsWith("Hello Manish sir"));
-                  if (alreadyHasGreeting) return prev;
-                  return [...prev.filter((m) => m !== seed), MANISH_GREETING];
-                });
-                persistMessage(MANISH_GREETING);
-                setManishStep(1);
-              } else {
-                // Already greeted previously — pick up wherever we left off.
-                setManishStep(serverStep);
-              }
-              try { localStorage.setItem(MANISH_LOCAL_KEY, String(Math.max(serverStep, 1))); } catch { /* noop */ }
-            }
-          }
-        } catch { /* noop */ }
-      }
+      const url = getAuthToken()
+        ? `${WP_REST_BASE}/chat/history?limit=100`
+        : `${WP_REST_BASE}/chat/history?session_id=${encodeURIComponent(sessionIdRef.current)}&limit=100`;
+      try {
+        const r = await fetch(url, { headers: authHeaders() });
+        if (!r.ok) return;
+        const j = await r.json() as { messages?: Array<{ role: string; text: string; suggestions?: Suggestion[]; products?: Product[] }> };
+        if (cancelled || !Array.isArray(j.messages) || j.messages.length === 0) return;
+        setMessages(j.messages.map((m) => ({
+          role: m.role === "bot" ? "bot" : "user",
+          text: m.text,
+          suggestions: m.suggestions ?? [],
+          products: m.products ?? [],
+        })));
+      } catch { /* noop */ }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authHeaders]);
 
   /* ── Local cache + autoscroll ─────────────────────────────────────── */
   useEffect(() => {
@@ -263,57 +120,10 @@ export default function YahaviChat() {
     setInput("");
     setSending(true);
 
-    /* ── Manish scripted-opener interception ───────────────────────── */
-    // Owner-guard: only the verified owner can ever enter the scripted branches,
-    // so a non-owner sharing the device with stale state cannot trigger them.
-    if (isOwnerLocal && manishStep === 1) {
-      // We are NOT calling /chat here, so the user message must be persisted
-      // explicitly. The bot reply MANISH_QUESTION is also persisted explicitly.
-      persistMessage(userMsg);
-      // Advance state SYNCHRONOUSLY before the setTimeout, so a fast double-send
-      // can't be processed twice as step-1.
-      setManishStepBoth(2);
-      setTimeout(() => {
-        setMessages((m) => [...m, MANISH_QUESTION]);
-        persistMessage(MANISH_QUESTION);
-        setSending(false);
-      }, 600);
-      return;
-    }
-    if (isOwnerLocal && manishStep === 2) {
-      persistMessage(userMsg);
-      setManishStepBoth(3); // exit the scripted flow regardless of yes/no
-      if (isAffirmative(q)) {
-        setTimeout(() => {
-          setMessages((m) => [...m, MANISH_EXCEL_JOKE]);
-          persistMessage(MANISH_EXCEL_JOKE);
-          setSending(false);
-        }, 700);
-        return;
-      }
-      // Manish said no — gracefully bow out & continue normal chat.
-      const polite: ChatMsg = {
-        role: "bot",
-        text: "Bilkul sir 🙏 koi baat nahi. Aap jab bhi chahein, meh yahin hu. Ab batao — kya dikhau?",
-        suggestions: [
-          { label: "New arrivals",   href: "/new-arrivals" },
-          { label: "Best sellers",   href: "/shop/best-sellers" },
-          { label: "Today's orders", href: "/account/orders" },
-        ],
-      };
-      setTimeout(() => {
-        setMessages((m) => [...m, polite]);
-        persistMessage(polite);
-        setSending(false);
-      }, 500);
-      return;
-    }
-    // Normal flow → /chat will be called below. The PHP rest_pre_dispatch hook
-    // auto-saves both the user message and the bot reply, so we deliberately
-    // do NOT call persistMessage(userMsg) here to avoid duplicate rows.
-
-    /* ── Normal Gemini round-trip ──────────────────────────────────── */
     try {
+      // The PHP rest_pre_dispatch hook auto-saves both the user message and
+      // the bot reply when session_id is included, so we don't need to call
+      // /chat/history explicitly here.
       const historyForApi = [...messages, userMsg].slice(-8).map((m) => ({
         role: m.role === "bot" ? "assistant" : "user",
         content: m.text,
@@ -335,7 +145,7 @@ export default function YahaviChat() {
         products: data.products || [],
       };
 
-      // Upsell: if the bot returned products, fetch related cross-sell items.
+      // Cross-sell / upsell: if the bot returned products, fetch related items.
       if (botMsg.products && botMsg.products.length > 0) {
         try {
           const ids = botMsg.products.map((p) => p.id).filter((n) => n > 0).join(",");
@@ -352,19 +162,16 @@ export default function YahaviChat() {
       }
 
       setMessages((m) => [...m, botMsg]);
-      // /chat already auto-saves bot reply server-side via the rest_pre_dispatch hook,
-      // so we deliberately do NOT call persistMessage(botMsg) here to avoid duplicates.
     } catch {
-      const fallback: ChatMsg = {
+      setMessages((m) => [...m, {
         role: "bot",
         text: "Connection hiccup — please try again in a moment.",
         suggestions: [],
-      };
-      setMessages((m) => [...m, fallback]);
+      }]);
     } finally {
       setSending(false);
     }
-  }, [messages, sending, manishStep, isOwnerLocal, persistMessage, setManishStepBoth, authHeaders]);
+  }, [messages, sending, authHeaders]);
 
   const handleSuggestion = (href: string) => {
     setOpen(false);
@@ -379,45 +186,10 @@ export default function YahaviChat() {
       await fetch(url, { method: "DELETE", headers: authHeaders() });
     } catch { /* noop */ }
     setMessages([seed]);
-    // Reset session id so the next message starts a fresh thread.
     const fresh = newSessionId();
     try { localStorage.setItem(SESSION_KEY, fresh); } catch { /* noop */ }
     sessionIdRef.current = fresh;
   }, [authHeaders]);
-
-  const validateCoupon = useCallback(async () => {
-    const code = couponInput.trim();
-    if (!code || couponBusy) return;
-    setCouponBusy(true);
-    setCouponResult(null);
-    try {
-      const r = await fetch(`${WP_REST_BASE}/coupon/validate`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ code }),
-      });
-      const j = await r.json() as CouponResult;
-      setCouponResult(j);
-      // Echo result into the chat as a bot message so it persists in history.
-      const echo: ChatMsg = j.valid
-        ? {
-            role: "bot",
-            text: `🎟️ Coupon "${j.code}" applied — ${j.human}.\n${j.description ? j.description + "\n" : ""}Add it at checkout to redeem.`,
-            suggestions: [{ label: "Continue to checkout", href: "/checkout" }, { label: "Browse shop", href: "/shop" }],
-          }
-        : {
-            role: "bot",
-            text: `❌ Sorry, that coupon isn't valid: ${j.reason}`,
-            suggestions: [{ label: "See all deals", href: "/shop/best-sellers" }],
-          };
-      setMessages((m) => [...m, echo]);
-      persistMessage(echo);
-    } catch {
-      setCouponResult({ valid: false, reason: "Could not reach the coupon service. Try again shortly." });
-    } finally {
-      setCouponBusy(false);
-    }
-  }, [couponInput, couponBusy, authHeaders, persistMessage]);
 
   return (
     <>
@@ -545,64 +317,10 @@ export default function YahaviChat() {
             )}
           </div>
 
-          {/* Coupon panel */}
-          {showCoupon && (
-            <div className="px-3 py-3 bg-hack-yellow/10 border-t border-hack-black/10">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={couponInput}
-                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                  placeholder="Enter promo code"
-                  className="flex-1 h-9 px-3 rounded-lg border border-hack-black/20 text-sm font-mono uppercase tracking-wider focus:outline-none focus:border-hack-black"
-                  autoComplete="off"
-                  disabled={couponBusy}
-                />
-                <button
-                  type="button"
-                  onClick={validateCoupon}
-                  disabled={couponBusy || !couponInput.trim()}
-                  className="h-9 px-3 rounded-lg bg-hack-black text-hack-yellow text-xs font-bold disabled:opacity-50 hover:bg-hack-magenta transition-colors"
-                >
-                  {couponBusy ? "Checking…" : "Apply"}
-                </button>
-              </div>
-              {couponResult && (
-                <div className={
-                  "mt-2 text-xs flex items-start gap-1.5 " +
-                  (couponResult.valid ? "text-emerald-700" : "text-red-700")
-                }>
-                  {couponResult.valid
-                    ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                    : <AlertCircle  className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />}
-                  <span>
-                    {couponResult.valid
-                      ? <><strong>{couponResult.code}</strong> · {couponResult.human}{couponResult.description ? ` — ${couponResult.description}` : ""}</>
-                      : couponResult.reason}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
           <form
             onSubmit={(e) => { e.preventDefault(); send(input); }}
             className="flex items-center gap-2 px-3 py-3 bg-white border-t border-hack-black/10"
           >
-            <button
-              type="button"
-              onClick={() => { setShowCoupon((v) => !v); setCouponResult(null); }}
-              className={
-                "h-10 w-10 rounded-xl border flex items-center justify-center transition-colors " +
-                (showCoupon
-                  ? "bg-hack-yellow text-hack-black border-hack-black"
-                  : "bg-white text-hack-black/70 border-hack-black/20 hover:border-hack-black")
-              }
-              aria-label={showCoupon ? "Hide promo code" : "Apply promo code"}
-              title="Apply promo code"
-            >
-              <Ticket className="w-4 h-4" />
-            </button>
             <input
               type="text"
               value={input}
