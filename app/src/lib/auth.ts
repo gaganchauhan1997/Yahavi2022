@@ -100,4 +100,9 @@ export const logout = (): void => {
   localStorage.removeItem("hackknow-cart");
 };
 
+export async function loginWithGoogle(idToken: string): Promise<AuthUser> {
+  const res = await postJson<AuthResponse>("/auth/google", { id_token: idToken });
+  return persist(res);
+}
+
 export { getAuthToken };
