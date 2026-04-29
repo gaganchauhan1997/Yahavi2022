@@ -272,27 +272,97 @@ function hackknow_auth_me(WP_REST_Request $req) {
 if (!defined('HACKKNOW_FRONTEND_URL')) {
     define('HACKKNOW_FRONTEND_URL', 'https://www.hackknow.com');
 }
+/* From-address used for ALL outbound HackKnow mail. Must be a real mailbox on
+ * the same domain as the site so SPF/DKIM/DMARC accept it. Override in
+ * wp-config.php via define('HACKKNOW_MAIL_FROM', 'support@hackknow.com'). */
+if (!defined('HACKKNOW_MAIL_FROM'))      { define('HACKKNOW_MAIL_FROM',      'support@hackknow.com'); }
+if (!defined('HACKKNOW_MAIL_FROM_NAME')) { define('HACKKNOW_MAIL_FROM_NAME', 'HackKnow'); }
 
-/* Override WP password-reset email to use HackKnow frontend link & branding */
+/* ─── Site-wide mail headers ───────────────────────────────────────────────
+ * The default wp_mail From is `wordpress@<sitehost>`, which does NOT exist as
+ * a real mailbox on Hostinger and almost always fails SPF/DMARC checks → mail
+ * silently drops or lands in spam. We force every outbound email to come from
+ * support@hackknow.com (a real mailbox the owner controls) so the password-
+ * reset, order-confirmation, and contact-form emails actually reach inboxes. */
+add_filter('wp_mail_from',      function ($from) { return HACKKNOW_MAIL_FROM; },      99);
+add_filter('wp_mail_from_name', function ($name) { return HACKKNOW_MAIL_FROM_NAME; }, 99);
+
+/* Surface any wp_mail failures into the PHP error log so the owner can debug
+ * delivery issues from /var/log without guessing. */
+add_action('wp_mail_failed', function ($wp_error) {
+    if ($wp_error instanceof WP_Error) {
+        $data = $wp_error->get_error_data();
+        $to   = is_array($data) && isset($data['to']) ? (is_array($data['to']) ? implode(',', $data['to']) : $data['to']) : 'unknown';
+        error_log('[hackknow] wp_mail FAILED to=' . $to . ' err=' . $wp_error->get_error_message());
+    }
+}, 10);
+
+/* Override WP password-reset email to use HackKnow frontend link & branding. */
 add_filter('retrieve_password_title', function () {
     return 'Reset your HackKnow password';
 }, 99);
 
 add_filter('retrieve_password_message', function ($message, $key, $user_login, $user_data) {
+    if (!$user_data || empty($user_data->user_email)) return $message;
     $reset_url = add_query_arg([
         'key'   => $key,
         'login' => rawurlencode($user_login),
     ], HACKKNOW_FRONTEND_URL . '/reset-password');
 
-    $name = $user_data->first_name ?: $user_data->display_name ?: $user_login;
-    return "Hi {$name},\n\n"
-         . "Someone requested a password reset for your HackKnow account ({$user_data->user_email}).\n\n"
-         . "If this was you, click the link below to choose a new password (valid for 24 hours):\n\n"
-         . $reset_url . "\n\n"
-         . "If you did not request this, you can safely ignore this email — your password will stay the same.\n\n"
-         . "— The HackKnow Team\n"
-         . HACKKNOW_FRONTEND_URL . "\n";
+    $name        = $user_data->first_name ?: $user_data->display_name ?: $user_login;
+    $safe_name   = esc_html($name);
+    $safe_email  = esc_html($user_data->user_email);
+    $safe_url    = esc_url($reset_url);
+    $safe_brand  = esc_url(HACKKNOW_FRONTEND_URL);
+
+    // Plain-text fallback (some older clients ignore HTML headers)
+    $plain = "Hi {$name},\n\n"
+           . "Someone requested a password reset for your HackKnow account ({$user_data->user_email}).\n\n"
+           . "If this was you, click the link below to choose a new password (valid for 24 hours):\n\n"
+           . $reset_url . "\n\n"
+           . "If you did not request this, you can safely ignore this email — your password will stay the same.\n\n"
+           . "— The HackKnow Team\n"
+           . HACKKNOW_FRONTEND_URL . "\n";
+
+    // Stash an HTML version on a transient so the wp_mail filter below can
+    // pick it up and switch the Content-Type. Keyed by the reset key (unique
+    // per request, expires in 1 hour).
+    $html = '<!doctype html><html><body style="margin:0;padding:24px;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#f5f5f5;">'
+          . '<div style="max-width:520px;margin:0 auto;background:#111;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;">'
+          . '<h1 style="margin:0 0 8px;font-size:22px;color:#fff;">Reset your HackKnow password</h1>'
+          . '<p style="color:#bbb;line-height:1.6;font-size:14px;">Hi ' . $safe_name . ',</p>'
+          . '<p style="color:#bbb;line-height:1.6;font-size:14px;">Someone requested a password reset for your HackKnow account (<strong>' . $safe_email . '</strong>).</p>'
+          . '<p style="color:#bbb;line-height:1.6;font-size:14px;">If this was you, click the button below to choose a new password. This link is valid for 24 hours.</p>'
+          . '<p style="text-align:center;margin:28px 0;">'
+          . '<a href="' . $safe_url . '" style="display:inline-block;padding:14px 28px;background:linear-gradient(90deg,#facc15,#f97316);color:#0a0a0a;text-decoration:none;border-radius:12px;font-weight:bold;font-size:15px;">Reset password</a>'
+          . '</p>'
+          . '<p style="color:#777;font-size:12px;line-height:1.6;">Button not working? Copy and paste this link into your browser:<br><a href="' . $safe_url . '" style="color:#facc15;word-break:break-all;">' . $safe_url . '</a></p>'
+          . '<p style="color:#777;font-size:12px;line-height:1.6;margin-top:24px;">If you did not request this, you can safely ignore this email — your password will stay the same.</p>'
+          . '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:24px 0;">'
+          . '<p style="color:#555;font-size:11px;text-align:center;">— The HackKnow Team<br><a href="' . $safe_brand . '" style="color:#facc15;text-decoration:none;">' . $safe_brand . '</a></p>'
+          . '</div></body></html>';
+
+    set_transient('hk_pw_html_' . md5($user_data->user_email), $html, HOUR_IN_SECONDS);
+    return $plain;
 }, 99, 4);
+
+/* When wp_mail() is about to send the reset email, swap in our HTML body
+ * (looked up by recipient) and set Content-Type to text/html. */
+add_filter('wp_mail', function ($args) {
+    if (!is_array($args) || empty($args['to']) || empty($args['subject'])) return $args;
+    $subj = (string) $args['subject'];
+    if (stripos($subj, 'reset your hackknow password') === false) return $args;
+    $to   = is_array($args['to']) ? reset($args['to']) : (string) $args['to'];
+    $html = get_transient('hk_pw_html_' . md5(strtolower(trim($to))));
+    if (!$html) return $args;
+    delete_transient('hk_pw_html_' . md5(strtolower(trim($to))));
+    $args['message'] = $html;
+    $headers = isset($args['headers']) ? (array) $args['headers'] : [];
+    $headers[] = 'Content-Type: text/html; charset=UTF-8';
+    $headers[] = 'Reply-To: support@hackknow.com';
+    $args['headers'] = $headers;
+    return $args;
+}, 99);
 
 function hackknow_forgot_password(WP_REST_Request $req) {
     $email = sanitize_email((string)($req->get_param('email') ?? ''));
@@ -304,8 +374,12 @@ function hackknow_forgot_password(WP_REST_Request $req) {
     if ($user) {
         $result = retrieve_password($user->user_login);
         if (is_wp_error($result)) {
-            error_log('[hackknow] forgot_password failed: ' . $result->get_error_message());
+            error_log('[hackknow] forgot_password retrieve_password failed for ' . $email . ': ' . $result->get_error_message());
+        } else {
+            error_log('[hackknow] forgot_password: reset email queued for ' . $email);
         }
+    } else {
+        error_log('[hackknow] forgot_password: no user found for ' . $email . ' (silent success returned)');
     }
     // Always return success to prevent email enumeration
     return ['success' => true, 'message' => 'If an account exists, a reset link has been sent.'];
