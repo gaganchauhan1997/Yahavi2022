@@ -11,6 +11,31 @@
  *    GET  /my-downloads    (Bearer token)                            -> { downloads }
  *    POST /order           { items, email, phone, ... }             -> { wc_order_id, razorpay_order, ... }
  *    POST /verify          { razorpay_order_id, razorpay_payment_id, razorpay_signature, wc_order_id }
+ *
+ *  ─────────────────────────────────────────────────────────────────────────
+ *  Yahavi AI chat (POST /chat) — wiring the live store chat
+ *  ─────────────────────────────────────────────────────────────────────────
+ *  The /chat endpoint (function hackknow_chat) tries three back-ends in order
+ *  and falls back to deterministic rule-based replies if none are configured.
+ *  To turn ON real AI on shop.hackknow.com, define ONE of these in wp-config.php:
+ *
+ *    1) HACKKNOW_AI_RELAY_URL  (recommended — free, no API key on Hostinger)
+ *       Points at the Replit-hosted Yahavi API (Gemini-powered). Example:
+ *           define('HACKKNOW_AI_RELAY_URL', 'https://<your-replit-deploy>/api/chat');
+ *       The relay forwards { message, history } and returns { reply, suggestions }
+ *       with real product / policy paths (/shop, /shop/free-resources, etc.).
+ *
+ *    2) HACKKNOW_GEMINI_KEY  (instant — needs a Google AI Studio key)
+ *       Calls Google's Gemini 2.5 Flash directly from WordPress with a full
+ *       multilingual system prompt + live store context (active coupons,
+ *       recent purchases, upcoming releases, user tier). Example:
+ *           define('HACKKNOW_GEMINI_KEY', 'AIza...');
+ *
+ *    3) HACKKNOW_OPENAI_KEY  (legacy — only used if neither of the above is set)
+ *       Calls OpenAI gpt-4o-mini. Kept for backward compatibility.
+ *
+ *  If none are defined the chat silently falls back to canned, rule-based
+ *  replies (still functional, just not LLM-powered).
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -690,88 +715,13 @@ function hackknow_verify_payment(WP_REST_Request $req) {
     return ['success' => true, 'wc_order_id' => $wc_order_id];
 }
 
-// ONE-TIME admin endpoint: create demo product
-// DELETE from mu-plugin once product is created
-add_action('rest_api_init', function() {
-    register_rest_route('hackknow/v1', '/admin/create-demo-product', [
-        'methods'             => 'POST',
-        'callback'            => 'hackknow_create_demo_product',
-        'permission_callback' => '__return_true',
-    ]);
-});
-
-function hackknow_create_demo_product(WP_REST_Request $req) {
-    if ($req->get_param('secret') !== 'hackknow_demo_setup_2026') {
-        return new WP_Error('forbidden', 'Forbidden', ['status' => 403]);
-    }
-
-    if (!class_exists('WC_Product_Simple')) {
-        return new WP_Error('no_wc', 'WooCommerce not active', ['status' => 500]);
-    }
-
-    $existing = get_posts(['post_type' => 'product', 'title' => 'Demo 1', 'numberposts' => 1]);
-    if (!empty($existing)) {
-        return new WP_REST_Response(['status' => 'exists', 'product_id' => $existing[0]->ID], 200);
-    }
-
-    $product = new WC_Product_Simple();
-    $product->set_name('Demo 1');
-    $product->set_status('publish');
-    $product->set_description('Demo downloadable Excel dashboard with sample revenue, expense and profit data. Instant download after purchase.');
-    $product->set_short_description('Sample Excel Dashboard – instant download after payment.');
-    $product->set_price('99');
-    $product->set_regular_price('99');
-    $product->set_virtual(true);
-    $product->set_downloadable(true);
-    $product->set_stock_status('instock');
-    $product->set_catalog_visibility('visible');
-
-    $cat = get_term_by('name', 'Excel Templates', 'product_cat');
-    if (!$cat) {
-        $cat_result = wp_insert_term('Excel Templates', 'product_cat');
-        $cat_id = is_wp_error($cat_result) ? 0 : $cat_result['term_id'];
-    } else {
-        $cat_id = $cat->term_id;
-    }
-    if ($cat_id) $product->set_category_ids([$cat_id]);
-
-    $upload = wp_upload_dir();
-    $excel_src = WP_CONTENT_DIR . '/mu-plugins/demo1-dashboard.xlsx';
-    $downloads = [];
-
-    // Save product first (without downloads to avoid directory validation error)
-    $id = $product->save();
-
-    // Now add download via raw postmeta to bypass approved-directory validation
-    $file_url = '';
-    if (file_exists($excel_src)) {
-        $filename = 'demo1-dashboard.xlsx';
-        $dest = $upload['path'] . '/' . $filename;
-        if (!file_exists($dest)) {
-            @copy($excel_src, $dest);
-        }
-        $file_url = $upload['url'] . '/' . $filename;
-        $download_id = md5('demo1');
-        $raw_downloads = [
-            $download_id => [
-                'id'      => $download_id,
-                'name'    => 'Demo 1 – Excel Dashboard.xlsx',
-                'file'    => $file_url,
-                'enabled' => true,
-            ]
-        ];
-        update_post_meta($id, '_downloadable_files', $raw_downloads);
-        update_post_meta($id, '_download_limit', -1);       // unlimited re-downloads within expiry window
-        update_post_meta($id, '_download_expiry', 30);      // 30-day download window after purchase
-    }
-
-    return new WP_REST_Response([
-        'status'     => 'created',
-        'product_id' => $id,
-        'name'       => 'Demo 1',
-        'file_url'   => $file_url,
-    ], 201);
-}
+// (Removed: one-time `/admin/create-demo-product` dev shim. The original
+// endpoint was gated only by `permission_callback => __return_true` plus a
+// hardcoded body secret, which is too weak for a publicly reachable
+// product-creation route. The seed product it created already exists in
+// production. If a similar bootstrap is ever needed again, gate it with
+// `current_user_can('manage_woocommerce')` and a wp_nonce, never with a
+// shared string.)
 
 /* ── Wishlist ──────────────────────────────────────────────────────────── */
 
@@ -1899,3 +1849,171 @@ add_filter('rest_pre_dispatch', function ($result, $server, $request) {
     }
     return $response;
 }, 10, 3);
+
+/* ============================================================================
+ *  Newsletter — "Get Free Resources Weekly" footer subscribe
+ *  ----------------------------------------------------------------------------
+ *  Endpoint:  POST /wp-json/hackknow/v1/newsletter/subscribe
+ *  Body:      { "email": "...", "source": "footer" (optional) }
+ *  Storage:   {prefix}hk_newsletter table (auto-installed on init)
+ *  Welcome:   sends branded HTML email via the support@hackknow.com sender
+ *  Dedupe:    same email twice → 200 with code=already_subscribed
+ *  Reactivate: previously unsubscribed email → status flipped back to active
+ * ========================================================================== */
+
+function hackknow_newsletter_install_table() {
+    global $wpdb;
+    $table   = $wpdb->prefix . 'hk_newsletter';
+    $charset = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE IF NOT EXISTS {$table} (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        email VARCHAR(190) NOT NULL,
+        source VARCHAR(64) NOT NULL DEFAULT 'footer',
+        status VARCHAR(16) NOT NULL DEFAULT 'active',
+        ip_addr VARCHAR(64) NOT NULL DEFAULT '',
+        user_agent VARCHAR(255) NOT NULL DEFAULT '',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        unsubscribed_at DATETIME NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY email_unq (email),
+        KEY status_idx (status, created_at)
+    ) {$charset};";
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+}
+add_action('init', 'hackknow_newsletter_install_table', 5);
+
+add_action('rest_api_init', function () {
+    register_rest_route('hackknow/v1', '/newsletter/subscribe', [
+        'methods'             => 'POST',
+        'callback'            => 'hackknow_newsletter_subscribe',
+        'permission_callback' => '__return_true',
+        'args' => [
+            'email'  => ['required' => true,  'sanitize_callback' => 'sanitize_email'],
+            'source' => ['required' => false, 'sanitize_callback' => 'sanitize_text_field'],
+        ],
+    ]);
+});
+
+function hackknow_newsletter_subscribe(WP_REST_Request $req) {
+    $email = sanitize_email((string) $req->get_param('email'));
+    if (!$email || !is_email($email)) {
+        return new WP_REST_Response(
+            ['ok' => false, 'code' => 'invalid_email', 'message' => 'Please enter a valid email address.'],
+            400
+        );
+    }
+    $source = sanitize_text_field((string) $req->get_param('source'));
+    if ($source === '') $source = 'footer';
+    $source = substr($source, 0, 64);
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'hk_newsletter';
+
+    $ip = '';
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ip = trim(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+    } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+        $ip = (string) $_SERVER['REMOTE_ADDR'];
+    }
+    $ip = substr($ip, 0, 64);
+    $ua = isset($_SERVER['HTTP_USER_AGENT']) ? substr((string) $_SERVER['HTTP_USER_AGENT'], 0, 255) : '';
+
+    /* Already on the list — be friendly, don't error out. */
+    $existing = $wpdb->get_row(
+        $wpdb->prepare("SELECT id, status FROM {$table} WHERE email = %s LIMIT 1", $email)
+    );
+    if ($existing) {
+        if ($existing->status !== 'active') {
+            $wpdb->update(
+                $table,
+                ['status' => 'active', 'unsubscribed_at' => null],
+                ['id' => (int) $existing->id]
+            );
+        }
+        return new WP_REST_Response([
+            'ok'      => true,
+            'code'    => 'already_subscribed',
+            'message' => "You're already on the list — thanks for the love!",
+        ], 200);
+    }
+
+    $inserted = $wpdb->insert($table, [
+        'email'      => $email,
+        'source'     => $source,
+        'ip_addr'    => $ip,
+        'user_agent' => $ua,
+    ]);
+    if (!$inserted) {
+        error_log('[hackknow] newsletter insert FAILED for ' . $email . ': ' . $wpdb->last_error);
+        return new WP_REST_Response(
+            ['ok' => false, 'code' => 'db_error', 'message' => 'Could not subscribe right now. Please try again in a moment.'],
+            500
+        );
+    }
+
+    /* Fire-and-continue welcome email; failures are auto-logged via wp_mail_failed. */
+    hackknow_newsletter_send_welcome($email);
+
+    return new WP_REST_Response([
+        'ok'      => true,
+        'code'    => 'subscribed',
+        'message' => "You're in! Check your inbox for a welcome from HackKnow.",
+    ], 200);
+}
+
+function hackknow_newsletter_send_welcome($email) {
+    $subject = 'Welcome to HackKnow — your weekly free resources start now';
+    $front   = defined('HACKKNOW_FRONTEND_URL') ? rtrim(HACKKNOW_FRONTEND_URL, '/') : 'https://www.hackknow.com';
+    $shop    = $front . '/shop';
+    $free    = $front . '/shop/free-resources';
+
+    $html = '<!doctype html><html><body style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#1a1a1a">'
+        . '<div style="max-width:560px;margin:0 auto;padding:24px">'
+        . '<div style="background:#1a1a1a;padding:24px;border-radius:16px 16px 0 0;text-align:center">'
+        . '<div style="display:inline-block;background:#fff055;color:#1a1a1a;font-weight:900;padding:8px 14px;border-radius:8px;letter-spacing:1px;border:2px solid #1a1a1a">HACKKNOW</div>'
+        . '</div>'
+        . '<div style="background:#fff;padding:32px 28px;border-radius:0 0 16px 16px;border:1px solid #1a1a1a;border-top:none">'
+        . '<h1 style="margin:0 0 12px;font-size:24px;font-weight:800">Welcome aboard!</h1>'
+        . '<p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#333">Thanks for joining 10,000+ creators who get free templates, sheets, and exclusive deals from HackKnow every week.</p>'
+        . '<p style="margin:0 0 24px;font-size:15px;line-height:1.55;color:#333">Here\'s where to start:</p>'
+        . '<div style="text-align:center;margin:24px 0">'
+        . '<a href="' . esc_url($free) . '" style="display:inline-block;background:#fff055;color:#1a1a1a;font-weight:800;text-decoration:none;padding:14px 28px;border-radius:10px;border:2px solid #1a1a1a;box-shadow:4px 4px 0 0 #1a1a1a;font-size:15px">Browse Free Resources</a>'
+        . '</div>'
+        . '<p style="margin:0;font-size:14px;color:#666;text-align:center"><a href="' . esc_url($shop) . '" style="color:#1a1a1a;font-weight:600">Or explore the full marketplace →</a></p>'
+        . '<hr style="border:none;border-top:1px dashed #ccc;margin:28px 0">'
+        . '<p style="margin:0;font-size:12px;color:#888;text-align:center">You\'re receiving this because you signed up at hackknow.com. Reply to this email anytime — it goes straight to support@hackknow.com.</p>'
+        . '</div></div></body></html>';
+
+    $text = "Welcome to HackKnow!\n\n"
+        . "Thanks for joining 10,000+ creators who get free templates, sheets, and exclusive deals from HackKnow every week.\n\n"
+        . "Start here: " . $free . "\n"
+        . "Or explore the full marketplace: " . $shop . "\n\n"
+        . "You're receiving this because you signed up at hackknow.com. Reply anytime — it goes to support@hackknow.com.\n";
+
+    $key = 'hk_news_welcome_' . md5($email);
+    set_transient($key, ['html' => $html, 'text' => $text], HOUR_IN_SECONDS);
+
+    $filter = function ($args) use ($email, $key) {
+        $cached = get_transient($key);
+        if (!$cached || !isset($args['to'])) return $args;
+        $to = is_array($args['to']) ? (string) $args['to'][0] : (string) $args['to'];
+        if (strcasecmp($to, $email) !== 0) return $args;
+        $args['message'] = $cached['html'];
+        $headers = isset($args['headers']) ? (array) $args['headers'] : [];
+        $headers[] = 'Content-Type: text/html; charset=UTF-8';
+        $headers[] = 'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'support@hackknow.com');
+        $args['headers'] = $headers;
+        delete_transient($key);
+        return $args;
+    };
+    add_filter('wp_mail', $filter, 99);
+
+    $sent = wp_mail($email, $subject, $text);
+    remove_filter('wp_mail', $filter, 99);
+
+    if (!$sent) {
+        error_log('[hackknow] newsletter welcome email FAILED for ' . $email);
+    }
+    return $sent;
+}
