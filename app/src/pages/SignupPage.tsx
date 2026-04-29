@@ -2,7 +2,20 @@ import type { FC, FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, BadgeCheck, Lock, Mail, Phone, Sparkles, User } from 'lucide-react';
-import { registerWithWordPress } from '@/lib/auth';
+import { registerWithWordPress, loginWithGoogle } from '@/lib/auth';
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (cfg: object) => void;
+          prompt: (cb?: (n: object) => void) => void;
+        };
+      };
+    };
+  }
+}
 
 const perks = [
   'Fast order tracking',
@@ -35,9 +48,19 @@ const SignupPage: FC = () => {
   );
 
   const handleGoogleSignIn = () => {
-    // Google auth disabled until backend OAuth is configured
-    // TODO: Implement Google OAuth via Nextend Social Login plugin on WordPress
-    alert('Google Sign In coming soon. Please use email signup.');
+    if (!window.google) return;
+    window.google.accounts.id.initialize({
+      client_id: '936562781728-0tds5q2uqh2qft6bq76s0airvv117ig5.apps.googleusercontent.com',
+      callback: async (response: { credential: string }) => {
+        try {
+          await loginWithGoogle(response.credential);
+          navigate('/account');
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Google sign-in failed');
+        }
+      },
+    });
+    window.google.accounts.id.prompt();
   };
 
   const handleSubmit = async (e: FormEvent) => {
