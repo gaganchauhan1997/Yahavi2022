@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Shield, Scale, BadgeCheck } from 'lucide-react';
+import { ArrowLeft, FileText, Shield, Scale, BadgeCheck, UserX, Download } from 'lucide-react';
 
 const TermsPage = () => {
   return (
@@ -60,6 +60,47 @@ const TermsPage = () => {
             <p className="text-hack-black/70">
               Orders are processed through approved payment providers. Refund decisions follow the published
               refund policy, and download/support access depends on a valid completed order.
+            </p>
+          </section>
+
+          {/* Guest Mode Policy */}
+          <section className="rounded-2xl border border-hack-yellow/30 bg-hack-yellow/5 p-6">
+            <h2 className="mb-3 flex items-center gap-3 font-display text-2xl font-bold text-hack-black">
+              <UserX className="h-6 w-6 text-hack-orange" />
+              Guest Checkout Policy
+            </h2>
+            <p className="text-hack-black/70 mb-4">
+              Hackknow allows users to complete purchases as a Guest — without creating an account.
+              Guests enjoy the full checkout experience with the following limitations:
+            </p>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3">
+                <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-hack-orange/20 text-hack-orange text-xs font-bold">✕</span>
+                <div>
+                  <p className="font-semibold text-hack-black">No Coupon Codes</p>
+                  <p className="text-sm text-hack-black/60">
+                    Discount coupons and promotional codes are exclusively available to registered and logged-in users. 
+                    Guests are not eligible to apply any coupon during checkout.
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <Download className="mt-1 h-5 w-5 shrink-0 text-hack-magenta" />
+                <div>
+                  <p className="font-semibold text-hack-black">One-Time Download Limit</p>
+                  <p className="text-sm text-hack-black/60">
+                    After a successful Guest payment, the purchased digital product is made available for
+                    download <strong>once per session only</strong>. Downloads are accessible from the
+                    order-confirmation page and are not saved to a permanent account. Once the session ends,
+                    the download link expires. Guests are encouraged to create a free account for permanent
+                    download access, order history, and future purchases.
+                  </p>
+                </div>
+              </li>
+            </ul>
+            <p className="mt-4 text-sm text-hack-black/50">
+              To unlock full features — including unlimited re-downloads, wishlist, coupons, and order history —
+              {' '}<Link to="/signup" className="text-hack-magenta font-semibold hover:text-hack-orange transition-colors">create a free account</Link>.
             </p>
           </section>
 
