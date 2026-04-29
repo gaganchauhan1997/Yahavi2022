@@ -124,7 +124,20 @@ export default function YahaviChat() {
                 by DeadMan • any language
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="ml-auto text-white/70 hover:text-white" aria-label="Close">
+            <button
+              onClick={() => {
+                if (confirm("Clear chat history? This deletes the conversation stored on this device.")) {
+                  try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
+                  setMessages([seed]);
+                }
+              }}
+              className="ml-auto text-[10px] uppercase tracking-wider font-mono text-white/60 hover:text-hack-yellow border border-white/20 hover:border-hack-yellow rounded px-2 py-1"
+              aria-label="Clear chat history"
+              title="Clear history (DPDP right to erasure)"
+            >
+              Clear
+            </button>
+            <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white" aria-label="Close">
               <X className="w-4 h-4" />
             </button>
           </header>

@@ -211,12 +211,47 @@ export default function TestimonialsPage() {
         </div>
       </div>
 
-      {/* Marquee columns */}
+      {/* Marquee columns (or static grid when reduced-motion is preferred) */}
       <div
         className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
+        onMouseEnter={() => !reduceMotion && setPaused(true)}
+        onMouseLeave={() => !reduceMotion && setPaused(false)}
       >
+        {reduceMotion ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {REVIEWS.map((r) => (
+              <a
+                key={r.id}
+                href={r.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block bg-white rounded-2xl border border-hack-black/10 p-5 hover:border-hack-yellow hover:shadow-lg transition-all"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${r.color} flex items-center justify-center text-white font-display font-bold`}>
+                    {r.initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display font-bold text-hack-black truncate">{r.name}</div>
+                    <div className="text-xs text-hack-gray font-mono">{r.city}</div>
+                  </div>
+                  <div className="flex">
+                    {Array.from({ length: r.rating }).map((_, i) => (
+                      <Star key={i} className="w-3.5 h-3.5 text-hack-yellow fill-hack-yellow" />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-hack-gray text-sm leading-relaxed mb-3">&ldquo;{r.text}&rdquo;</p>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-mono uppercase tracking-wider text-hack-pink">{r.product}</span>
+                  <span className="font-mono uppercase tracking-wider text-hack-gray flex items-center gap-1">
+                    {r.source} <ExternalLink className="w-3 h-3" />
+                  </span>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[680px] overflow-hidden relative">
           {/* fade masks */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-hack-white to-transparent z-10" />
@@ -266,10 +301,13 @@ export default function TestimonialsPage() {
             </div>
           ))}
         </div>
+        )}
 
-        <p className="text-center text-xs text-hack-black/50 mt-6">
-          Hover to pause • Tap any card to open the original review
-        </p>
+        {!reduceMotion && (
+          <p className="text-center text-xs text-hack-black/50 mt-6">
+            Hover to pause • Tap any card to open the original review
+          </p>
+        )}
 
         {/* CTA */}
         <div className="mt-14 bg-hack-black rounded-2xl p-6 lg:p-8 text-white text-center">

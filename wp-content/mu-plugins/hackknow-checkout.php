@@ -858,9 +858,78 @@ function hackknow_chat(WP_REST_Request $req) {
     if ($message === '') {
         return new WP_Error('empty', 'Message is required', ['status' => 400]);
     }
-    $lower = strtolower($message);
+    $lower   = strtolower($message);
+    $history = $req->get_param('history');
+    if (!is_array($history)) $history = [];
 
-    // ── Optional: real LLM if HACKKNOW_OPENAI_KEY constant is configured ──
+    // ── Preferred: relay to the Replit-hosted Yahavi API (Gemini-powered) ──
+    // Set HACKKNOW_AI_RELAY_URL in wp-config.php to e.g. 'https://your-app.replit.app/api/chat'
+    if (defined('HACKKNOW_AI_RELAY_URL') && HACKKNOW_AI_RELAY_URL) {
+        $resp = wp_remote_post(HACKKNOW_AI_RELAY_URL, [
+            'headers' => ['Content-Type' => 'application/json'],
+            'body'    => wp_json_encode([
+                'message' => $message,
+                'history' => array_slice($history, -8),
+            ]),
+            'timeout' => 25,
+        ]);
+        if (!is_wp_error($resp) && (int) wp_remote_retrieve_response_code($resp) === 200) {
+            $j = json_decode(wp_remote_retrieve_body($resp), true);
+            if (!empty($j['reply'])) {
+                return new WP_REST_Response([
+                    'reply'       => $j['reply'],
+                    'suggestions' => $j['suggestions'] ?? hackknow_chat_suggest($lower),
+                ], 200);
+            }
+        }
+        // fall through on failure
+    }
+
+    // ── Optional: direct Gemini if HACKKNOW_GEMINI_KEY constant is configured ──
+    if (defined('HACKKNOW_GEMINI_KEY') && HACKKNOW_GEMINI_KEY) {
+        $sys = "You are Yahavi AI, multilingual assistant for HackKnow.com (built by 'DeadMan'). "
+             . "HackKnow sells Excel templates, dashboards, PowerPoint decks, Notion templates, "
+             . "marketing kits and free resources. Founder: Manish Kumar Singh. Address: Delhi, India. "
+             . "Phone +91 87960 18700, support@hackknow.com. Refunds within 7 days (file corrupt, "
+             . "wrong listing, missing files). Reply in the SAME language the user wrote in. "
+             . "Keep replies under 80 words. Suggest paths like /shop, /shop/free-resources, "
+             . "/account/orders, /refund-policy, /privacy, /terms, /dmca, /testimonials, /contact.";
+        $contents = [];
+        foreach (array_slice($history, -8) as $h) {
+            $role = (isset($h['role']) && in_array($h['role'], ['assistant','bot'], true)) ? 'model' : 'user';
+            $text = trim((string)($h['content'] ?? $h['text'] ?? ''));
+            if ($text !== '') $contents[] = ['role' => $role, 'parts' => [['text' => $text]]];
+        }
+        $contents[] = ['role' => 'user', 'parts' => [['text' => $message]]];
+        $resp = wp_remote_post(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . urlencode(HACKKNOW_GEMINI_KEY),
+            [
+                'headers' => ['Content-Type' => 'application/json'],
+                'body'    => wp_json_encode([
+                    'systemInstruction' => ['role' => 'system', 'parts' => [['text' => $sys]]],
+                    'contents'          => $contents,
+                    'generationConfig'  => ['temperature' => 0.6, 'maxOutputTokens' => 512, 'topP' => 0.95],
+                ]),
+                'timeout' => 25,
+            ]
+        );
+        if (!is_wp_error($resp) && (int) wp_remote_retrieve_response_code($resp) === 200) {
+            $j = json_decode(wp_remote_retrieve_body($resp), true);
+            $parts = $j['candidates'][0]['content']['parts'] ?? [];
+            $reply = '';
+            foreach ($parts as $p) { if (isset($p['text'])) $reply .= $p['text']; }
+            $reply = trim($reply);
+            if ($reply !== '') {
+                return new WP_REST_Response([
+                    'reply'       => $reply,
+                    'suggestions' => hackknow_chat_suggest($lower),
+                ], 200);
+            }
+        }
+        // fall through on failure
+    }
+
+    // ── Legacy: OpenAI fallback if HACKKNOW_OPENAI_KEY constant is configured ──
     if (defined('HACKKNOW_OPENAI_KEY') && HACKKNOW_OPENAI_KEY) {
         $context = "You are Yahavi, the multilingual AI assistant for HackKnow.com — "
                  . "a digital marketplace selling Excel templates, PowerPoint decks, dashboards, "
@@ -1038,7 +1107,7 @@ function hackknow_chat_top_products($limit = 3, $category_slug = '') {
             'id'    => (int) $p->ID,
             'name'  => $product->get_name(),
             'price' => wp_strip_all_tags($product->get_price_html()),
-            'href'  => '/product/' . $p->ID,
+            'href'  => '/product/' . $product->get_slug(),
             'image' => $img,
         ];
     }
@@ -1063,7 +1132,7 @@ function hackknow_chat_search_products($query) {
             'id'    => (int) $p->ID,
             'name'  => $product->get_name(),
             'price' => wp_strip_all_tags($product->get_price_html()),
-            'href'  => '/product/' . $p->ID,
+            'href'  => '/product/' . $product->get_slug(),
             'image' => get_the_post_thumbnail_url($p->ID, 'thumbnail') ?: '',
         ];
     }
