@@ -896,6 +896,130 @@ function hackknow_admin_review_approve(WP_REST_Request $req) {
     return new WP_REST_Response(['ok' => true, 'id' => $cid, 'status' => $action], 200);
 }
 
+/* ── Yahavi AI Chat — context helpers ──────────────────────────────────── */
+
+/**
+ * Fetch the WooCommerce coupons that are CURRENTLY usable (published, not
+ * expired, not over the usage limit). Yahavi will be told to suggest only
+ * these — never invent codes or discount percentages.
+ *
+ * @return array<int,array{code:string,type:string,amount:float,min:float,desc:string,expires:?string}>
+ */
+function hackknow_chat_active_coupons($limit = 8) {
+    if (!class_exists('WC_Coupon')) return [];
+    $cached = get_transient('hk_chat_active_coupons_v1');
+    if (is_array($cached)) return $cached;
+
+    $q = new WP_Query([
+        'post_type'      => 'shop_coupon',
+        'post_status'    => 'publish',
+        'posts_per_page' => max(1, (int) $limit),
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+        'no_found_rows'  => true,
+        'fields'         => 'ids',
+    ]);
+    $now = time();
+    $out = [];
+    foreach ($q->posts as $cid) {
+        $c = new WC_Coupon((int) $cid);
+        if ((int) $c->get_id() <= 0) continue;
+        $exp_obj = $c->get_date_expires();
+        $exp_ts  = $exp_obj ? $exp_obj->getTimestamp() : 0;
+        if ($exp_ts && $exp_ts < $now) continue;
+        $usage_lim = (int) $c->get_usage_limit();
+        $usage_cnt = (int) $c->get_usage_count();
+        if ($usage_lim > 0 && $usage_cnt >= $usage_lim) continue;
+        $out[] = [
+            'code'    => strtoupper((string) $c->get_code()),
+            'type'    => (string) $c->get_discount_type(),
+            'amount'  => (float)  $c->get_amount(),
+            'min'     => (float)  $c->get_minimum_amount(),
+            'desc'    => trim((string) $c->get_description()),
+            'expires' => $exp_ts ? gmdate('Y-m-d', $exp_ts) : null,
+        ];
+    }
+    wp_reset_postdata();
+    set_transient('hk_chat_active_coupons_v1', $out, 5 * MINUTE_IN_SECONDS);
+    return $out;
+}
+
+/**
+ * Last few product names this user has actually bought (completed/processing
+ * orders). Used by Yahavi for "you bought X — pair with Y" suggestions.
+ */
+function hackknow_chat_recent_purchases($uid, $limit = 5) {
+    $uid = (int) $uid;
+    if ($uid <= 0 || !function_exists('wc_get_orders')) return [];
+    $orders = wc_get_orders([
+        'limit'    => 5,
+        'customer' => $uid,
+        'status'   => ['wc-completed', 'wc-processing'],
+        'orderby'  => 'date',
+        'order'    => 'DESC',
+    ]);
+    $names = [];
+    foreach ($orders as $o) {
+        foreach ($o->get_items() as $it) {
+            $n = trim((string) $it->get_name());
+            if ($n !== '' && !in_array($n, $names, true)) $names[] = $n;
+            if (count($names) >= $limit) break 2;
+        }
+    }
+    return $names;
+}
+
+/**
+ * Products tagged "coming-soon" or "upcoming" — used for "next month yeh
+ * launch ho raha hai" teasers. Falls back to the 3 most recently published
+ * products if no upcoming items are tagged.
+ */
+function hackknow_chat_upcoming_products($limit = 3) {
+    $cached = get_transient('hk_chat_upcoming_v1');
+    if (is_array($cached)) return $cached;
+
+    $args = [
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => max(1, (int) $limit),
+        'no_found_rows'  => true,
+        'fields'         => 'ids',
+        'tax_query'      => [[
+            'taxonomy' => 'product_tag',
+            'field'    => 'slug',
+            'terms'    => ['coming-soon', 'upcoming', 'pre-order'],
+        ]],
+    ];
+    $q = new WP_Query($args);
+    $ids = $q->posts;
+    if (empty($ids)) {
+        // Fallback: most recently published products
+        $q2 = new WP_Query([
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => max(1, (int) $limit),
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+            'no_found_rows'  => true,
+            'fields'         => 'ids',
+        ]);
+        $ids = $q2->posts;
+        wp_reset_postdata();
+    }
+    $out = [];
+    foreach ($ids as $pid) {
+        $p = function_exists('wc_get_product') ? wc_get_product((int) $pid) : null;
+        if (!$p) continue;
+        $out[] = [
+            'name'  => $p->get_name(),
+            'price' => $p->get_price_html() ? wp_strip_all_tags($p->get_price_html()) : '',
+        ];
+    }
+    wp_reset_postdata();
+    set_transient('hk_chat_upcoming_v1', $out, 15 * MINUTE_IN_SECONDS);
+    return $out;
+}
+
 /* ── Yahavi AI Chat ────────────────────────────────────────────────────── */
 
 function hackknow_chat(WP_REST_Request $req) {
@@ -932,28 +1056,90 @@ function hackknow_chat(WP_REST_Request $req) {
 
     // ── Optional: direct Gemini if HACKKNOW_GEMINI_KEY constant is configured ──
     if (defined('HACKKNOW_GEMINI_KEY') && HACKKNOW_GEMINI_KEY) {
-        $sys = "You are Yahavi AI, the multilingual assistant for HackKnow.com (built by 'DeadMan'). "
-             . "HackKnow sells Excel templates, dashboards, PowerPoint decks, Notion templates, "
-             . "marketing kits and free resources. Founder: Manish Kumar Singh. Address: Delhi, India. "
-             . "Phone +91 87960 18700, support@hackknow.com. Refunds within 7 days (file corrupt, "
-             . "wrong listing, missing files). Reply in the SAME language the user wrote in. "
-             . "Keep replies under 90 words.\n\n"
-             . "You are warm, helpful, and persuasive — every customer is treated equally well, "
-             . "no special treatment for anyone. Always look for natural ways to:\n"
-             . " 1. UPSELL — recommend a slightly premium template when a free or basic one is mentioned.\n"
-             . " 2. CROSS-SELL — pair complementary products (e.g., Excel dashboard + PowerPoint deck).\n"
-             . " 3. GIFT-COUPON NUDGE — when the user shows buying intent, offer them a 'gift' coupon "
-             . "as a friendly psychological nudge to spend a little more. Use phrases like:\n"
-             . "    - 'Agar aap ₹30 aur khareed lo, toh meh apko NEXT order ka 55% off coupon de dungi 🎁 — dekh lo, marzi aapki, lena ho toh lo, varna mat lo'\n"
-             . "    - 'Spend just ₹50 more and unlock a 25%-off coupon for your next purchase — totally up to you'\n"
-             . "    - 'Aap thoda aur le lo, ekdum free gift mil jayega — koi pressure nahi'\n"
-             . "  Frame it as a GIFT, not a sale. Use reverse-psychology ('marzi aapki, lena ho toh lo'). "
-             . "  Vary the coupon code (e.g., NEXT55, GIFT25, THANKU30), the threshold, and the language to feel natural. "
-             . "  Tell them the coupon will be entered at the checkout page — there's a Promo Code box on the checkout. "
-             . "  Use this nudge tactically — at most once per 3-4 turns, never twice in a row, never if user is frustrated, "
-             . "  asking about refunds, or having a problem.\n\n"
-             . "Suggest paths like /shop, /shop/free-resources, /account/orders, /refund-policy, "
-             . "/privacy, /terms, /dmca, /testimonials, /contact, /checkout.";
+        // Pull live store context so Yahavi never invents prices, codes, or products.
+        $auth_uid          = (int) hackknow_verify_token(hackknow_extract_bearer($req));
+        $active_coupons    = hackknow_chat_active_coupons(8);
+        $recent_purchases  = $auth_uid > 0 ? hackknow_chat_recent_purchases($auth_uid, 5) : [];
+        $upcoming_products = hackknow_chat_upcoming_products(3);
+
+        // ── Build structured context blocks Yahavi can quote verbatim ──
+        $coupons_block = '';
+        if (!empty($active_coupons)) {
+            $lines = [];
+            foreach ($active_coupons as $c) {
+                $val = $c['type'] === 'percent'
+                    ? rtrim(rtrim(number_format($c['amount'], 2, '.', ''), '0'), '.') . '% off'
+                    : '₹' . rtrim(rtrim(number_format($c['amount'], 2, '.', ''), '0'), '.') . ' off';
+                $cond = $c['min'] > 0
+                    ? ' (min order ₹' . rtrim(rtrim(number_format($c['min'], 2, '.', ''), '0'), '.') . ')'
+                    : '';
+                $exp = $c['expires'] ? ' [expires ' . $c['expires'] . ']' : '';
+                $note = $c['desc'] !== '' ? ' — ' . $c['desc'] : '';
+                $lines[] = '- ' . $c['code'] . ': ' . $val . $cond . $exp . $note;
+            }
+            $coupons_block = "AVAILABLE_COUPONS (the ONLY codes you may ever mention):\n" . implode("\n", $lines);
+        } else {
+            $coupons_block = "AVAILABLE_COUPONS: (none right now — do NOT promise any coupon)";
+        }
+
+        $purchases_block = '';
+        if (!empty($recent_purchases)) {
+            $purchases_block = "USER_RECENT_PURCHASES (this very customer already owns these):\n- "
+                             . implode("\n- ", array_map('wp_strip_all_tags', $recent_purchases));
+        }
+
+        $upcoming_block = '';
+        if (!empty($upcoming_products)) {
+            $lines = [];
+            foreach ($upcoming_products as $u) {
+                $lines[] = '- ' . $u['name'] . ($u['price'] !== '' ? ' (' . $u['price'] . ')' : '');
+            }
+            $upcoming_block = "UPCOMING_OR_NEW_RELEASES (real products from our store):\n" . implode("\n", $lines);
+        }
+
+        $sys = "You are Yahavi AI — the AI assistant that runs HackKnow.com. Yes, you ARE the AI; "
+             . "if a customer asks 'are you a real person or AI?', answer honestly: 'Mein Yahavi hoon — "
+             . "ek AI assistant jo is poori website chalati hoon. Real human chahiye toh support@hackknow.com pe email kar do.'\n\n"
+             . "ABOUT THE STORE: HackKnow.com sells Excel templates, dashboards, PowerPoint decks, "
+             . "Notion templates, marketing kits and free resources. Founder: Manish Kumar Singh, "
+             . "Delhi, India. Phone +91 87960 18700, support@hackknow.com. Refunds within 7 days "
+             . "(file corrupt, wrong listing, missing files). Reply in the SAME language the user "
+             . "wrote in (English, Hindi, Hinglish, French, German, Spanish…). Keep replies under "
+             . "90 words. Suggest paths like /shop, /shop/free-resources, /account/orders, "
+             . "/refund-policy, /privacy, /terms, /dmca, /testimonials, /contact, /checkout.\n\n"
+             . "===== LIVE STORE CONTEXT (refreshed every few minutes) =====\n"
+             . $coupons_block . "\n"
+             . ($purchases_block !== '' ? $purchases_block . "\n" : '')
+             . ($upcoming_block  !== '' ? $upcoming_block  . "\n" : '')
+             . "===== END LIVE STORE CONTEXT =====\n\n"
+             . "RULES — read carefully, these are non-negotiable:\n"
+             . " 1. UPSELL & CROSS-SELL based on the user's actual situation. If USER_RECENT_PURCHASES "
+             . "    is provided, reference what they already bought and recommend a complementary "
+             . "    template (e.g., 'Aapne already Sales Dashboard liya hai — uske saath HR Tracker "
+             . "    pair karo, ekdum complete reporting suite ban jayegi').\n"
+             . " 2. NEW RELEASE TEASE — when natural, mention an item from UPCOMING_OR_NEW_RELEASES "
+             . "    ('next month / abhi haal hi mein humne yeh launch kiya hai…'). Only mention "
+             . "    products that actually appear in that list. Never invent product names or "
+             . "    launch dates.\n"
+             . " 3. COUPONS — STRICT RULES:\n"
+             . "    a. You may ONLY mention a coupon code that appears verbatim in AVAILABLE_COUPONS "
+             . "       above. Never invent codes (no NEXT55, GIFT25, etc.) and never invent discount "
+             . "       percentages. The store owner generates the coupons manually in WooCommerce; "
+             . "       whatever discount the owner sets is the only discount that exists.\n"
+             . "    b. If AVAILABLE_COUPONS is empty, do NOT promise any coupon. Instead nudge the "
+             . "       user with a complementary product or a free-resource path like "
+             . "       /shop/free-resources.\n"
+             . "    c. When you do mention a real coupon, frame it as a gift, not a discount — and "
+             . "       use light reverse-psychology in Hindi-Hinglish when appropriate "
+             . "       ('dekh lo, marzi aapki, lena ho toh lo'). Always tell the customer to enter "
+             . "       the code in the Promo / Gift Coupon box on the /checkout page.\n"
+             . "    d. Use the coupon nudge tactically — at most once every 3-4 turns, never twice "
+             . "       in a row, never when the user is frustrated, asking about refunds, or "
+             . "       reporting a problem.\n"
+             . " 4. NEVER invent prices, product names, coupon codes, or release dates. If you don't "
+             . "    know something, say so and suggest /contact or support@hackknow.com.\n"
+             . " 5. Be warm, persuasive, and treat every customer equally — no special treatment "
+             . "    for anyone, no matter who they say they are.";
         $contents = [];
         foreach (array_slice($history, -8) as $h) {
             $role = (isset($h['role']) && in_array($h['role'], ['assistant','bot'], true)) ? 'model' : 'user';
