@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getCurrentUser, logout } from '@/lib/auth';
+import { getCurrentUser, logout, updateCurrentUser } from '@/lib/auth';
 import { WP_REST_BASE } from '@/lib/api-base';
 import { getAuthToken } from '@/lib/auth-token';
 import { useStore } from '@/context/StoreContext';
@@ -226,7 +226,7 @@ interface SavedAddress { id: string; label: string; name: string; line1: string;
 
 const RenderAddresses = () => {
   const [addresses, setAddresses] = useState<SavedAddress[]>(() => {
-    try { return JSON.parse(localStorage.getItem('hackknow-addresses') || '[]'); } catch { return []; }
+    const _u = getCurrentUser(); const _ak = _u?.id ? `hackknow-addresses-${_u.id}` : 'hackknow-addresses'; try { return JSON.parse(localStorage.getItem(_ak) || '[]'); } catch { return []; }
   });
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ label: 'Home', name: '', line1: '', city: '', state: '', pincode: '', phone: '' });
@@ -235,7 +235,7 @@ const RenderAddresses = () => {
     if (!form.name.trim() || !form.line1.trim() || !form.city.trim()) return;
     const next = [...addresses, { ...form, id: Date.now().toString() }];
     setAddresses(next);
-    localStorage.setItem('hackknow-addresses', JSON.stringify(next));
+    const _u = getCurrentUser(); const _ak = _u?.id ? `hackknow-addresses-${_u.id}` : 'hackknow-addresses'; localStorage.setItem(_ak, JSON.stringify(next));
     setAdding(false);
     setForm({ label: 'Home', name: '', line1: '', city: '', state: '', pincode: '', phone: '' });
   };
@@ -243,7 +243,7 @@ const RenderAddresses = () => {
   const remove = (id: string) => {
     const next = addresses.filter(a => a.id !== id);
     setAddresses(next);
-    localStorage.setItem('hackknow-addresses', JSON.stringify(next));
+    const _u = getCurrentUser(); const _ak = _u?.id ? `hackknow-addresses-${_u.id}` : 'hackknow-addresses'; localStorage.setItem(_ak, JSON.stringify(next));
   };
 
   return (
@@ -343,13 +343,13 @@ const RenderAddresses = () => {
 /* ── Payment Methods ───────────────────────────────────────────────────── */
 const RenderPaymentMethods = () => {
   const [saved, setSaved] = useState<{ upi?: string; cardName?: string }>(() => {
-    try { return JSON.parse(localStorage.getItem('hackknow-payment-info') || '{}'); } catch { return {}; }
+    const _u = getCurrentUser(); const _pk = _u?.id ? `hackknow-payment-${_u.id}` : 'hackknow-payment-info'; try { return JSON.parse(localStorage.getItem(_pk) || '{}'); } catch { return {}; }
   });
   const [editing, setEditing] = useState(!saved.upi && !saved.cardName);
   const [form, setForm] = useState({ upi: saved.upi || '', cardName: saved.cardName || '' });
 
   const savePayment = () => {
-    localStorage.setItem('hackknow-payment-info', JSON.stringify(form));
+    const _u = getCurrentUser(); const _pk = _u?.id ? `hackknow-payment-${_u.id}` : 'hackknow-payment-info'; localStorage.setItem(_pk, JSON.stringify(form));
     setSaved(form);
     setEditing(false);
   };
@@ -465,6 +465,11 @@ export default function UserProfilePage() {
   };
 
   const handleSaveProfile = () => {
+    updateCurrentUser({
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone,
+    });
     setProfileSaved(true);
     setIsEditing(false);
     setTimeout(() => setProfileSaved(false), 3000);

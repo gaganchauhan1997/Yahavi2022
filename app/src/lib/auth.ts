@@ -10,6 +10,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   first_name?: string;
   last_name?: string;
   joinedDate?: string;
@@ -71,6 +72,13 @@ export const getCurrentUser = (): AuthUser | null => {
   }
 };
 
+export const updateCurrentUser = (updates: Partial<AuthUser>): void => {
+  const current = getCurrentUser();
+  if (!current) return;
+  const updated = { ...current, ...updates };
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+};
+
 export async function loginWithWordPress(email: string, password: string): Promise<AuthUser> {
   const res = await postJson<AuthResponse>("/auth/login", { email, password });
   return persist(res);
@@ -93,10 +101,12 @@ export async function registerWithWordPress(
 
 export const logout = (): void => {
   const user = getCurrentUser();
-  const scopedKey = user?.id ? `hackknow-cart-${user.id}` : "hackknow-cart";
+  const cartScopedKey = user?.id ? `hackknow-cart-${user.id}` : "hackknow-cart";
+  const wishlistScopedKey = user?.id ? `hackknow-wishlist-${user.id}` : "hackknow-wishlist";
   clearAuthToken();
   localStorage.removeItem(AUTH_USER_KEY);
-  localStorage.removeItem(scopedKey);
+  localStorage.removeItem(cartScopedKey);
+  localStorage.removeItem(wishlistScopedKey);
   localStorage.removeItem("hackknow-cart");
 };
 

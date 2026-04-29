@@ -154,6 +154,11 @@ function cartKey(): string {
   return user?.id ? `hackknow-cart-${user.id}` : 'hackknow-cart';
 }
 
+function wishlistKey(): string {
+  const user = getCurrentUser();
+  return user?.id ? `hackknow-wishlist-${user.id}` : 'hackknow-wishlist';
+}
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const loadCartFromStorage = (): CartItem[] => {
     try {
@@ -164,9 +169,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const loadWishlistFromStorage = (): string[] => {
+    try {
+      const saved = localStorage.getItem(wishlistKey());
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
   const [state, dispatch] = useReducer(storeReducer, {
     ...initialState,
     cart: loadCartFromStorage(),
+    wishlist: loadWishlistFromStorage(),
   });
 
   useEffect(() => {
@@ -176,6 +191,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Cart persistence failed — silently ignore (non-critical)
     }
   }, [state.cart]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(wishlistKey(), JSON.stringify(state.wishlist));
+    } catch {
+      // Wishlist persistence failed — silently ignore (non-critical)
+    }
+  }, [state.wishlist]);
 
   useEffect(() => {
     let cancelled = false;
