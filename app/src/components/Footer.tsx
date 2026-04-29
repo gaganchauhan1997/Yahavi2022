@@ -27,7 +27,7 @@ export default function Footer() {
                 Get Free Resources Weekly
               </h3>
               <p className="text-hack-white/60 text-sm">
-                Join 50,000+ creators getting free templates, tips, and exclusive
+                Join 10,000+ creators getting free templates, tips, and exclusive
                 deals.
               </p>
             </div>
@@ -271,7 +271,7 @@ export default function Footer() {
             <span>📞</span> +91 87960 18700
           </a>
         </div>
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 pb-20 lg:pb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-hack-white/40">
             &copy; 2026 Hackknow. All rights reserved.
           </p>
