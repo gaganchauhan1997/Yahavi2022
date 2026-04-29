@@ -260,10 +260,10 @@ export default function AboutPage() {
 
   const speakerLabel =
     voiceState === "playing"
-      ? "Yahavi is reading — tap to stop"
+      ? "Now playing — tap to stop"
       : voiceState === "paused"
-        ? "Yahavi is paused — tap to stop"
-        : "Tap to hear the mentor's story narrated by Yahavi";
+        ? "Paused — tap to stop"
+        : "Tap to hear the mentor's story";
 
   const mentor = founders[0];
   const others = founders.slice(1);
@@ -295,7 +295,7 @@ export default function AboutPage() {
           {/* ====================== MENTOR HERO BOX (with photo + voice) ====================== */}
           <section
             className="relative mb-16 rounded-3xl border-[3px] border-hack-black bg-white shadow-[10px_10px_0_0_#1A1A1A] overflow-hidden"
-            aria-label="Meet your mentor — Yahavi will read this page aloud"
+            aria-label="Meet your mentor — tap the photo to hear the story"
           >
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
               {/* Photo column */}
@@ -340,7 +340,7 @@ export default function AboutPage() {
                     {voiceState === "playing" ? (
                       <>
                         <Volume2 className="w-4 h-4 animate-pulse" strokeWidth={2.75} />
-                        Yahavi narrating…
+                        Now playing…
                       </>
                     ) : voiceState === "paused" ? (
                       <>
@@ -371,8 +371,8 @@ export default function AboutPage() {
                       ? autoplayBlocked && voiceState === "idle"
                         ? "Your browser blocked auto-play — tap the photo to listen."
                         : voiceState === "playing"
-                          ? "Yahavi is narrating the mentor's story."
-                          : "Tap the photo to hear the mentor's story in Yahavi's voice."
+                          ? "Now narrating the mentor's story."
+                          : "Tap the photo to hear the mentor's story."
                       : "Your browser doesn't support voice — please read the text."}
                   </p>
 
