@@ -174,13 +174,34 @@ const TermsPage = () => {
               <FileText className="h-6 w-6 text-hack-magenta" />
               8. Yahavi AI Disclaimer
             </h2>
-            <p className="text-hack-black/80">
+            <p className="text-hack-black/80 mb-3">
               Yahavi AI is an automated assistant powered by large-language-model technology. It can
               answer questions about HackKnow products, prices, policies and orders, but it may
               occasionally produce inaccurate or incomplete answers. Treat its responses as guidance,
               not legal, financial or professional advice. For binding decisions (refunds, billing,
               copyright complaints) always rely on the relevant policy page or contact a human at
               support@hackknow.com.
+            </p>
+            <p className="text-hack-black/80 mb-3">
+              <strong>Chat storage &amp; retention.</strong> Your conversations with Yahavi AI are
+              saved on our servers — when you are signed in they are tied to your account, when you
+              are not signed in they are tied to a random session identifier stored in your browser.
+              We use this data to (a) show you your past chat when you return, (b) improve product
+              recommendations and upsell / cross-sell suggestions, and (c) debug, train and improve
+              the assistant. <strong>HackKnow retains a server-side copy of every conversation
+              indefinitely</strong> for analytics, support, dispute resolution and product
+              improvement. We do not sell or share these chats with third-party advertisers.
+            </p>
+            <p className="text-hack-black/80">
+              <strong>Your control.</strong> Clicking the "Clear" button at the top of the Yahavi
+              panel <strong>resets the chat on your device only</strong> — your local cache is
+              wiped and the next message starts a fresh session, but our server-side copy of the
+              earlier conversation is preserved. If you would like the server-side copy permanently
+              deleted under your DPDP Act, 2023 right to erasure, email
+              <a className="font-semibold underline" href="mailto:support@hackknow.com"> support@hackknow.com </a>
+              from the same address you used on the site and we will action it within 30 days.
+              Coupon codes entered in chat are validated in real time against our store but not
+              applied until you add them at the checkout page.
             </p>
           </section>
 
