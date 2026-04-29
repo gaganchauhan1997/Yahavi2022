@@ -115,4 +115,9 @@ export async function loginWithGoogle(idToken: string): Promise<AuthUser> {
   return persist(res);
 }
 
+export async function loginWithGoogleToken(accessToken: string): Promise<AuthUser> {
+  const res = await postJson<AuthResponse>("/auth/google", { access_token: accessToken });
+  return persist(res);
+}
+
 export { getAuthToken };

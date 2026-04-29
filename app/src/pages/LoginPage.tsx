@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff, Zap, ArrowRight, Mail, Lock } from 'lucide-react';
-import { loginWithWordPress, loginWithGoogle } from '@/lib/auth';
+import { loginWithWordPress, loginWithGoogleToken } from '@/lib/auth';
 
 declare global {
   interface Window {
@@ -12,6 +12,13 @@ declare global {
         id: {
           initialize: (cfg: object) => void;
           prompt: (cb?: (n: object) => void) => void;
+        };
+        oauth2: {
+          initTokenClient: (cfg: {
+            client_id: string;
+            scope: string;
+            callback: (resp: { access_token?: string; error?: string }) => void;
+          }) => { requestAccessToken: (opts?: { prompt?: string }) => void };
         };
       };
     };
@@ -40,14 +47,22 @@ const LoginPage = () => {
   };
 
   const handleGoogleLogin = () => {
-    if (!window.google) return;
-    window.google.accounts.id.initialize({
+    if (!window.google?.accounts?.oauth2) {
+      setError('Google Sign-In is not available. Please try again.');
+      return;
+    }
+    const client = window.google.accounts.oauth2.initTokenClient({
       client_id: '936562781728-0tds5q2uqh2qft6bq76s0airvv117ig5.apps.googleusercontent.com',
-      callback: async (response: { credential: string }) => {
+      scope: 'email profile openid',
+      callback: async (resp) => {
+        if (!resp.access_token) {
+          setError('Google sign-in was cancelled or failed.');
+          return;
+        }
         setIsLoading(true);
         setError('');
         try {
-          await loginWithGoogle(response.credential);
+          await loginWithGoogleToken(resp.access_token);
           navigate('/account');
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Google sign-in failed');
@@ -56,7 +71,7 @@ const LoginPage = () => {
         }
       },
     });
-    window.google.accounts.id.prompt();
+    client.requestAccessToken({ prompt: 'select_account' });
   };
 
   return (
