@@ -4,7 +4,7 @@ import { ArrowLeft, Mail, Phone, MapPin, Send, MessageSquare, Clock, AlertCircle
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-const CF7_URL = 'https://shop.hackknow.com/wp-json/contact-form-7/v1/contact-forms/959/feedback';
+const CF7_URL = '/wp-json/contact-form-7/v1/contact-forms/959/feedback';
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
