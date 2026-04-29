@@ -137,7 +137,7 @@ const LoginPage = () => {
 
             {/* Forgot Password */}
             <div className="flex justify-end">
-              <Link to="/support" className="text-sm text-hack-yellow hover:text-hack-orange transition-colors">
+              <Link to="/forgot-password" className="text-sm text-hack-yellow hover:text-hack-orange transition-colors">
                 Forgot password?
               </Link>
             </div>
