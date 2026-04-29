@@ -15,17 +15,33 @@ export default defineConfig({
     },
   },
   build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    reportCompressedSize: true,
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-radix': [
-            '@radix-ui/react-accordion', '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs',
-            '@radix-ui/react-tooltip', '@radix-ui/react-select',
-          ],
-          'vendor-charts': ['recharts'],
-          'vendor-ui': ['sonner', 'lucide-react'],
+        manualChunks: (id) => {
+          // Core React
+          if (id.includes('react-dom') || id.includes('react/') || id.includes('react-router')) {
+            return 'vendor-react';
+          }
+          // Radix UI
+          if (id.includes('@radix-ui')) {
+            return 'vendor-radix';
+          }
+          // Charts
+          if (id.includes('recharts') || id.includes('d3-')) {
+            return 'vendor-charts';
+          }
+          // Lucide icons
+          if (id.includes('lucide-react')) {
+            return 'vendor-icons';
+          }
+          // Sonner toast
+          if (id.includes('sonner')) {
+            return 'vendor-ui';
+          }
         },
       },
     },
