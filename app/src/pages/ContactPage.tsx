@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, MapPin, Send, MessageSquare, Clock } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Send, MessageSquare, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+
+/* CF7 form hash from shortcode: [contact-form-7 id="99cfbdb" title="Hackknow Contact Us"] */
+const CF7_ENDPOINT = 'https://shop.hackknow.com/wp-json/contact-form-7/v1/contact-forms/99cfbdb/feedback';
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
@@ -13,17 +16,53 @@ const ContactPage = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setErrorMsg('');
+
+    // Build CF7 form-data payload (CF7 REST API expects multipart/form-data or urlencoded)
+    const body = new URLSearchParams({
+      'your-name':    formData.name,
+      'your-email':   formData.email,
+      'your-subject': formData.subject,
+      'your-message': formData.message,
+    });
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+
+      const res = await fetch(CF7_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      const json = await res.json().catch(() => null);
+
+      // CF7 returns status "mail_sent" on success
+      if (json?.status === 'mail_sent') {
+        setIsSubmitted(true);
+        setFormData({ name: '', email: '', subject: '', message: '' });
+      } else {
+        // CF7 validation error or spam — show server message
+        const msg = json?.message || 'Message could not be sent. Please try again.';
+        setErrorMsg(msg);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setErrorMsg('Request timed out. Please email us directly at support@hackknow.com');
+      } else {
+        setErrorMsg('Unable to connect. Please email us at support@hackknow.com');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -170,6 +209,14 @@ const ContactPage = () => {
               ) : (
                 <>
                   <h2 className="font-display font-bold text-xl mb-6">Send us a Message</h2>
+                  
+                  {errorMsg && (
+                    <div className="mb-4 flex items-start gap-3 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+                      <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                      <span>{errorMsg}</span>
+                    </div>
+                  )}
+
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium mb-2">Your Name</label>
