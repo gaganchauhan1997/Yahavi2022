@@ -1,6 +1,17 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Globe, MapPin, Sparkles, Code2, Brain, Compass, Award, GraduationCap,
+  Globe,
+  MapPin,
+  Sparkles,
+  Code2,
+  Brain,
+  Compass,
+  Award,
+  GraduationCap,
+  Volume2,
+  VolumeX,
+  Pause,
 } from "lucide-react";
 
 type Founder = {
@@ -57,17 +68,216 @@ const stats = [
   { Icon: GraduationCap, value: "50K+", label: "Creators empowered" },
 ];
 
+/* ---------------------- Yahavi Voice Reader (Web Speech API) ---------------------- */
+
+type VoiceState = "idle" | "playing" | "paused";
+
+function pickYahaviVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  if (!voices.length) return undefined;
+  const score = (v: SpeechSynthesisVoice) => {
+    let s = 0;
+    const name = v.name.toLowerCase();
+    const lang = v.lang.toLowerCase();
+    if (lang.startsWith("hi")) s += 50; // Hindi preferred for Hinglish content
+    if (lang.startsWith("en-in")) s += 35;
+    if (lang.startsWith("en-gb")) s += 12;
+    if (lang.startsWith("en")) s += 10;
+    // Female-leaning voice names across vendors
+    if (/female|woman|aditi|kalpana|swara|priya|veena|raveena|isha|leela|ananya/.test(name)) s += 30;
+    if (/(google).*(hindi|india)/.test(name)) s += 20;
+    if (/samantha|victoria|karen|tessa|moira|fiona|serena|allison|joanna/.test(name)) s += 15;
+    if (/microsoft.*(swara|kalpana|aditi|neerja|heera)/.test(name)) s += 25;
+    return s;
+  };
+  return [...voices].sort((a, b) => score(b) - score(a))[0];
+}
+
+function buildPageScript(): string {
+  return [
+    "Namaste! Main hoon Yahavi, HackKnow ki AI saathi. Aaiye main aapko is page ke baare mein bataati hoon.",
+    "HackKnow ek digital legacy hai, jo India mein bani hai duniya ke liye. Yeh sirf ek marketplace nahi — yeh ek digital empire hai, jise teen logon ne haath se gadha hai. Ek globe trotting mentor, ek shaant lekin tez mastermind developer, aur ek nidar AI orchestrator. Hum sab milkar duniya bhar ke creators, students aur small businesses ke haath mein world class digital tools dete hain. Hum Delhi, India se kaam karte hain.",
+    `Pehle baat karte hain hamare mentor ki. ${founders[0].name}. ${founders[0].role}. ${founders[0].tagline} ${founders[0].bio}`,
+    `Ab milte hain ${founders[1].name} se. ${founders[1].role}. ${founders[1].tagline} ${founders[1].bio}`,
+    `Aur teesre hain ${founders[2].name}. ${founders[2].role}. ${founders[2].tagline} ${founders[2].bio}`,
+    "Hamari kahaani: HackKnow ek B.Tech ke dorm room se shuru hua tha — Manish ki personal mission thi ki duniya ghoom kar jo bhi seekha, usse aise tools mein badle jo har creator use kar sake. Excel dashboards, presentation decks, Notion systems, marketing kits. Ek baar banao, sab ke saath share karo, fair price rakho. Aaj HackKnow ek self funded, India mein bani digital marketplace hai jo 120 se zyada deshon ke creators ko serve karti hai.",
+    "Agar aap is journey ka hissa banna chahte hain, toh shop section dekhiye, ya humse seedhe baat kijiye contact page par. Dhanyavaad sunne ke liye!",
+  ].join(" ");
+}
+
+/* ----------------------------------- Page ----------------------------------- */
+
 export default function AboutPage() {
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const startedOnceRef = useRef(false);
+
+  const supported =
+    typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined";
+
+  const script = useMemo(buildPageScript, []);
+
+  const stopSpeech = useCallback(() => {
+    if (!supported) return;
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      /* noop */
+    }
+    utteranceRef.current = null;
+    setVoiceState("idle");
+  }, [supported]);
+
+  const startSpeech = useCallback(() => {
+    if (!supported) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(script);
+      const voices = window.speechSynthesis.getVoices();
+      const voice = pickYahaviVoice(voices);
+      if (voice) {
+        utter.voice = voice;
+        utter.lang = voice.lang;
+      } else {
+        utter.lang = "hi-IN";
+      }
+      utter.rate = 0.96;
+      utter.pitch = 1.05;
+      utter.volume = 1;
+      utter.onstart = () => setVoiceState("playing");
+      utter.onend = () => {
+        utteranceRef.current = null;
+        setVoiceState("idle");
+      };
+      utter.onerror = () => {
+        utteranceRef.current = null;
+        setVoiceState("idle");
+      };
+      utteranceRef.current = utter;
+      window.speechSynthesis.speak(utter);
+    } catch {
+      setVoiceState("idle");
+    }
+  }, [script, supported]);
+
+  const togglePause = useCallback(() => {
+    if (!supported) return;
+    const ss = window.speechSynthesis;
+    if (ss.speaking && !ss.paused) {
+      ss.pause();
+      setVoiceState("paused");
+    } else if (ss.paused) {
+      ss.resume();
+      setVoiceState("playing");
+    }
+  }, [supported]);
+
+  const handleSpeakerTap = useCallback(() => {
+    if (!supported) return;
+    if (voiceState === "idle") {
+      setAutoplayBlocked(false);
+      startSpeech();
+    } else if (voiceState === "playing") {
+      stopSpeech();
+    } else if (voiceState === "paused") {
+      stopSpeech();
+    }
+  }, [voiceState, startSpeech, stopSpeech, supported]);
+
+  // Voice list loads asynchronously in some browsers
+  useEffect(() => {
+    if (!supported) return;
+    const handler = () => {
+      // No-op; just ensures voices populate. We pick voice at startSpeech() time.
+    };
+    window.speechSynthesis.addEventListener?.("voiceschanged", handler);
+    return () => {
+      window.speechSynthesis.removeEventListener?.("voiceschanged", handler);
+    };
+  }, [supported]);
+
+  // Best-effort autoplay on mount; most browsers block until first user gesture.
+  useEffect(() => {
+    if (!supported || startedOnceRef.current) return;
+    startedOnceRef.current = true;
+
+    let cancelled = false;
+    const tryAutoplay = () => {
+      if (cancelled) return;
+      try {
+        startSpeech();
+      } catch {
+        setAutoplayBlocked(true);
+      }
+      // After a brief moment, check whether speech actually started.
+      window.setTimeout(() => {
+        if (cancelled) return;
+        if (!window.speechSynthesis.speaking) {
+          setAutoplayBlocked(true);
+        }
+      }, 400);
+    };
+
+    // Wait for voices to be ready, then attempt.
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      const onVoices = () => {
+        window.speechSynthesis.removeEventListener?.("voiceschanged", onVoices);
+        tryAutoplay();
+      };
+      window.speechSynthesis.addEventListener?.("voiceschanged", onVoices);
+      // Safety: try anyway after a short delay.
+      window.setTimeout(tryAutoplay, 600);
+    } else {
+      tryAutoplay();
+    }
+
+    // Stop speech if the user navigates away.
+    return () => {
+      cancelled = true;
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        /* noop */
+      }
+    };
+  }, [supported, startSpeech]);
+
+  // Stop speech when the tab is hidden, resume nothing automatically.
+  useEffect(() => {
+    if (!supported) return;
+    const onVis = () => {
+      if (document.hidden && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        setVoiceState("idle");
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [supported]);
+
+  const speakerLabel =
+    voiceState === "playing"
+      ? "Yahavi padh rahi hain — band karne ke liye dabaayein"
+      : voiceState === "paused"
+        ? "Yahavi ruk gayi hain — chalu karne ke liye dabaayein"
+        : autoplayBlocked
+          ? "Tap karke Yahavi se yeh page sunein"
+          : "Tap karke Yahavi se yeh page sunein";
+
+  const mentor = founders[0];
+  const others = founders.slice(1);
+
   return (
     <div className="pt-28 pb-20 bg-hack-white">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           {/* Hero */}
-          <div className="text-center mb-14">
+          <div className="text-center mb-10">
             <span className="inline-block text-xs font-mono uppercase tracking-widest text-hack-magenta mb-4">
               About HackKnow
             </span>
-            <h1 className="font-display font-bold text-4xl lg:text-6xl tracking-tight mb-6">
+            <h1 className="font-display font-black text-4xl lg:text-6xl tracking-tight mb-6">
               A Digital Legacy,
               <br />
               <span className="text-gradient">Built in India for the World</span>
@@ -82,50 +292,185 @@ export default function AboutPage() {
             </p>
           </div>
 
+          {/* ====================== MENTOR HERO BOX (with photo + voice) ====================== */}
+          <section
+            className="relative mb-16 rounded-3xl border-[3px] border-hack-black bg-white shadow-[10px_10px_0_0_#1A1A1A] overflow-hidden"
+            aria-label="Meet your mentor — Yahavi will read this page aloud"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
+              {/* Photo column */}
+              <div className="relative lg:col-span-3 bg-gradient-to-br from-hack-yellow/30 via-white to-hack-magenta/20 p-4 sm:p-6">
+                {/* Comic-style "MENTOR" badge */}
+                <span className="absolute -top-2 -left-2 z-20 bg-hack-magenta text-hack-black font-display font-black text-xs sm:text-sm uppercase tracking-widest px-3 py-1.5 rounded-md border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A] -rotate-6">
+                  ★ Mentor
+                </span>
+                <span className="absolute top-3 right-3 z-20 hidden sm:inline-flex items-center gap-1 bg-hack-yellow text-hack-black font-display font-black text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-md border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A] rotate-3">
+                  One Life, Endless Memories
+                </span>
+
+                {/* Photo frame — neo-brutal with comic-style frame, tap-to-toggle voice */}
+                <button
+                  type="button"
+                  onClick={handleSpeakerTap}
+                  aria-label={speakerLabel}
+                  aria-pressed={voiceState === "playing"}
+                  className="group relative block w-full overflow-hidden rounded-2xl border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] hover:shadow-[3px_3px_0_0_#1A1A1A] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all duration-150 cursor-pointer"
+                >
+                  <img
+                    src="/manish-mentor.jpg"
+                    alt="Manish Kumar Singh — comic-style travel collage with the caption One Life, Many Stories, Endless Memories"
+                    className="block w-full h-auto select-none"
+                    width={1024}
+                    height={945}
+                    loading="eager"
+                    decoding="async"
+                    draggable={false}
+                  />
+
+                  {/* Speaker overlay — bottom-right chip */}
+                  <span
+                    className={`absolute bottom-3 right-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A] font-display font-black text-xs sm:text-sm transition-colors ${
+                      voiceState === "playing"
+                        ? "bg-hack-magenta text-hack-black"
+                        : voiceState === "paused"
+                          ? "bg-hack-orange text-hack-black"
+                          : "bg-hack-yellow text-hack-black"
+                    }`}
+                  >
+                    {voiceState === "playing" ? (
+                      <>
+                        <Volume2 className="w-4 h-4 animate-pulse" strokeWidth={2.75} />
+                        <span className="hidden xs:inline">Yahavi padh rahi hai…</span>
+                        <span className="xs:hidden">Sun rahe ho</span>
+                      </>
+                    ) : voiceState === "paused" ? (
+                      <>
+                        <Pause className="w-4 h-4" strokeWidth={2.75} />
+                        Paused — tap to stop
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-4 h-4" strokeWidth={2.75} />
+                        Tap to hear Yahavi
+                      </>
+                    )}
+                  </span>
+
+                  {/* Subtle pulsing ring while playing */}
+                  {voiceState === "playing" && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 rounded-2xl ring-4 ring-hack-magenta/50 animate-pulse"
+                    />
+                  )}
+                </button>
+
+                {/* Helper line + secondary controls */}
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs sm:text-sm text-hack-black/70 font-semibold">
+                    {supported
+                      ? autoplayBlocked && voiceState === "idle"
+                        ? "Aapke browser ne auto-play rok diya — photo pe tap karein."
+                        : voiceState === "playing"
+                          ? "Yahavi aapko yeh page padh kar suna rahi hain."
+                          : "Photo par tap karke Yahavi ki awaaz mein page sunein."
+                      : "Aapka browser voice support nahi karta — text padhein."}
+                  </p>
+
+                  {voiceState === "playing" && (
+                    <button
+                      type="button"
+                      onClick={togglePause}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-hack-black text-xs font-black border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+                    >
+                      <Pause className="w-3.5 h-3.5" strokeWidth={2.75} /> Pause
+                    </button>
+                  )}
+                  {voiceState === "paused" && (
+                    <button
+                      type="button"
+                      onClick={togglePause}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-hack-yellow text-hack-black text-xs font-black border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" strokeWidth={2.75} /> Resume
+                    </button>
+                  )}
+                  {voiceState !== "idle" && (
+                    <button
+                      type="button"
+                      onClick={stopSpeech}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-hack-black text-xs font-black border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+                    >
+                      <VolumeX className="w-3.5 h-3.5" strokeWidth={2.75} /> Stop
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Mentor bio column */}
+              <div className="lg:col-span-2 p-6 lg:p-8 lg:border-l-[3px] border-hack-black bg-white">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-hack-magenta font-bold">
+                  <mentor.Icon className="w-3.5 h-3.5" /> Founder &amp; Mentor
+                </span>
+                <h2 className="font-display font-black text-2xl sm:text-3xl text-hack-black mt-2 leading-tight">
+                  {mentor.name}
+                </h2>
+                <p className="text-xs font-mono uppercase tracking-wider text-hack-black/60 mt-1">
+                  {mentor.role}
+                </p>
+                <p className="text-sm font-bold text-hack-black mt-4 italic border-l-[3px] border-hack-yellow pl-3">
+                  “{mentor.tagline}”
+                </p>
+                <p className="text-sm text-hack-black/75 leading-relaxed mt-4">
+                  {mentor.bio}
+                </p>
+              </div>
+            </div>
+          </section>
+
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
             {stats.map((s) => (
               <div
                 key={s.label}
-                className="text-center p-6 rounded-2xl bg-white border border-hack-black/10 shadow-sm"
+                className="text-center p-6 rounded-2xl bg-white border-[2.5px] border-hack-black shadow-[4px_4px_0_0_#1A1A1A]"
               >
-                <s.Icon className="w-6 h-6 mx-auto mb-3 text-hack-magenta" />
-                <p className="font-display font-bold text-2xl lg:text-3xl">{s.value}</p>
-                <p className="text-xs text-hack-black/50 font-mono mt-1">{s.label}</p>
+                <s.Icon className="w-6 h-6 mx-auto mb-3 text-hack-magenta" strokeWidth={2.5} />
+                <p className="font-display font-black text-2xl lg:text-3xl">{s.value}</p>
+                <p className="text-xs text-hack-black/55 font-mono mt-1 font-semibold">{s.label}</p>
               </div>
             ))}
           </div>
 
-          {/* Team */}
+          {/* Other team — kept for context, simplified to avoid duplicating mentor */}
           <div className="mb-20">
-            <div className="text-center mb-12">
-              <h2 className="font-display font-bold text-3xl lg:text-4xl tracking-tight mb-3">
-                The People Behind HackKnow
+            <div className="text-center mb-10">
+              <h2 className="font-display font-black text-3xl lg:text-4xl tracking-tight mb-3">
+                The Rest of the Team
               </h2>
-              <p className="text-hack-black/60">Three minds. One mission.</p>
+              <p className="text-hack-black/60">Two minds. One mission.</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {founders.map((f) => (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {others.map((f) => (
                 <article
                   key={f.name}
-                  className={`bg-white rounded-3xl border-2 ${f.border} shadow-[6px_6px_0_0_#0A0A0A] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_0_#0A0A0A] transition-all overflow-hidden`}
+                  className={`bg-white rounded-3xl border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_0_#1A1A1A] transition-all overflow-hidden`}
                 >
-                  {/* avatar block — placeholder gradient with initials */}
-                  <div className={`relative h-56 bg-gradient-to-br ${f.accent} flex items-center justify-center`}>
-                    <span className="font-display font-extrabold text-7xl text-white drop-shadow-md">
+                  <div className={`relative h-48 bg-gradient-to-br ${f.accent} flex items-center justify-center border-b-[3px] border-hack-black`}>
+                    <span className="font-display font-black text-7xl text-white drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)]">
                       {f.initials}
                     </span>
-                    <div className="absolute top-3 right-3 bg-white/90 rounded-full p-2 backdrop-blur">
-                      <f.Icon className="w-5 h-5 text-hack-black" />
+                    <div className="absolute top-3 right-3 bg-white rounded-lg p-2 border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A]">
+                      <f.Icon className="w-5 h-5 text-hack-black" strokeWidth={2.5} />
                     </div>
                   </div>
                   <div className="p-6">
-                    <h3 className="font-display font-bold text-xl mb-1">{f.name}</h3>
-                    <p className="text-xs font-mono uppercase tracking-wider text-hack-magenta mb-3">
+                    <h3 className="font-display font-black text-xl mb-1">{f.name}</h3>
+                    <p className="text-xs font-mono uppercase tracking-wider text-hack-magenta mb-3 font-bold">
                       {f.role}
                     </p>
-                    <p className="text-sm font-semibold text-hack-black/80 mb-3 italic">
+                    <p className="text-sm font-bold text-hack-black/85 mb-3 italic">
                       “{f.tagline}”
                     </p>
                     <p className="text-sm text-hack-black/70 leading-relaxed">{f.bio}</p>
@@ -136,22 +481,22 @@ export default function AboutPage() {
           </div>
 
           {/* Story */}
-          <div className="bg-hack-black rounded-3xl p-8 lg:p-12 mb-20 text-hack-white">
+          <div className="bg-hack-black rounded-3xl p-8 lg:p-12 mb-20 text-hack-white border-[3px] border-hack-black shadow-[10px_10px_0_0_#FFF055]">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
               <div>
-                <span className="text-xs font-mono uppercase tracking-widest text-hack-yellow">
+                <span className="text-xs font-mono uppercase tracking-widest text-hack-yellow font-bold">
                   Our Story
                 </span>
-                <h2 className="font-display font-bold text-3xl mt-2 mb-4">
+                <h2 className="font-display font-black text-3xl mt-2 mb-4">
                   From a B.Tech dorm to a global digital empire
                 </h2>
-                <p className="text-hack-white/70 leading-relaxed mb-3">
+                <p className="text-hack-white/80 leading-relaxed mb-3">
                   HackKnow began as a personal mission: take everything Manish learned travelling
                   the world, and turn it into tools any creator could use — Excel dashboards,
                   presentation decks, Notion systems, marketing kits — built once, shared with
                   everyone, priced fairly.
                 </p>
-                <p className="text-hack-white/70 leading-relaxed">
+                <p className="text-hack-white/80 leading-relaxed">
                   Today, HackKnow is a self-funded, India-built digital marketplace serving
                   creators in 120+ countries — wrapped in a custom-coded React storefront,
                   powered by WooCommerce, accelerated by Yahavi AI, and hand-engineered end-to-end
@@ -159,8 +504,8 @@ export default function AboutPage() {
                 </p>
               </div>
               <div className="flex items-center justify-center">
-                <div className="w-48 h-48 rounded-full bg-gradient-brand flex items-center justify-center shadow-xl">
-                  <span className="font-display font-bold text-5xl text-white">HK</span>
+                <div className="w-44 h-44 rounded-2xl bg-hack-yellow flex items-center justify-center border-[3px] border-hack-white shadow-[6px_6px_0_0_#E91E63]">
+                  <span className="font-display font-black text-5xl text-hack-black">HK</span>
                 </div>
               </div>
             </div>
@@ -168,22 +513,22 @@ export default function AboutPage() {
 
           {/* CTA */}
           <div className="text-center">
-            <h2 className="font-display font-bold text-2xl lg:text-3xl mb-4">
+            <h2 className="font-display font-black text-2xl lg:text-3xl mb-4">
               Want to be part of the journey?
             </h2>
-            <p className="text-hack-black/60 mb-6">
+            <p className="text-hack-black/60 mb-6 font-medium">
               Browse 10,000+ premium digital assets, or talk to us directly.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
                 to="/shop"
-                className="inline-flex items-center gap-2 px-8 py-4 bg-hack-black text-hack-white rounded-full font-bold hover:bg-hack-black/80 transition-colors"
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-hack-black text-hack-white rounded-xl font-black border-[3px] border-hack-black shadow-[5px_5px_0_0_#FFF055] hover:shadow-[2px_2px_0_0_#FFF055] hover:translate-x-[3px] hover:translate-y-[3px] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none transition-all duration-150"
               >
                 Explore Products
               </Link>
               <Link
                 to="/contact"
-                className="inline-flex items-center gap-2 px-8 py-4 bg-hack-yellow text-hack-black rounded-full font-bold hover:bg-hack-yellow/90 transition-colors"
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-hack-yellow text-hack-black rounded-xl font-black border-[3px] border-hack-black shadow-[5px_5px_0_0_#E91E63] hover:shadow-[2px_2px_0_0_#E91E63] hover:translate-x-[3px] hover:translate-y-[3px] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none transition-all duration-150"
               >
                 Contact Us
               </Link>
