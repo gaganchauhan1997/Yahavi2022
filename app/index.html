@@ -47,17 +47,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://checkout.razorpay.com" />
-    <link rel="preconnect" href="https://accounts.google.com" />
 
     <!-- DNS prefetch for secondary origins -->
+    <link rel="dns-prefetch" href="https://accounts.google.com" />
     <link rel="dns-prefetch" href="https://api.razorpay.com" />
     <link rel="dns-prefetch" href="https://apis.google.com" />
     <link rel="dns-prefetch" href="https://lh3.googleusercontent.com" />
 
     <!-- Preload LCP hero image (desktop) -->
-    <link rel="preload" as="image" href="/images/hero/phone-mockup.webp" type="image/webp" media="(min-width: 1024px)" />
+    <link rel="preload" as="image" href="/images/hero/phone-mockup.webp"
+          type="image/webp" media="(min-width: 1024px)" fetchpriority="high" />
 
-    <!-- Google Fonts — reduced to 2 families, fewer weights -->
+    <!-- Google Fonts — async load (does not block render) -->
     <link rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap"
           media="print" onload="this.media='all'" />
@@ -66,8 +67,22 @@
             href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" />
     </noscript>
 
-    <!-- Google Sign-In SDK (async — does not block render) -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google Sign-In SDK — deferred until browser is idle (login/signup pages only need this) -->
+    <script>
+    (function(){
+      var load = function(){
+        var s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.async = true;
+        document.head.appendChild(s);
+      };
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(load, { timeout: 4000 });
+      } else {
+        setTimeout(load, 3000);
+      }
+    })();
+    </script>
 
     <!-- JSON-LD structured data -->
     <script type="application/ld+json">
