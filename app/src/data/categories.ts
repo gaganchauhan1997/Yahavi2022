@@ -10,6 +10,7 @@ export interface Category {
   title: string;
   slug: string;
   itemCount: number;
+  image: string;
   subcategories: Subcategory[];
 }
 
@@ -21,6 +22,7 @@ export const categories: Category[] = [
     title: 'Excel & Sheets',
     slug: 'excel-sheets',
     itemCount: 8,
+    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&q=80',
     subcategories: [
       { slug: 'trackers', name: 'Trackers' },
       { slug: 'calculators', name: 'Calculators' },
@@ -34,6 +36,7 @@ export const categories: Category[] = [
     title: 'Excel Templates',
     slug: 'excel-templates',
     itemCount: 2,
+    image: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80',
     subcategories: [
       { slug: 'finance', name: 'Finance' },
       { slug: 'project', name: 'Project Management' },
@@ -45,6 +48,7 @@ export const categories: Category[] = [
     title: 'HR & Finance',
     slug: 'hr-finance',
     itemCount: 4,
+    image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&q=80',
     subcategories: [
       { slug: 'hr-templates', name: 'HR Templates' },
       { slug: 'finance-sheets', name: 'Finance Sheets' },
@@ -58,6 +62,7 @@ export const categories: Category[] = [
     title: 'PowerPoint Decks',
     slug: 'powerpoint-decks',
     itemCount: 3,
+    image: 'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&q=80',
     subcategories: [
       { slug: 'business', name: 'Business' },
       { slug: 'creative', name: 'Creative' },
@@ -71,6 +76,7 @@ export const categories: Category[] = [
     title: 'Digital Marketing',
     slug: 'digital-marketing',
     itemCount: 3,
+    image: 'https://images.unsplash.com/photo-1533750349088-cd871a92f312?w=600&q=80',
     subcategories: [
       { slug: 'seo-tools', name: 'SEO Tools' },
       { slug: 'ads-templates', name: 'Ads Templates' },
@@ -84,6 +90,7 @@ export const categories: Category[] = [
     title: 'Social Media Kits',
     slug: 'social-media',
     itemCount: 2,
+    image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=600&q=80',
     subcategories: [
       { slug: 'instagram', name: 'Instagram' },
       { slug: 'youtube', name: 'YouTube' },
@@ -97,6 +104,7 @@ export const categories: Category[] = [
     title: 'Business Templates',
     slug: 'business-templates',
     itemCount: 2,
+    image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&q=80',
     subcategories: [
       { slug: 'proposals', name: 'Proposals' },
       { slug: 'contracts', name: 'Contracts' },
@@ -110,6 +118,7 @@ export const categories: Category[] = [
     title: 'Themes & Templates',
     slug: 'themes-templates',
     itemCount: 1,
+    image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600&q=80',
     subcategories: [
       { slug: 'web-templates', name: 'Web Templates' },
       { slug: 'landing-page', name: 'Landing Pages' },
@@ -122,6 +131,7 @@ export const categories: Category[] = [
     title: 'Dashboards',
     slug: 'dashboards',
     itemCount: 1,
+    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&q=80',
     subcategories: [
       { slug: 'analytics', name: 'Analytics' },
       { slug: 'sales', name: 'Sales' },
@@ -134,6 +144,7 @@ export const categories: Category[] = [
     title: 'Data Analysis Tools',
     slug: 'data-analysis-tools',
     itemCount: 1,
+    image: 'https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=600&q=80',
     subcategories: [
       { slug: 'spreadsheets', name: 'Spreadsheets' },
       { slug: 'visualization', name: 'Visualization' },
@@ -146,6 +157,7 @@ export const categories: Category[] = [
     title: 'Free Resources',
     slug: 'free-resources',
     itemCount: 2,
+    image: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=600&q=80',
     subcategories: [
       { slug: 'free-templates', name: 'Free Templates' },
       { slug: 'free-icons', name: 'Free Icons' },
@@ -157,6 +169,7 @@ export const categories: Category[] = [
     title: 'Product Bundles',
     slug: 'bundles',
     itemCount: 1,
+    image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=600&q=80',
     subcategories: [
       { slug: 'starter-pack', name: 'Starter Packs' },
       { slug: 'business-kit', name: 'Business Kits' },

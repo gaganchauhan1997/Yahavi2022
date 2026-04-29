@@ -30,9 +30,12 @@ export default function CategoriesSection() {
             >
               {/* Background Image */}
               <div className="aspect-[16/10] overflow-hidden">
-                <div className="w-full h-full bg-gradient-to-br from-hack-yellow/20 to-hack-magenta/20 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-                  <span className="font-display font-bold text-2xl text-hack-black/30 uppercase">{cat.title[0]}</span>
-                </div>
+                <img
+                  src={cat.image}
+                  alt={cat.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
+                />
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-hack-black/70 via-hack-black/20 to-transparent" />
               </div>

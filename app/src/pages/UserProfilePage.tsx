@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { getCurrentUser, logout } from '@/lib/auth';
 import { WP_REST_BASE } from '@/lib/api-base';
 import { getAuthToken } from '@/lib/auth-token';
+import { useStore } from '@/context/StoreContext';
+import ProductCard from '@/components/ProductCard';
 
 const mainItems = [
   { id: 'profile',   label: 'My Profile',        icon: User },
@@ -433,8 +435,14 @@ export default function UserProfilePage() {
   const { section } = useParams<{ section?: string }>();
   const navigate    = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { state, dispatch } = useStore();
 
-  const [avatarSrc, setAvatarSrc] = useState<string>(() => localStorage.getItem('hackknow-avatar') || '');
+  const avatarKey = () => {
+    const user = getCurrentUser();
+    return user?.id ? `hackknow-avatar-${user.id}` : 'hackknow-avatar';
+  };
+
+  const [avatarSrc, setAvatarSrc] = useState<string>(() => localStorage.getItem(avatarKey()) || '');
   const [isEditing, setIsEditing] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [userData, setUserData] = useState(() => ({
@@ -451,7 +459,7 @@ export default function UserProfilePage() {
     reader.onload = ev => {
       const src = ev.target?.result as string;
       setAvatarSrc(src);
-      localStorage.setItem('hackknow-avatar', src);
+      localStorage.setItem(avatarKey(), src);
     };
     reader.readAsDataURL(file);
   };
@@ -542,19 +550,39 @@ export default function UserProfilePage() {
     switch (activeTab) {
       case 'profile':   return renderProfile();
       case 'downloads': return <RenderDownloads />;
-      case 'wishlist':  return (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">My Wishlist</h2>
-          <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
-            <Heart className="w-14 h-14 mx-auto mb-4 text-gray-200" />
-            <h3 className="font-semibold text-gray-700 mb-2">Wishlist is Empty</h3>
-            <p className="text-sm text-gray-400 mb-6">Save products you love and find them here later.</p>
-            <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-white rounded-full text-sm font-medium hover:bg-hack-black/80 transition-colors">
-              <ShoppingBag className="w-4 h-4" />Browse Products
-            </Link>
+      case 'wishlist': {
+        const wishlistProducts = state.products.filter(p => state.wishlist.includes(p.id));
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">My Wishlist</h2>
+            {wishlistProducts.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+                <Heart className="w-14 h-14 mx-auto mb-4 text-gray-200" />
+                <h3 className="font-semibold text-gray-700 mb-2">Wishlist is Empty</h3>
+                <p className="text-sm text-gray-400 mb-6">Save products you love and find them here later.</p>
+                <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-white rounded-full text-sm font-medium hover:bg-hack-black/80 transition-colors">
+                  <ShoppingBag className="w-4 h-4" />Browse Products
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {wishlistProducts.map(product => (
+                  <div key={product.id} className="relative">
+                    <ProductCard product={product} />
+                    <button
+                      onClick={() => dispatch({ type: 'TOGGLE_WISHLIST', productId: product.id })}
+                      className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center hover:bg-red-50 transition-colors"
+                      title="Remove from wishlist"
+                    >
+                      <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      );
+        );
+      }
       case 'payments':  return <RenderPaymentMethods />;
       case 'addresses': return <RenderAddresses />;
       case 'orders':    return <RenderOrders />;

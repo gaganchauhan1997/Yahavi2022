@@ -41,6 +41,7 @@ const SignupPage: FC = () => {
   });
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const passwordsMatch = useMemo(
     () => formData.password.length >= 8 && formData.password === formData.confirmPassword,
@@ -67,12 +68,15 @@ const SignupPage: FC = () => {
     e.preventDefault();
     if (!passwordsMatch) { setError('Passwords must match and be at least 8 characters.'); return; }
     if (!agreeTerms)     { setError('Accept the terms before creating the account.');       return; }
+    setIsLoading(true);
+    setError('');
     try {
-      await registerWithWordPress(formData.fullName, formData.email, formData.password);
-      setError('');
+      await registerWithWordPress(formData.fullName, formData.email, formData.password, formData.phone);
       navigate('/account');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign up failed');
+      setError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -275,9 +279,9 @@ const SignupPage: FC = () => {
               <button
                 type="submit"
                 className="w-full border-4 border-hack-black bg-hack-yellow px-5 py-4 font-display text-lg font-bold uppercase text-hack-black shadow-[6px_6px_0_#1a1a1a] transition-transform hover:-translate-y-1 disabled:cursor-not-allowed disabled:bg-hack-black/10 disabled:shadow-none"
-                disabled={!agreeTerms || !passwordsMatch}
+                disabled={!agreeTerms || !passwordsMatch || isLoading}
               >
-                Create Account And Open Dashboard
+                {isLoading ? 'Creating Account…' : 'Create Account And Open Dashboard'}
               </button>
             </form>
 

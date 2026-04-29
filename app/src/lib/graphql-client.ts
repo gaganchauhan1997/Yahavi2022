@@ -41,6 +41,7 @@ export const GET_PRODUCTS_QUERY = `
         description
         shortDescription
         status
+        date
         ... on SimpleProduct {
           price
           regularPrice

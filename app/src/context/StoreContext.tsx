@@ -20,6 +20,7 @@ interface ProductNode {
   shortDescription?: string;
   price?: string;
   regularPrice?: string;
+  date?: string | null;
   image?: {
     sourceUrl: string;
   };
@@ -188,6 +189,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const categories = extractCategorySlugs(node.productCategories?.nodes);
             const price = node.price;
 
+            const sixtyDaysMs = 60 * 24 * 60 * 60 * 1000;
+            const isNew = node.date
+              ? (Date.now() - new Date(node.date).getTime()) < sixtyDaysMs
+              : false;
+
             return {
               id: node.databaseId?.toString() || node.id,
               name: node.name,
@@ -202,6 +208,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               category: categories[0] || "uncategorized",
               categories,
               isFree: parsePriceValue(price) === 0 || categories.includes("free-resources"),
+              isNew,
             };
           });
 
