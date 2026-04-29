@@ -27,7 +27,7 @@ export default function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex">
-      {/* Left Panel - Gradient Visual */}
+      {/* Left Panel - Gradient Visual (Desktop only) */}
       <div className="hidden lg:block w-1/2 relative bg-gradient-hero overflow-hidden">
         {/* Decorative Elements */}
         <div className="absolute inset-0">
@@ -51,7 +51,7 @@ export default function HeroSection() {
             </picture>
             {/* Floating Badge */}
             <div className="absolute -bottom-4 -right-8 bg-hack-yellow text-hack-black px-4 py-2 rounded-full font-display font-bold text-sm shadow-lg animate-bounce-subtle">
-              50K+ Happy Customers
+              10K+ Happy Customers
             </div>
           </div>
         </div>
@@ -66,25 +66,45 @@ export default function HeroSection() {
           {/* Tagline */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-hack-yellow/20 rounded-full mb-6 lg:mb-8">
             <span className="w-2 h-2 rounded-full bg-hack-yellow animate-pulse" />
-            <span className="text-xs font-mono uppercase tracking-wider text-hack-black/70">
+            <span className="text-xs font-mono uppercase tracking-wider text-white/80 lg:text-hack-black/70">
               Digital Marketplace
             </span>
           </div>
 
           {/* Headline */}
-          <h1 className="font-display font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-[1.05] tracking-tight mb-6 lg:mb-8">
+          <h1 className="font-display font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-[1.05] tracking-tight mb-6 lg:mb-8 text-white lg:text-hack-black">
             <span className="block">DIGITAL</span>
             <span className="block">ASSETS.</span>
             <span className="block text-gradient">INSTANT IMPACT.</span>
           </h1>
 
+          {/* Mobile Phone Mockup */}
+          <div className="lg:hidden flex justify-center mb-8">
+            <div className="relative">
+              <picture>
+                <source srcSet="/images/hero/phone-mockup.webp" type="image/webp" />
+                <img
+                  src="/images/hero/phone-mockup.png"
+                  alt="Hackknow App"
+                  width="160"
+                  height="320"
+                  className="w-[130px] h-auto drop-shadow-2xl animate-float opacity-95"
+                  loading="lazy"
+                />
+              </picture>
+              <div className="absolute -bottom-2 -right-3 bg-hack-yellow text-hack-black px-2 py-1 rounded-full font-display font-bold text-[9px] shadow-lg animate-bounce-subtle whitespace-nowrap">
+                10K+ Customers
+              </div>
+            </div>
+          </div>
+
           {/* Description */}
-          <p className="text-base lg:text-lg text-hack-black/70 max-w-md mb-8 lg:mb-10 leading-relaxed">
+          <p className="text-base lg:text-lg text-white/80 lg:text-hack-black/70 max-w-md mb-8 lg:mb-10 leading-relaxed">
             Hackknow is your one-stop marketplace for premium digital products —
             from website templates to spreadsheets, presentation decks, marketing
             kits, and more.
           </p>
-          <p className="text-sm font-mono text-hack-black/50 mb-8">
+          <p className="text-sm font-mono text-white/60 lg:text-hack-black/50 mb-8">
             Made in India. Built for the World.
           </p>
 
@@ -92,14 +112,14 @@ export default function HeroSection() {
           <div className="flex flex-wrap gap-4 mb-12 lg:mb-16">
             <Link
               to="/shop"
-              className="inline-flex items-center gap-2 px-7 py-4 bg-hack-black text-hack-white rounded-full text-sm font-bold hover:bg-hack-black/80 transition-colors shadow-lg"
+              className="inline-flex items-center gap-2 px-7 py-4 bg-hack-yellow text-hack-black lg:bg-hack-black lg:text-hack-white rounded-full text-sm font-bold hover:opacity-90 transition-colors shadow-lg"
             >
               Explore All Assets
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
               to="/shop/free-resources"
-              className="inline-flex items-center gap-2 px-7 py-4 border-2 border-hack-black/20 text-hack-black rounded-full text-sm font-medium hover:border-hack-black/40 transition-colors"
+              className="inline-flex items-center gap-2 px-7 py-4 border-2 border-white/40 text-white lg:border-hack-black/20 lg:text-hack-black rounded-full text-sm font-medium hover:border-white/60 lg:hover:border-hack-black/40 transition-colors"
             >
               Browse Free Resources
             </Link>
@@ -110,33 +130,33 @@ export default function HeroSection() {
             <div className="text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start gap-2 mb-1">
                 <Users className="w-5 h-5 text-hack-magenta" />
-                <span className="font-display font-bold text-2xl lg:text-3xl">
-                  50K+
+                <span className="font-display font-bold text-2xl lg:text-3xl text-white lg:text-hack-black">
+                  10K+
                 </span>
               </div>
-              <p className="text-xs text-hack-black/50 font-mono">
+              <p className="text-xs text-white/60 lg:text-hack-black/50 font-mono">
                 Happy Customers
               </p>
             </div>
             <div className="text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start gap-2 mb-1">
                 <TrendingUp className="w-5 h-5 text-hack-orange" />
-                <span className="font-display font-bold text-2xl lg:text-3xl">
+                <span className="font-display font-bold text-2xl lg:text-3xl text-white lg:text-hack-black">
                   10K+
                 </span>
               </div>
-              <p className="text-xs text-hack-black/50 font-mono">
+              <p className="text-xs text-white/60 lg:text-hack-black/50 font-mono">
                 Premium Assets
               </p>
             </div>
             <div className="text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start gap-2 mb-1">
-                <Shield className="w-5 h-5 text-green-600" />
-                <span className="font-display font-bold text-2xl lg:text-3xl">
+                <Shield className="w-5 h-5 text-green-400 lg:text-green-600" />
+                <span className="font-display font-bold text-2xl lg:text-3xl text-white lg:text-hack-black">
                   100%
                 </span>
               </div>
-              <p className="text-xs text-hack-black/50 font-mono">
+              <p className="text-xs text-white/60 lg:text-hack-black/50 font-mono">
                 Secure Payments
               </p>
             </div>
@@ -171,7 +191,7 @@ export default function HeroSection() {
               behavior: "smooth",
             })
           }
-          className="absolute bottom-4 right-6 lg:right-10 w-12 h-12 rounded-full bg-hack-black text-hack-white flex items-center justify-center shadow-lg hover:bg-hack-black/80 transition-colors animate-bounce-subtle z-20"
+          className="absolute bottom-4 right-6 lg:right-10 w-12 h-12 rounded-full bg-hack-yellow text-hack-black lg:bg-hack-black lg:text-hack-white flex items-center justify-center shadow-lg hover:opacity-80 transition-colors animate-bounce-subtle z-20"
           aria-label="Scroll down"
         >
           <ChevronDown className="w-5 h-5" />
