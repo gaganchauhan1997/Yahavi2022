@@ -24,8 +24,9 @@ const RefundPolicyPage = () => {
               </h1>
             </div>
             <p className="text-hack-white/60 text-lg max-w-2xl">
-              Our commitment to fair and transparent refunds for digital products.
+              Fair, transparent and India-legal refund rules for digital products.
             </p>
+            <p className="text-xs font-mono text-hack-white/40 mt-4">Last updated: 29 April 2026 • Operated from Delhi, India</p>
           </div>
         </div>
       </div>
@@ -35,9 +36,10 @@ const RefundPolicyPage = () => {
         <div className="max-w-3xl mx-auto">
           <div className="prose prose-lg max-w-none">
             <p className="text-hack-black/70 text-lg leading-relaxed mb-8">
-              At HackKnow, we strive to ensure customer satisfaction while maintaining fairness 
-              to our creators. Due to the digital nature of our products, our refund policy has 
-              specific guidelines.
+              HackKnow sells <strong>digital, downloadable products</strong>. Once a file has been
+              successfully delivered to your device, it cannot be physically returned. This policy
+              explains exactly when we will refund — and when we will not — in line with the Indian
+              Consumer Protection Act, 2019 and accepted international e-commerce practice.
             </p>
 
             {/* Non-Refundable Section */}
@@ -177,13 +179,35 @@ const RefundPolicyPage = () => {
               within 10 business days.
             </p>
 
+            {/* Chargeback notice */}
+            <h2 className="font-display font-bold text-2xl text-hack-black mb-4">
+              Chargebacks & Payment Disputes
+            </h2>
+            <p className="text-hack-black/70 mb-8">
+              Filing a chargeback with your bank or card network for a successfully downloaded
+              digital product, without first contacting our support team, is treated as a payment
+              dispute. We will share the order log, IP, download timestamp and any communication with
+              the payment provider to respond. Repeat chargeback offenders may have their HackKnow
+              account suspended.
+            </p>
+
+            {/* Jurisdiction */}
+            <h2 className="font-display font-bold text-2xl text-hack-black mb-4">
+              Governing Law
+            </h2>
+            <p className="text-hack-black/70 mb-8">
+              This refund policy is governed by the laws of India. Disputes are subject to the
+              exclusive jurisdiction of the courts at Delhi, India. Statutory rights granted to
+              consumers under their local laws are not affected.
+            </p>
+
             {/* Contact */}
             <div className="bg-hack-black rounded-2xl p-6 lg:p-8 text-white text-center">
               <h2 className="font-display font-bold text-xl mb-3">Questions About Refunds?</h2>
               <p className="text-white/60 mb-4">
-                Contact our support team for assistance with refund requests.
+                Email <a href="mailto:support@hackknow.com" className="text-hack-yellow">support@hackknow.com</a> or call <a href="tel:+918796018700" className="text-hack-yellow">+91 87960 18700</a>.
               </p>
-              <Link 
+              <Link
                 to="/contact"
                 className="inline-flex items-center justify-center px-6 py-3 bg-hack-yellow text-hack-black rounded-full font-bold hover:bg-hack-yellow/90 transition-colors"
               >

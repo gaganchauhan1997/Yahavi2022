@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>You're offline · HackKnow</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<style>
+  :root { color-scheme: light; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background:#FFD60A; color:#0A0A0A; padding:24px; }
+  .card { max-width:520px; background:#fff; border:3px solid #0A0A0A; border-radius:20px;
+          padding:36px; box-shadow:8px 8px 0 0 #0A0A0A; }
+  h1 { font-size:32px; margin:0 0 8px; letter-spacing:-0.02em; }
+  p  { color:#444; line-height:1.5; }
+  a.btn { display:inline-block; margin-top:16px; padding:12px 22px; background:#0A0A0A; color:#FFD60A;
+          border-radius:999px; text-decoration:none; font-weight:700; }
+  .h { display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px;
+       background:#FFD60A; color:#0A0A0A; border:3px solid #0A0A0A; border-radius:10px;
+       font-weight:800; font-size:28px; box-shadow:3px 3px 0 0 #0A0A0A; margin-bottom:14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="h">H</div>
+    <h1>You're offline</h1>
+    <p>HackKnow.com couldn't reach the internet. Reconnect and try again — your cart, wishlist and downloads are safe.</p>
+    <a class="btn" href="/" onclick="location.reload();return false;">Try again</a>
+  </div>
+</body>
+</html>

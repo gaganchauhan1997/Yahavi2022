@@ -1,4 +1,47 @@
+# HackKnow.com — robots.txt
+# All search engines and good crawlers welcome.
 User-agent: *
 Allow: /
+Disallow: /wp-admin/
+Disallow: /wp-login.php
+Disallow: /wp-json/wc/v3/
+Disallow: /wp-json/wc/store/
+Disallow: /api/internal/
+Disallow: /account
+Disallow: /checkout
+Disallow: /cart
+Disallow: /order/
+
+# Specifically welcome major bots (some skip the wildcard above for clarity)
+User-agent: Googlebot
+Allow: /
+Disallow: /wp-admin/
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Disallow: /wp-admin/
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+# Block heavy/uncool scrapers
+User-agent: SemrushBot
+Disallow: /
+User-agent: AhrefsBot
+Disallow: /
+User-agent: MJ12bot
+Disallow: /
+User-agent: DotBot
+Disallow: /
 
 Sitemap: https://www.hackknow.com/sitemap.xml

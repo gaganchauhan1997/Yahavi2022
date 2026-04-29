@@ -4,6 +4,7 @@ import { Heart, ShoppingCart, Star, Download, Check, Shield, ArrowRight } from "
 import { useStore } from "@/context/StoreContext";
 import { getProductBySlug, getRelatedProducts } from "@/data/products";
 import ProductCard from "@/components/ProductCard";
+import ReviewsBlock from "@/components/ReviewsBlock";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -281,59 +282,11 @@ export default function ProductPage() {
               </div>
             </TabsContent>
             <TabsContent value="reviews" className="mt-6">
-              <div className="bg-white rounded-2xl p-6 lg:p-8 border border-hack-black/5">
-                {product.rating !== undefined && (
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="text-center">
-                      <p className="font-display font-bold text-4xl">
-                        {product.rating}
-                      </p>
-                      <div className="flex gap-0.5 mt-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${
-                              i < Math.floor(product.rating!)
-                                ? "fill-hack-yellow text-hack-yellow"
-                                : "text-hack-black/20"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      {product.reviews !== undefined && (
-                        <p className="text-xs text-hack-black/50 mt-1">
-                          {product.reviews} reviews
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div className="space-y-4">
-                  {[
-                    { name: "Alex Thompson", rating: 5, date: "2 weeks ago", text: "Absolutely love this template! Saved me so much time and the quality is top-notch." },
-                    { name: "Maria Garcia", rating: 5, date: "1 month ago", text: "Best purchase I've made this year. Highly professional and easy to customize." },
-                    { name: "James Wilson", rating: 4, date: "2 months ago", text: "Great quality product. Minor tweaks needed but overall very satisfied." },
-                  ].map((review, index) => (
-                    <div key={index} className="border-t border-hack-black/5 pt-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-full bg-hack-black/10 flex items-center justify-center text-xs font-bold">
-                          {review.name.split(" ").map(n => n[0]).join("")}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">{review.name}</p>
-                          <p className="text-xs text-hack-black/50">{review.date}</p>
-                        </div>
-                        <div className="ml-auto flex gap-0.5">
-                          {Array.from({ length: review.rating }).map((_, i) => (
-                            <Star key={i} className="w-3 h-3 fill-hack-yellow text-hack-yellow" />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm text-hack-black/70">{review.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ReviewsBlock
+                productId={product.id}
+                fallbackRating={product.rating}
+                fallbackCount={product.reviews}
+              />
             </TabsContent>
           </Tabs>
 

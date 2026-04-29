@@ -1,10 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://www.hackknow.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://www.hackknow.com/products</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/0.9">
+  <url><loc>https://www.hackknow.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority>
+    <image:image><image:loc>https://www.hackknow.com/og-image.jpg</image:loc></image:image>
+  </url>
+  <url><loc>https://www.hackknow.com/shop</loc><changefreq>daily</changefreq><priority>0.95</priority></url>
+  <url><loc>https://www.hackknow.com/shop/free-resources</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.hackknow.com/shop/excel-templates</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://www.hackknow.com/shop/dashboards</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://www.hackknow.com/shop/presentation-templates</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://www.hackknow.com/shop/marketing-kits</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://www.hackknow.com/shop/notion-templates</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://www.hackknow.com/blog</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://www.hackknow.com/about</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://www.hackknow.com/contact</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://www.hackknow.com/support</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://www.hackknow.com/affiliate</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://www.hackknow.com/login</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://www.hackknow.com/signup</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://www.hackknow.com/privacy-policy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://www.hackknow.com/refund-policy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://www.hackknow.com/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>

@@ -238,6 +238,14 @@ export default function Footer() {
                 </button>
               </li>
               <li>
+                <button
+                  onClick={() => scrollToTop('/testimonials')}
+                  className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
+                >
+                  Testimonials
+                </button>
+              </li>
+              <li>
                 <a
                   href="https://hackknow.space"
                   target="_blank"
@@ -262,7 +270,7 @@ export default function Footer() {
 
       {/* Bottom Bar */}
       <div className="border-t border-hack-white/10">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4 border-b border-hack-white/10 flex flex-col sm:flex-row items-center justify-center gap-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4 border-b border-hack-white/10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
           <a href="mailto:support@hackknow.com" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">
             <span>✉</span> support@hackknow.com
           </a>
@@ -270,23 +278,39 @@ export default function Footer() {
           <a href="tel:+918796018700" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">
             <span>📞</span> +91 87960 18700
           </a>
+          <span className="hidden sm:block text-hack-white/20">|</span>
+          <span className="text-xs text-hack-white/50 flex items-center gap-1.5">
+            <span>📍</span> Delhi, India
+          </span>
         </div>
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6 pb-20 lg:pb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-hack-white/40">
-            &copy; 2026 Hackknow. All rights reserved.
+          <p className="text-xs text-hack-white/40 text-center sm:text-left">
+            &copy; 2026 HackKnow. All rights reserved. Made in Delhi, India.
           </p>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap justify-center">
             <button
               onClick={() => scrollToTop('/terms')}
               className="text-xs text-hack-white/40 hover:text-hack-white/70 transition-colors"
             >
-              Terms & Conditions
+              Terms
             </button>
             <button
               onClick={() => scrollToTop('/privacy')}
               className="text-xs text-hack-white/40 hover:text-hack-white/70 transition-colors"
             >
-              Privacy Policy
+              Privacy
+            </button>
+            <button
+              onClick={() => scrollToTop('/refund-policy')}
+              className="text-xs text-hack-white/40 hover:text-hack-white/70 transition-colors"
+            >
+              Refunds
+            </button>
+            <button
+              onClick={() => scrollToTop('/dmca')}
+              className="text-xs text-hack-white/40 hover:text-hack-white/70 transition-colors"
+            >
+              DMCA
             </button>
           </div>
         </div>

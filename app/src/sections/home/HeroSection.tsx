@@ -38,17 +38,14 @@ export default function HeroSection() {
         {/* Phone Mockup */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="relative">
-            <picture>
-              <source srcSet="/images/hero/phone-mockup.webp" type="image/webp" />
-              <img
-                src="/images/hero/phone-mockup.png"
-                alt="Hackknow App"
-                width="380"
-                height="760"
-                className="w-[320px] xl:w-[380px] h-auto drop-shadow-2xl animate-float rounded-[2.5rem] ring-1 ring-hack-black/15"
-                fetchPriority="high"
-              />
-            </picture>
+            <img
+              src="/images/hero/phone-mockup.png"
+              alt="Hackknow App"
+              width="380"
+              height="760"
+              className="w-[320px] xl:w-[380px] h-auto drop-shadow-2xl animate-float rounded-[2.5rem] ring-1 ring-hack-black/15"
+              fetchPriority="high"
+            />
             {/* Floating Badge */}
             <div className="absolute -bottom-4 -right-8 bg-hack-yellow text-hack-black px-4 py-2 rounded-full font-display font-bold text-sm shadow-lg animate-bounce-subtle border border-hack-black/20">
               10K+ Happy Customers
@@ -81,17 +78,14 @@ export default function HeroSection() {
           {/* Mobile Phone Mockup */}
           <div className="lg:hidden flex justify-center mb-8">
             <div className="relative">
-              <picture>
-                <source srcSet="/images/hero/phone-mockup.webp" type="image/webp" />
-                <img
-                  src="/images/hero/phone-mockup.png"
-                  alt="Hackknow App"
-                  width="160"
-                  height="320"
-                  className="w-[130px] h-auto drop-shadow-2xl animate-float opacity-95 rounded-2xl ring-1 ring-hack-black/20"
-                  loading="lazy"
-                />
-              </picture>
+              <img
+                src="/images/hero/phone-mockup.png"
+                alt="Hackknow App"
+                width="160"
+                height="320"
+                className="w-[130px] h-auto drop-shadow-2xl animate-float opacity-95 rounded-2xl ring-1 ring-hack-black/20"
+                loading="lazy"
+              />
               <div className="absolute -bottom-2 -right-3 bg-hack-yellow text-hack-black px-2 py-1 rounded-full font-display font-bold text-[9px] shadow-lg animate-bounce-subtle whitespace-nowrap border border-hack-black/20">
                 10K+ Customers
               </div>

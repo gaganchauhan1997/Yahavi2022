@@ -41,7 +41,7 @@ export default function CookieConsent() {
           <p className="text-white/60 text-xs leading-relaxed">
             We use cookies to improve your experience, analyze site traffic and personalise content.
             By clicking "Accept", you agree to our{" "}
-            <a href="/privacy-policy" className="text-hack-yellow hover:underline">
+            <a href="/privacy" className="text-hack-yellow hover:underline">
               Privacy Policy
             </a>.
           </p>

@@ -4,6 +4,7 @@ import { Search, ShoppingCart, Menu, X, Heart, User } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { categories } from "@/data/products";
 import { isAuthenticated, logout } from "@/lib/auth";
+import InstallButton from "@/components/InstallButton";
 
 export default function Header() {
   const { state, dispatch, cartCount } = useStore();
@@ -63,9 +64,18 @@ export default function Header() {
               <Link
                 to="/"
                 onClick={closeMobileMenu}
-                className="font-display font-bold text-xl lg:text-2xl tracking-tight text-hack-black"
+                aria-label="HackKnow home"
+                className="flex items-center gap-2 group"
               >
-                HACKKNOW
+                <span
+                  aria-hidden="true"
+                  className="inline-flex items-center justify-center w-9 h-9 lg:w-10 lg:h-10 rounded-lg bg-hack-yellow text-hack-black border-2 border-hack-black font-display font-extrabold text-xl lg:text-2xl shadow-[3px_3px_0_0_#0A0A0A] group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-[2px_2px_0_0_#0A0A0A] transition-all"
+                >
+                  H
+                </span>
+                <span className="font-display font-bold text-xl lg:text-2xl tracking-tight text-hack-black">
+                  HACKKNOW
+                </span>
               </Link>
               <span className="hidden sm:inline-block text-[10px] font-mono uppercase tracking-widest text-hack-black/50 -ml-1">
                 Digital Marketplace
@@ -155,6 +165,7 @@ export default function Header() {
                   </span>
                 )}
               </button>
+              <InstallButton />
             </div>
           </div>
         </div>
