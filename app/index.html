@@ -43,26 +43,30 @@
     <link rel="alternate icon"   type="image/x-icon"  href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180"      href="/apple-touch-icon.png" />
 
-    <!-- Preconnect -->
+    <!-- Preconnect to critical origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://checkout.razorpay.com" />
     <link rel="preconnect" href="https://accounts.google.com" />
 
-    <!-- DNS prefetch -->
+    <!-- DNS prefetch for secondary origins -->
     <link rel="dns-prefetch" href="https://api.razorpay.com" />
     <link rel="dns-prefetch" href="https://apis.google.com" />
+    <link rel="dns-prefetch" href="https://lh3.googleusercontent.com" />
 
-    <!-- Google Fonts -->
+    <!-- Preload LCP hero image (desktop) -->
+    <link rel="preload" as="image" href="/images/hero/phone-mockup.webp" type="image/webp" media="(min-width: 1024px)" />
+
+    <!-- Google Fonts — reduced to 2 families, fewer weights -->
     <link rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap"
           media="print" onload="this.media='all'" />
     <noscript>
       <link rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" />
     </noscript>
 
-    <!-- Google Sign-In SDK (loaded async, does not block render) -->
+    <!-- Google Sign-In SDK (async — does not block render) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <!-- JSON-LD structured data -->
