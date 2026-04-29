@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { dispatch, state } = useStore();
+  const { dispatch, toggleWishlist, state } = useStore();
 
   const product = slug ? getProductBySlug(state.products, slug) : undefined;
   const relatedProducts = product ? getRelatedProducts(state.products, product) : [];
@@ -50,7 +50,7 @@ export default function ProductPage() {
   };
 
   const handleToggleWishlist = () => {
-    dispatch({ type: "TOGGLE_WISHLIST", productId: product.id });
+    toggleWishlist(product.id);
   };
 
   return (

@@ -6,6 +6,7 @@ import { initializeRazorpayPayment } from "@/lib/razorpay";
 import { parsePriceValue, rewriteWpUrl } from "@/lib/utils";
 import type { RazorpayResponse } from "@/types/razorpay";
 import { getCurrentUser } from "@/lib/auth";
+import { fetchServerWishlist, toggleServerWishlist } from "@/lib/wishlist-api";
 
 interface ProductCategoryNode {
   slug?: string | null;
@@ -63,6 +64,7 @@ type StoreAction =
   | { type: "TOGGLE_CART" }
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "TOGGLE_WISHLIST"; productId: string }
+  | { type: "SYNC_WISHLIST"; ids: string[] }
   | { type: "SET_SEARCH"; query: string };
 
 const initialState: StoreState = {
@@ -78,6 +80,7 @@ const initialState: StoreState = {
 interface StoreContextValue {
   state: StoreState;
   dispatch: React.Dispatch<StoreAction>;
+  toggleWishlist: (productId: string) => void;
   checkout: (
     amount: number,
     callbacks?: {
@@ -142,6 +145,8 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
           ? state.wishlist.filter((id) => id !== action.productId)
           : [...state.wishlist, action.productId],
       };
+    case "SYNC_WISHLIST":
+      return { ...state, wishlist: action.ids };
     case "SET_SEARCH":
       return { ...state, searchQuery: action.query };
     default:
@@ -261,6 +266,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [state.cart]
   );
 
+  // Load wishlist from server on mount (merges with localStorage)
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user?.id) return;
+    fetchServerWishlist().then((serverIds) => {
+      if (serverIds.length === 0) return;
+      dispatch({ type: "SYNC_WISHLIST", ids: serverIds });
+    });
+  }, []);
+
+  const toggleWishlist = (productId: string) => {
+    // Optimistic local update first
+    dispatch({ type: "TOGGLE_WISHLIST", productId });
+    // Sync to server in background if logged in
+    const user = getCurrentUser();
+    if (user?.id) {
+      toggleServerWishlist(productId).then((serverIds) => {
+        if (serverIds.length > 0) {
+          dispatch({ type: "SYNC_WISHLIST", ids: serverIds });
+        }
+      });
+    }
+  };
+
   const checkout = (
     amount: number,
     callbacks?: {
@@ -279,7 +308,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   return (
-    <StoreContext.Provider value={{ state, dispatch, checkout, cartCount, cartTotal }}>
+    <StoreContext.Provider value={{ state, dispatch, toggleWishlist, checkout, cartCount, cartTotal }}>
       {children}
     </StoreContext.Provider>
   );

@@ -435,7 +435,7 @@ export default function UserProfilePage() {
   const { section } = useParams<{ section?: string }>();
   const navigate    = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { state, dispatch } = useStore();
+  const { state, toggleWishlist } = useStore();
 
   const avatarKey = () => {
     const user = getCurrentUser();
@@ -575,7 +575,7 @@ export default function UserProfilePage() {
                   <div key={product.id} className="relative">
                     <ProductCard product={product} />
                     <button
-                      onClick={() => dispatch({ type: 'TOGGLE_WISHLIST', productId: product.id })}
+                      onClick={() => toggleWishlist(product.id)}
                       className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center hover:bg-red-50 transition-colors"
                       title="Remove from wishlist"
                     >

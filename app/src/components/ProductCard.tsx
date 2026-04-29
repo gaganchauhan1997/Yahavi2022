@@ -9,7 +9,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, className = "" }: ProductCardProps) {
-  const { dispatch, state } = useStore();
+  const { dispatch, toggleWishlist, state } = useStore();
   const isInWishlist = state.wishlist.includes(product.id);
   const productImage = product.image?.sourceUrl?.trim();
 
@@ -22,7 +22,7 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
   const handleToggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    dispatch({ type: "TOGGLE_WISHLIST", productId: product.id });
+    toggleWishlist(product.id);
   };
 
   return (

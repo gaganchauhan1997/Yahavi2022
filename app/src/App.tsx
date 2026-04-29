@@ -8,6 +8,7 @@ import Footer from './components/Footer';
 import Header from './components/Header';
 import MobileBottomBar from './components/MobileBottomBar';
 import YahaviAI from './components/YahaviAI';
+import CookieConsent from './components/CookieConsent';
 import { StoreProvider } from './context/StoreContext';
 import { installFetchInterceptor } from './lib/fetch-interceptor';
 
@@ -122,6 +123,7 @@ function App() {
           <MobileBottomBar />
         </Router>
         <Toaster richColors position="top-right" />
+        <CookieConsent />
       </StoreProvider>
     </ErrorBoundary>
   );
