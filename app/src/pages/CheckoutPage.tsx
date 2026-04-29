@@ -221,11 +221,14 @@ export default function CheckoutPage() {
                   {state.cart.map((item) => (
                     <div key={item.product.id} className="flex gap-3">
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-hack-black/5 flex-shrink-0">
-                        <img
-                          src={item.product.image?.sourceUrl}
-                          alt={item.product.name}
-                          className="w-full h-full object-cover"
-                        />
+                        {item.product.image?.sourceUrl && (
+                          <img
+                            src={item.product.image.sourceUrl}
+                            alt={item.product.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">

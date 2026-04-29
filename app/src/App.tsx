@@ -1,5 +1,6 @@
 import { Component, Suspense, lazy, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Toaster } from './components/ui/sonner';
 import CartDrawer from './components/CartDrawer';
 import CategorySidebar from './components/CategorySidebar';
 import AuthGuard from './components/AuthGuard';
@@ -120,6 +121,7 @@ function App() {
           <Footer />
           <MobileBottomBar />
         </Router>
+        <Toaster richColors position="top-right" />
       </StoreProvider>
     </ErrorBoundary>
   );

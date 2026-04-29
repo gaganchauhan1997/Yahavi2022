@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, Search, SlidersHorizontal } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import { useStore } from "@/context/StoreContext";
@@ -128,10 +128,17 @@ function Pagination({
   );
 }
 
+function parsePrice(price?: string): number {
+  if (!price) return 0;
+  const numeric = price.replace(/[^0-9.]/g, "");
+  return Number.parseFloat(numeric) || 0;
+}
+
 /* ── ShopPage ─────────────────────────────────────────────────────────── */
 export default function ShopPage() {
   const { category: categorySlug } = useParams<{ category?: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const filterParam = searchParams.get("filter");
   const subParam = searchParams.get("sub");
   const { state } = useStore();
@@ -144,12 +151,6 @@ export default function ShopPage() {
   const currentCategory = categorySlug
     ? categories.find((category) => category.slug === categorySlug)
     : null;
-
-  const parsePrice = (price?: string): number => {
-    if (!price) return 0;
-    const numeric = price.replace(/[^0-9.]/g, "");
-    return Number.parseFloat(numeric) || 0;
-  };
 
   const maxProductPrice = useMemo(() => {
     if (!products.length) return 1000;
@@ -447,7 +448,7 @@ export default function ShopPage() {
                         <button
                           onClick={() => {
                             setSelectedMaxPrice(null);
-                            window.location.href = "/shop";
+                            navigate("/shop");
                           }}
                           className="rounded-full bg-hack-yellow px-6 py-2.5 font-bold text-hack-black transition-colors hover:bg-hack-yellow/90"
                         >

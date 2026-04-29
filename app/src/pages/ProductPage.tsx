@@ -17,6 +17,15 @@ export default function ProductPage() {
   const isInWishlist = product ? state.wishlist.includes(product.id) : false;
   const productImage = product?.image?.sourceUrl?.trim();
 
+  if (state.loading) {
+    return (
+      <div className="pt-32 pb-20 text-center">
+        <div className="inline-block w-8 h-8 border-4 border-hack-black border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-hack-black/60">Loading product…</p>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="pt-32 pb-20 text-center">

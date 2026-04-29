@@ -56,11 +56,14 @@ export default function CartDrawer() {
                 {state.cart.map((item) => (
                   <div key={item.product.id} className="flex gap-4">
                     <div className="w-20 h-20 rounded-xl bg-hack-black/5 flex-shrink-0 overflow-hidden">
-                      <img
-                        src={item.product.image?.sourceUrl}
-                        alt={item.product.name}
-                        className="w-full h-full object-cover"
-                      />
+                      {item.product.image?.sourceUrl && (
+                        <img
+                          src={item.product.image.sourceUrl}
+                          alt={item.product.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-medium truncate">

@@ -49,11 +49,14 @@ export default function CartPage() {
                   className="flex gap-4 p-4 bg-white rounded-2xl border border-hack-black/5"
                 >
                   <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-hack-black/5">
-                    <img
-                      src={item.product.image?.sourceUrl}
-                      alt={item.product.name}
-                      className="w-full h-full object-cover"
-                    />
+                    {item.product.image?.sourceUrl && (
+                      <img
+                        src={item.product.image.sourceUrl}
+                        alt={item.product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4">

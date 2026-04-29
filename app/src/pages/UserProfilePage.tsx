@@ -20,6 +20,8 @@ const mainItems = [
   { id: 'addresses', label: 'Manage Addresses',   icon: MapPin },
 ];
 
+const allTabs = new Set([...mainItems.map(i => i.id), 'orders']);
+
 interface WCOrder {
   id: number;
   number: string;
@@ -55,7 +57,10 @@ function useFetch<T>(path: string) {
     let active = true;
     setLoading(true); setError('');
     authFetch(path)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`Request failed: ${r.status} ${r.statusText}`);
+        return r.json();
+      })
       .then(d => { if (active) { setData(d); setLoading(false); } })
       .catch(e => { if (active) { setError(e.message); setLoading(false); } });
     return () => { active = false; };
@@ -437,7 +442,6 @@ export default function UserProfilePage() {
     ...getCurrentUser(),
   }));
 
-  const allTabs = new Set([...mainItems.map(i => i.id), 'orders']);
   const activeTab = useMemo(() => section && allTabs.has(section) ? section : 'profile', [section]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {

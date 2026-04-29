@@ -255,11 +255,11 @@ const SignupPage: FC = () => {
                 />
                 <span className="text-sm font-medium text-hack-black">
                   I agree to the{' '}
-                  <Link to="/support" className="font-bold underline underline-offset-4">
+                  <Link to="/terms" className="font-bold underline underline-offset-4">
                     Terms
                   </Link>{' '}
                   and{' '}
-                  <Link to="/support" className="font-bold underline underline-offset-4">
+                  <Link to="/privacy" className="font-bold underline underline-offset-4">
                     Privacy Policy
                   </Link>
                   .
