@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 /* CF7 form hash from shortcode: [contact-form-7 id="99cfbdb" title="Hackknow Contact Us"] */
-const CF7_ENDPOINT = 'https://shop.hackknow.com/wp-json/contact-form-7/v1/contact-forms/99cfbdb/feedback';
+const CF7_ENDPOINT = 'https://shop.hackknow.com/wp-json/contact-form-7/v1/contact-forms/959/feedback';
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
