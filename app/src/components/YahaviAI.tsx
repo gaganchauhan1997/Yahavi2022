@@ -48,6 +48,31 @@ function getSessionId(): string {
   }
 }
 
+/**
+ * Yahavi can embed automation markers in her replies that the chat client
+ * will execute, then strip from the visible text. Currently supported:
+ *   [[NAV:/checkout]]              → after the message renders, navigate the
+ *                                    user to the given path (any in-app route).
+ * Markers are parsed defensively — if Yahavi forgets the closing brackets or
+ * uses a non-relative path, we just ignore them and show the raw text.
+ */
+function parseChatActions(raw: string): { cleanText: string; navTarget: string | null } {
+  if (!raw) return { cleanText: raw, navTarget: null };
+  const navTargets: string[] = [];
+  const cleanText = raw
+    .replace(/\[\[\s*NAV\s*:\s*(\/[^\]\s]*)\s*\]\]/gi, (_full, path: string) => {
+      navTargets.push(path);
+      return "";
+    })
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  // If Yahavi emitted multiple nav markers in one reply (rare), honour the LAST one
+  // because that's almost always her final call-to-action.
+  const navTarget = navTargets.length > 0 ? navTargets[navTargets.length - 1] : null;
+  return { cleanText, navTarget };
+}
+
 export default function YahaviChat() {
   const [open, setOpen] = useState<boolean>(() => {
     try { return sessionStorage.getItem(OPEN_KEY) === "1"; } catch { return false; }
@@ -138,9 +163,12 @@ export default function YahaviChat() {
         }),
       });
       const data = await res.json().catch(() => ({})) as Partial<ChatMsg> & { reply?: string };
+      const rawReply = data.reply || data.text || "I'm here, but I couldn't form a reply. Try asking another way?";
+      // Strip and execute any [[NAV:/path]] markers Yahavi embedded.
+      const { cleanText, navTarget } = parseChatActions(rawReply);
       const botMsg: ChatMsg = {
         role: "bot",
-        text: data.reply || data.text || "I'm here, but I couldn't form a reply. Try asking another way?",
+        text: cleanText,
         suggestions: data.suggestions || [],
         products: data.products || [],
       };
@@ -162,6 +190,17 @@ export default function YahaviChat() {
       }
 
       setMessages((m) => [...m, botMsg]);
+
+      // Honour any [[NAV:/path]] action Yahavi embedded — close the chat panel
+      // and route the user there after a short delay so they can read her
+      // message first. Only relative in-app paths are accepted (parser already
+      // enforces this) so there's no risk of an open redirect.
+      if (navTarget) {
+        setTimeout(() => {
+          setOpen(false);
+          navigate(navTarget);
+        }, 1200);
+      }
     } catch {
       setMessages((m) => [...m, {
         role: "bot",
@@ -171,7 +210,7 @@ export default function YahaviChat() {
     } finally {
       setSending(false);
     }
-  }, [messages, sending, authHeaders]);
+  }, [messages, sending, authHeaders, navigate]);
 
   const handleSuggestion = (href: string) => {
     setOpen(false);
