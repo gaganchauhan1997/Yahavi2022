@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, Lock } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 export default function CheckoutPage() {
   const { state, cartTotal, dispatch } = useStore();
+  const navigate = useNavigate();
   const [isComplete, setIsComplete] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [formData, setFormData] = useState({
@@ -90,17 +91,32 @@ export default function CheckoutPage() {
         },
         callbacks: {
           onSuccess: async (resp) => {
+            const razorpayPaymentId = resp.razorpay_payment_id;
             try {
               await verifyServerPayment({
                 razorpay_order_id: resp.razorpay_order_id ?? order.razorpay_order,
-                razorpay_payment_id: resp.razorpay_payment_id,
+                razorpay_payment_id: razorpayPaymentId,
                 razorpay_signature: resp.razorpay_signature ?? "",
                 wc_order_id: order.wc_order_id,
               });
               dispatch({ type: "CLEAR_CART" });
               setIsComplete(true);
             } catch {
-              toast.error("Payment received but verification failed. Support has been notified.");
+              /**
+               * Payment was captured by Razorpay but our server-sync failed.
+               * CRITICAL: clear the cart immediately so the user cannot
+               * accidentally attempt a second payment, then redirect to the
+               * /order-pending page with the Razorpay payment ID so the
+               * support team can manually confirm.
+               */
+              dispatch({ type: "CLEAR_CART" });
+              toast.error(
+                "Payment received! Our server sync had an issue — redirecting you to your order status.",
+                { duration: 4000 }
+              );
+              setTimeout(() => {
+                navigate(`/order-pending?payment_id=${razorpayPaymentId}`);
+              }, 2000);
             } finally {
               setIsProcessing(false);
             }
