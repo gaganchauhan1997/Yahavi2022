@@ -165,6 +165,7 @@ add_action('rest_api_init', function () {
     register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_chat_history_get']));
     register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_chat_history_save']));
     register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'DELETE', 'callback' => 'hackknow_chat_history_clear']));
+    register_rest_route('hackknow/v1', '/chat/feedback',    array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_chat_feedback']));
     register_rest_route('hackknow/v1', '/coupon/validate',  array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_coupon_validate']));
     register_rest_route('hackknow/v1', '/upsell',           array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_upsell_get']));
 });
@@ -308,9 +309,52 @@ if (!defined('HACKKNOW_MAIL_FROM_NAME')) { define('HACKKNOW_MAIL_FROM_NAME', 'Ha
  * a real mailbox on Hostinger and almost always fails SPF/DMARC checks → mail
  * silently drops or lands in spam. We force every outbound email to come from
  * support@hackknow.com (a real mailbox the owner controls) so the password-
- * reset, order-confirmation, and contact-form emails actually reach inboxes. */
-add_filter('wp_mail_from',      function ($from) { return HACKKNOW_MAIL_FROM; },      99);
-add_filter('wp_mail_from_name', function ($name) { return HACKKNOW_MAIL_FROM_NAME; }, 99);
+ * reset, order-confirmation, and contact-form emails actually reach inboxes.
+ *
+ * IMPORTANT: WooCommerce (and some other plugins) set an explicit `From:`
+ * header in $args['headers'] (e.g. `From: Hackknow <ceo.hackknow@gmail.com>`).
+ * When WP sees a From header in $headers it uses it directly and SKIPS the
+ * wp_mail_from filter entirely. That's why setting only wp_mail_from is not
+ * enough — we MUST also strip any From: header from $args['headers'] AND
+ * override the PHPMailer object directly in phpmailer_init. Otherwise
+ * password-reset / order / welcome emails go out claiming `From: gmail.com`
+ * from a Hostinger IP, which Gmail's DMARC `p=reject` policy silently TRASHES
+ * (not even spam). Hours of "no email arrived" bug reports trace back to
+ * exactly this. */
+add_filter('wp_mail_from',      function ($from) { return HACKKNOW_MAIL_FROM; },      PHP_INT_MAX);
+add_filter('wp_mail_from_name', function ($name) { return HACKKNOW_MAIL_FROM_NAME; }, PHP_INT_MAX);
+
+/* Strip any plugin-supplied `From:` header so WP falls back to wp_mail_from
+ * filter (which we control). Runs at PHP_INT_MAX so it sees the final
+ * header list after every other filter has had its turn. */
+add_filter('wp_mail', function ($args) {
+    if (!is_array($args)) return $args;
+    $headers = isset($args['headers']) ? $args['headers'] : [];
+    if (is_string($headers)) {
+        // Remove any "From:" line (case-insensitive, multi-line safe)
+        $headers = preg_replace('/^From:.*$/im', '', $headers);
+        $headers = preg_replace("/\n\s*\n/", "\n", trim($headers));
+    } elseif (is_array($headers)) {
+        $headers = array_values(array_filter($headers, function ($h) {
+            return !preg_match('/^\s*From\s*:/i', (string) $h);
+        }));
+    }
+    $args['headers'] = $headers;
+    return $args;
+}, PHP_INT_MAX);
+
+/* Last line of defence — override the PHPMailer object right before send.
+ * This catches code paths that bypass wp_mail() entirely (rare) and any
+ * future plugin that might re-set From after our wp_mail filter. */
+add_action('phpmailer_init', function ($phpmailer) {
+    try {
+        $phpmailer->From     = HACKKNOW_MAIL_FROM;
+        $phpmailer->FromName = HACKKNOW_MAIL_FROM_NAME;
+        $phpmailer->Sender   = HACKKNOW_MAIL_FROM; // Return-Path / envelope sender
+    } catch (\Throwable $e) {
+        error_log('[hackknow] phpmailer_init From override failed: ' . $e->getMessage());
+    }
+}, PHP_INT_MAX);
 
 /* Surface any wp_mail failures into the PHP error log so the owner can debug
  * delivery issues from /var/log without guessing. */
@@ -1064,10 +1108,11 @@ function hackknow_chat_upcoming_products($limit = 3) {
         $out[] = [
             'name'  => $p->get_name(),
             'price' => $p->get_price_html() ? wp_strip_all_tags($p->get_price_html()) : '',
+            'path'  => '/product/' . $p->get_slug(),
         ];
     }
     wp_reset_postdata();
-    set_transient('hk_chat_upcoming_v1', $out, 15 * MINUTE_IN_SECONDS);
+    set_transient('hk_chat_upcoming_v2', $out, 15 * MINUTE_IN_SECONDS);
     return $out;
 }
 
@@ -1144,9 +1189,11 @@ function hackknow_chat(WP_REST_Request $req) {
         if (!empty($upcoming_products)) {
             $lines = [];
             foreach ($upcoming_products as $u) {
-                $lines[] = '- ' . $u['name'] . ($u['price'] !== '' ? ' (' . $u['price'] . ')' : '');
+                $price_part = ($u['price'] !== '' ? ' (' . $u['price'] . ')' : '');
+                $path_part  = (!empty($u['path']) ? ' [path: ' . $u['path'] . ']' : '');
+                $lines[] = '- ' . $u['name'] . $price_part . $path_part;
             }
-            $upcoming_block = "UPCOMING_OR_NEW_RELEASES (real products from our store):\n" . implode("\n", $lines);
+            $upcoming_block = "UPCOMING_OR_NEW_RELEASES (real products from our store — link them with the [path: …] value as a CITATION):\n" . implode("\n", $lines);
         }
 
         $status_block = "USER_STATUS: " . $user_status['tier']
@@ -1224,6 +1271,26 @@ function hackknow_chat(WP_REST_Request $req) {
              . "        [[NAV:/checkout]]'. Never emit a bare marker with no message.\n"
              . "  (v)   Don't use the marker for refund/problem/complaint conversations or when "
              . "        the customer hasn't asked to navigate.\n\n"
+             . "===== CITATIONS — make every reference clickable =====\n"
+             . "Whenever you mention a product, a policy page, or a section of the site, format "
+             . "that reference as a markdown link so the user can click it. Syntax:\n"
+             . "    [Visible label](/path)\n"
+             . "Examples:\n"
+             . "  • '[Sales Dashboard](/product/sales-dashboard) ek complete reporting suite hai.'\n"
+             . "  • 'Refund details [yahan dekh lo](/refund-policy).'\n"
+             . "  • 'Free templates ke liye [is page pe jao](/shop/free-resources).'\n"
+             . "STRICT rules for citations:\n"
+             . "  1. Use ONLY paths that you can SEE in this prompt (UPCOMING_OR_NEW_RELEASES "
+             . "     [path: …] entries, USER_RECENT_PURCHASES, or the suggested-paths list "
+             . "     /shop, /shop/free-resources, /account/orders, /refund-policy, /privacy, "
+             . "     /terms, /dmca, /testimonials, /contact, /checkout). NEVER invent a path.\n"
+             . "  2. Maximum 3 links per reply. Don't link random words; only link the actual "
+             . "     product name or page name a user would want to click.\n"
+             . "  3. Citations are SEPARATE from the [[NAV:/path]] marker — citations let the "
+             . "     user choose to click; the NAV marker auto-redirects them. You can use both "
+             . "     in the same reply when natural (cite a product, then NAV to /checkout).\n"
+             . "  4. If you don't know a product's exact path, DON'T link it — just mention "
+             . "     the name plainly. Better no link than a broken link.\n\n"
              . "===== LIVE STORE CONTEXT (refreshed every few minutes) =====\n"
              . $status_block . "\n"
              . $coupons_block . "\n"
@@ -1279,7 +1346,7 @@ function hackknow_chat(WP_REST_Request $req) {
         }
         $contents[] = ['role' => 'user', 'parts' => [['text' => $message]]];
         $resp = wp_remote_post(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . urlencode(HACKKNOW_GEMINI_KEY),
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' . urlencode(HACKKNOW_GEMINI_KEY),
             [
                 'headers' => ['Content-Type' => 'application/json'],
                 'body'    => wp_json_encode([
@@ -1535,14 +1602,29 @@ function hackknow_chat_install_table() {
         role VARCHAR(16) NOT NULL DEFAULT 'user',
         message LONGTEXT NOT NULL,
         meta LONGTEXT NULL,
+        feedback TINYINT NOT NULL DEFAULT 0,
+        is_hidden TINYINT NOT NULL DEFAULT 0,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         KEY user_idx (user_id, created_at),
         KEY session_idx (session_id, created_at),
-        KEY email_idx (user_email)
+        KEY email_idx (user_email),
+        KEY feedback_idx (feedback)
     ) {$charset};";
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta($sql);
+    // Idempotent column adds for installs that pre-date these fields. dbDelta
+    // is not 100% reliable for adding columns to an existing table, so we
+    // double-check via SHOW COLUMNS and ALTER TABLE if missing.
+    $existing = $wpdb->get_col("SHOW COLUMNS FROM {$table}", 0);
+    if (is_array($existing)) {
+        if (!in_array('feedback', $existing, true)) {
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN feedback TINYINT NOT NULL DEFAULT 0, ADD KEY feedback_idx (feedback)");
+        }
+        if (!in_array('is_hidden', $existing, true)) {
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN is_hidden TINYINT NOT NULL DEFAULT 0");
+        }
+    }
 }
 add_action('init', 'hackknow_chat_install_table', 5);
 
@@ -1580,9 +1662,11 @@ function hackknow_chat_history_get(WP_REST_Request $req) {
     $uid   = $token ? (int) hackknow_verify_token($token) : 0;
 
     if ($uid > 0) {
+        // is_hidden = 0 → user only sees rows they haven't "cleared". The hidden
+        // rows stay in the DB so HackKnow can keep learning (RLHF, analytics).
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT id, role, message, meta, created_at FROM {$table}
-             WHERE user_id = %d ORDER BY id ASC LIMIT %d",
+            "SELECT id, role, message, meta, feedback, created_at FROM {$table}
+             WHERE user_id = %d AND is_hidden = 0 ORDER BY id ASC LIMIT %d",
             $uid, $limit
         ), ARRAY_A);
     } else {
@@ -1593,8 +1677,8 @@ function hackknow_chat_history_get(WP_REST_Request $req) {
         // Anon read MUST exclude rows that were later associated with a logged-in user.
         // This prevents a session-id leak from exposing post-login conversation.
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT id, role, message, meta, created_at FROM {$table}
-             WHERE session_id = %s AND user_id = 0 ORDER BY id ASC LIMIT %d",
+            "SELECT id, role, message, meta, feedback, created_at FROM {$table}
+             WHERE session_id = %s AND user_id = 0 AND is_hidden = 0 ORDER BY id ASC LIMIT %d",
             $session_id, $limit
         ), ARRAY_A);
     }
@@ -1608,6 +1692,7 @@ function hackknow_chat_history_get(WP_REST_Request $req) {
             'text'        => $r['message'],
             'suggestions' => is_array($meta) && isset($meta['suggestions']) ? $meta['suggestions'] : [],
             'products'    => is_array($meta) && isset($meta['products'])    ? $meta['products']    : [],
+            'feedback'    => isset($r['feedback']) ? (int)$r['feedback'] : 0,
             'createdAt'   => $r['created_at'],
         ];
     }
@@ -1657,16 +1742,56 @@ function hackknow_chat_history_clear(WP_REST_Request $req) {
     $table = $wpdb->prefix . 'hk_chat_messages';
     $token = hackknow_extract_bearer($req);
     $uid   = $token ? (int) hackknow_verify_token($token) : 0;
+    // Soft-delete: hide from the user but KEEP every row in the database so
+    // Yahavi can keep learning from past conversations (RLHF / analytics) and
+    // the owner can still audit the chat. Per Terms, "Clear" only resets the
+    // local view — it does not erase the server copy.
     if ($uid > 0) {
-        $deleted = $wpdb->delete($table, ['user_id' => $uid], ['%d']);
+        $affected = $wpdb->update($table, ['is_hidden' => 1], ['user_id' => $uid, 'is_hidden' => 0], ['%d'], ['%d', '%d']);
     } else {
         $session_id = sanitize_text_field((string) $req->get_param('session_id'));
         if ($session_id === '') {
             return new WP_Error('bad_request', 'session_id required for anonymous clear', ['status' => 400]);
         }
-        $deleted = $wpdb->delete($table, ['session_id' => $session_id], ['%s']);
+        $affected = $wpdb->update($table, ['is_hidden' => 1], ['session_id' => $session_id, 'is_hidden' => 0], ['%d'], ['%s', '%d']);
     }
-    return new WP_REST_Response(['ok' => true, 'deleted' => (int)$deleted], 200);
+    return new WP_REST_Response(['ok' => true, 'hidden' => (int)$affected, 'note' => 'Local view cleared. Server copy retained for support and to improve Yahavi.'], 200);
+}
+
+/**
+ * POST /chat/feedback   body: { message_id, rating, session_id? }
+ *   rating ∈ {-1, 0, 1}.  Logged-in users own their messages by user_id;
+ *   anonymous users prove ownership by session_id. This is the RLHF training
+ *   signal — owner can later export rows where rating != 0 to fine-tune.
+ */
+function hackknow_chat_feedback(WP_REST_Request $req) {
+    global $wpdb;
+    $table      = $wpdb->prefix . 'hk_chat_messages';
+    $message_id = (int) $req->get_param('message_id');
+    $rating     = (int) $req->get_param('rating');
+    if ($message_id <= 0 || !in_array($rating, [-1, 0, 1], true)) {
+        return new WP_Error('bad_request', 'message_id (int>0) and rating (-1, 0 or 1) required', ['status' => 400]);
+    }
+    $token = hackknow_extract_bearer($req);
+    $uid   = $token ? (int) hackknow_verify_token($token) : 0;
+
+    if ($uid > 0) {
+        $owner = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$table} WHERE id=%d AND user_id=%d AND role='bot' LIMIT 1",
+            $message_id, $uid
+        ));
+    } else {
+        $session_id = sanitize_text_field((string) $req->get_param('session_id'));
+        if ($session_id === '') return new WP_Error('bad_request', 'session_id required for anonymous feedback', ['status' => 400]);
+        $owner = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$table} WHERE id=%d AND session_id=%s AND role='bot' LIMIT 1",
+            $message_id, $session_id
+        ));
+    }
+    if (!$owner) return new WP_Error('not_found', 'Message not found or not yours', ['status' => 404]);
+
+    $wpdb->update($table, ['feedback' => $rating], ['id' => $message_id], ['%d'], ['%d']);
+    return new WP_REST_Response(['ok' => true, 'rating' => $rating], 200);
 }
 
 /**
@@ -1819,35 +1944,54 @@ add_filter('rest_pre_dispatch', function ($result, $server, $request) {
     if ($request->get_route() !== '/hackknow/v1/chat' || $request->get_method() !== 'POST') {
         return $result;
     }
+    // Re-entrancy guard: $server->dispatch($request) below re-enters this very
+    // filter. Without a guard, every chat call recurses ~200 times until it
+    // 504s, polluting the DB with duplicate user rows. Bail on inner calls.
+    static $in_flight = false;
+    if ($in_flight) return $result;
+
     $session_id = sanitize_text_field((string) $request->get_param('session_id'));
     if ($session_id === '') return $result; // nothing to save
 
     $message = trim((string) $request->get_param('message'));
     if ($message === '') return $result;
 
-    // Resolve user (if any)
-    $token = hackknow_extract_bearer($request);
-    $uid   = $token ? (int) hackknow_verify_token($token) : 0;
-    $email = '';
-    if ($uid > 0) {
-        $u = get_user_by('id', $uid);
-        if ($u) $email = $u->user_email;
-    }
-    // Save the user turn pre-flight.
-    hackknow_chat_insert_row($uid, $email, $session_id, 'user', $message, null);
-
-    // Dispatch the original handler.
-    $response = $server->dispatch($request);
-    if ($response instanceof WP_REST_Response) {
-        $data = $response->get_data();
-        if (is_array($data) && !empty($data['reply'])) {
-            $meta = [];
-            if (!empty($data['suggestions']) && is_array($data['suggestions'])) $meta['suggestions'] = $data['suggestions'];
-            if (!empty($data['products'])    && is_array($data['products']))    $meta['products']    = $data['products'];
-            hackknow_chat_insert_row($uid, $email, $session_id, 'bot', (string)$data['reply'], $meta ?: null);
+    $in_flight = true;
+    try {
+        // Resolve user (if any)
+        $token = hackknow_extract_bearer($request);
+        $uid   = $token ? (int) hackknow_verify_token($token) : 0;
+        $email = '';
+        if ($uid > 0) {
+            $u = get_user_by('id', $uid);
+            if ($u) $email = $u->user_email;
         }
+        // Save the user turn pre-flight.
+        hackknow_chat_insert_row($uid, $email, $session_id, 'user', $message, null);
+
+        // Dispatch the original handler (this re-enters the filter — guarded above).
+        $response = $server->dispatch($request);
+        if ($response instanceof WP_REST_Response) {
+            $data = $response->get_data();
+            if (is_array($data) && !empty($data['reply'])) {
+                $meta = [];
+                if (!empty($data['suggestions']) && is_array($data['suggestions'])) $meta['suggestions'] = $data['suggestions'];
+                if (!empty($data['products'])    && is_array($data['products']))    $meta['products']    = $data['products'];
+                $bot_id = hackknow_chat_insert_row($uid, $email, $session_id, 'bot', (string)$data['reply'], $meta ?: null);
+                if ($bot_id) {
+                    // Expose the saved row id so the widget can attach RLHF feedback
+                    // (👍 / 👎) immediately, without waiting for a history re-fetch.
+                    $data['bot_message_id'] = (int) $bot_id;
+                    $response->set_data($data);
+                }
+            }
+        }
+        return $response;
+    } finally {
+        // Always reset so subsequent chat requests on the same php-fpm worker
+        // are not silently skipped.
+        $in_flight = false;
     }
-    return $response;
 }, 10, 3);
 
 /* ============================================================================

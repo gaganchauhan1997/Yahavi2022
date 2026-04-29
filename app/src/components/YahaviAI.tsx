@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { Bot, Send, X, Sparkles, ShoppingBag, Tag } from "lucide-react";
+import { useEffect, useRef, useState, useCallback, Fragment } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { Bot, Send, X, Sparkles, ShoppingBag, Tag, ThumbsUp, ThumbsDown } from "lucide-react";
 import { WP_REST_BASE } from "@/lib/api-base";
 import { getAuthToken } from "@/lib/auth";
 
@@ -8,12 +8,48 @@ type Suggestion = { label: string; href: string };
 type Product    = { id: number; name: string; price: string; href: string; image?: string };
 
 type ChatMsg = {
+  id?: number;            // server-side row id (only set after history-hydrate or re-fetch)
   role: "user" | "bot";
   text: string;
   suggestions?: Suggestion[];
   products?: Product[];
   upsell?: Product[];
+  feedback?: -1 | 0 | 1;  // RLHF rating from this user (persisted in DB)
 };
+
+/**
+ * Render Yahavi's text with inline citations. She formats references as
+ * [Visible label](/path) — we turn those into in-app <Link> elements so the
+ * user can click without losing the chat. Plain text and newlines are
+ * preserved (whitespace-pre-wrap on the parent).
+ *
+ * Only relative paths starting with "/" are accepted to prevent open redirects
+ * (Yahavi was already instructed to never emit external URLs, but we double
+ * check here for defence-in-depth).
+ */
+function renderWithLinks(text: string): React.ReactNode {
+  if (!text) return text;
+  const re = /\[([^\]\n]{1,80})\]\((\/[^)\s]{0,160})\)/g;
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > last) parts.push(<Fragment key={key++}>{text.slice(last, match.index)}</Fragment>);
+    parts.push(
+      <Link
+        key={key++}
+        to={match[2]}
+        className="font-semibold text-hack-magenta underline decoration-dotted underline-offset-2 hover:text-hack-black"
+      >
+        {match[1]}
+      </Link>
+    );
+    last = re.lastIndex;
+  }
+  if (last < text.length) parts.push(<Fragment key={key++}>{text.slice(last)}</Fragment>);
+  return parts.length > 0 ? parts : text;
+}
 
 const STORAGE_KEY = "hackknow-chat-history";
 const SESSION_KEY = "hackknow-chat-session-id";
@@ -112,13 +148,15 @@ export default function YahaviChat() {
       try {
         const r = await fetch(url, { headers: authHeaders() });
         if (!r.ok) return;
-        const j = await r.json() as { messages?: Array<{ role: string; text: string; suggestions?: Suggestion[]; products?: Product[] }> };
+        const j = await r.json() as { messages?: Array<{ id?: number; role: string; text: string; suggestions?: Suggestion[]; products?: Product[]; feedback?: number }> };
         if (cancelled || !Array.isArray(j.messages) || j.messages.length === 0) return;
         setMessages(j.messages.map((m) => ({
+          id: typeof m.id === "number" ? m.id : undefined,
           role: m.role === "bot" ? "bot" : "user",
           text: m.text,
           suggestions: m.suggestions ?? [],
           products: m.products ?? [],
+          feedback: m.feedback === 1 ? 1 : m.feedback === -1 ? -1 : 0,
         })));
       } catch { /* noop */ }
     })();
@@ -162,15 +200,17 @@ export default function YahaviChat() {
           session_id: sessionIdRef.current,
         }),
       });
-      const data = await res.json().catch(() => ({})) as Partial<ChatMsg> & { reply?: string };
+      const data = await res.json().catch(() => ({})) as Partial<ChatMsg> & { reply?: string; bot_message_id?: number };
       const rawReply = data.reply || data.text || "I'm here, but I couldn't form a reply. Try asking another way?";
       // Strip and execute any [[NAV:/path]] markers Yahavi embedded.
       const { cleanText, navTarget } = parseChatActions(rawReply);
       const botMsg: ChatMsg = {
+        id: typeof data.bot_message_id === "number" ? data.bot_message_id : undefined,
         role: "bot",
         text: cleanText,
         suggestions: data.suggestions || [],
         products: data.products || [],
+        feedback: 0,
       };
 
       // Cross-sell / upsell: if the bot returned products, fetch related items.
@@ -217,18 +257,53 @@ export default function YahaviChat() {
     navigate(href);
   };
 
+  /* ── RLHF feedback: thumbs up / down on Yahavi's replies ─────────────── */
+  const sendFeedback = useCallback(async (msgIdx: number, rating: 1 | -1) => {
+    setMessages((prev) => {
+      // Optimistic toggle: clicking the same thumb again clears it (rating = 0).
+      const cur = prev[msgIdx];
+      if (!cur || cur.role !== "bot") return prev;
+      const next = rating === cur.feedback ? 0 : rating;
+      const copy = prev.slice();
+      copy[msgIdx] = { ...cur, feedback: next };
+      // Fire and forget — we don't block UI on the network round-trip. If the
+      // message has no server-side id yet (rare; only for the seed message
+      // before any back-and-forth) we skip the API call entirely.
+      if (cur.id) {
+        const finalRating = next;
+        fetch(`${WP_REST_BASE}/chat/feedback`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            message_id: cur.id,
+            rating: finalRating,
+            session_id: sessionIdRef.current,
+          }),
+        }).catch(() => { /* swallow — feedback is best-effort */ });
+      }
+      return copy;
+    });
+  }, [authHeaders]);
+
   const handleClear = useCallback(() => {
-    if (!confirm("Clear this chat from your device? Your local view will be reset. (HackKnow keeps a copy on its servers for support and quality — see our Terms.)")) return;
+    if (!confirm("Clear this chat from your view? Your screen resets and a fresh thread starts. (HackKnow keeps an anonymized copy on our servers so Yahavi can keep learning — see our Terms.)")) return;
     // 1. Wipe the local cache so the on-screen chat resets.
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
-    // 2. Spin up a brand-new session id so future messages start a fresh thread.
-    //    The old session's messages stay on our server (unchanged) for analytics
-    //    and support — nothing is deleted server-side from this button.
+    // 2. Tell the server to soft-delete the session (rows stay in DB with
+    //    is_hidden=1 — invisible to the user, still available to Yahavi for
+    //    learning and to the owner for analytics). Best-effort; UI proceeds
+    //    even if the call fails.
+    const oldSession = sessionIdRef.current;
+    fetch(`${WP_REST_BASE}/chat/history?session_id=${encodeURIComponent(oldSession)}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    }).catch(() => { /* noop */ });
+    // 3. Spin up a brand-new session id so future messages start a fresh thread.
     setMessages([seed]);
     const fresh = newSessionId();
     try { localStorage.setItem(SESSION_KEY, fresh); } catch { /* noop */ }
     sessionIdRef.current = fresh;
-  }, []);
+  }, [authHeaders]);
 
   return (
     <>
@@ -287,7 +362,7 @@ export default function YahaviChat() {
                       ? ""
                       : "px-3 py-2 rounded-2xl rounded-bl-sm bg-white border border-hack-black/15 text-sm text-hack-black whitespace-pre-wrap"
                   }>
-                    {m.text}
+                    {m.role === "bot" ? renderWithLinks(m.text) : m.text}
                   </div>
                   {m.role === "bot" && (m.suggestions?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -338,6 +413,37 @@ export default function YahaviChat() {
                           </button>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {/* RLHF feedback — only on bot replies that have a server id (not the seed) */}
+                  {m.role === "bot" && i > 0 && m.id && (
+                    <div className="flex items-center gap-1 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => sendFeedback(i, 1)}
+                        aria-label="Helpful"
+                        title="Helpful — Yahavi will learn from this"
+                        className={`p-1 rounded-md border transition-colors ${
+                          m.feedback === 1
+                            ? "bg-hack-yellow border-hack-black text-hack-black"
+                            : "bg-white border-hack-black/15 text-hack-black/40 hover:text-hack-black hover:border-hack-black/40"
+                        }`}
+                      >
+                        <ThumbsUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => sendFeedback(i, -1)}
+                        aria-label="Not helpful"
+                        title="Not helpful — Yahavi will learn from this"
+                        className={`p-1 rounded-md border transition-colors ${
+                          m.feedback === -1
+                            ? "bg-hack-magenta border-hack-black text-white"
+                            : "bg-white border-hack-black/15 text-hack-black/40 hover:text-hack-black hover:border-hack-black/40"
+                        }`}
+                      >
+                        <ThumbsDown className="w-3 h-3" />
+                      </button>
                     </div>
                   )}
                 </div>
