@@ -1396,6 +1396,45 @@ function hackknow_coupon_validate(WP_REST_Request $req) {
     $type   = $coupon->get_discount_type();           // percent / fixed_cart / fixed_product
     $amount = (float) $coupon->get_amount();
     $desc   = (string) $coupon->get_description();
+    $min    = (float) $coupon->get_minimum_amount();
+    $max    = (float) $coupon->get_maximum_amount();
+
+    // Cart-aware checks (best-effort precheck — final validation happens at /order).
+    $cart_total_raw = $req->get_param('cart_total');
+    $cart_total     = is_numeric($cart_total_raw) ? (float) $cart_total_raw : null;
+
+    if ($cart_total !== null) {
+        if ($min > 0 && $cart_total < $min) {
+            return new WP_REST_Response([
+                'valid'  => false,
+                'reason' => sprintf('Add ₹%s more to use this coupon (minimum order ₹%s).',
+                    number_format(max(0, $min - $cart_total), 2, '.', ''),
+                    number_format($min, 2, '.', '')),
+            ], 200);
+        }
+        if ($max > 0 && $cart_total > $max) {
+            return new WP_REST_Response([
+                'valid'  => false,
+                'reason' => sprintf('This coupon only applies to orders up to ₹%s.',
+                    number_format($max, 2, '.', '')),
+            ], 200);
+        }
+    }
+
+    // Compute estimated discount value so the frontend can show the savings line.
+    $estimated_discount = 0.0;
+    if ($cart_total !== null && $cart_total > 0) {
+        if ($type === 'percent') {
+            $estimated_discount = round($cart_total * ($amount / 100.0), 2);
+        } elseif ($type === 'fixed_cart') {
+            $estimated_discount = min($amount, $cart_total);
+        } elseif ($type === 'fixed_product') {
+            // Approximation: applies per item, but at the precheck stage we don't
+            // know quantities — clamp to cart_total to avoid showing > total off.
+            $estimated_discount = min($amount, $cart_total);
+        }
+        $estimated_discount = max(0.0, (float) $estimated_discount);
+    }
 
     $human = $type === 'percent'
         ? rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.') . '% off'
@@ -1406,9 +1445,11 @@ function hackknow_coupon_validate(WP_REST_Request $req) {
         'code'          => $coupon->get_code(),
         'discount_type' => $type,
         'amount'        => $amount,
+        'discount'      => $estimated_discount,    // computed against provided cart_total
         'human'         => $human,
         'description'   => $desc,
-        'minimum'       => (float) $coupon->get_minimum_amount(),
+        'minimum'       => $min,
+        'maximum'       => $max,
         'expires'       => $expires_ts ? gmdate('c', $expires_ts) : null,
     ], 200);
 }
