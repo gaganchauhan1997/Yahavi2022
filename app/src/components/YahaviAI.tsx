@@ -112,13 +112,12 @@ export default function YahaviChat() {
   });
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [manishStep, setManishStep] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem(MANISH_LOCAL_KEY);
-      const n = raw ? parseInt(raw, 10) : NaN;
-      return Number.isFinite(n) && n >= 0 && n <= 3 ? n : -1; // -1 = not yet detected
-    } catch { return -1; }
-  });
+  // We deliberately do NOT seed manishStep from localStorage. The server is the
+  // source of truth (user_meta), and seeding from localStorage would let a
+  // different user on the same device inherit Manish's scripted-state and
+  // accidentally trigger the owner branches in send().
+  const [manishStep, setManishStep] = useState<number>(3); // 3 = normal chat
+  const [isOwnerLocal, setIsOwnerLocal] = useState<boolean>(false);
   const [showCoupon, setShowCoupon] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [couponBusy, setCouponBusy] = useState(false);
@@ -171,7 +170,7 @@ export default function YahaviChat() {
     let cancelled = false;
     (async () => {
       const user = getCurrentUser();
-      const isOwnerLocal = user?.email?.toLowerCase() === OWNER_EMAIL;
+      const emailIsOwner = user?.email?.toLowerCase() === OWNER_EMAIL;
 
       // 1. Pull server history if we have a token (covers cross-device)
       if (getAuthToken()) {
@@ -207,26 +206,34 @@ export default function YahaviChat() {
         } catch { /* noop */ }
       }
 
-      // 2. Owner-state detection
-      if (isOwnerLocal && getAuthToken()) {
+      // 2. Owner-state detection (server is the source of truth for "isOwner"
+      //    and the scripted-greeting step, so we never trust localStorage here)
+      if (emailIsOwner && getAuthToken()) {
         try {
           const r = await fetch(`${WP_REST_BASE}/chat/owner-state`, { headers: authHeaders() });
           if (r.ok) {
             const j = await r.json() as { isOwner?: boolean; step?: number };
             if (!cancelled && j.isOwner) {
+              setIsOwnerLocal(true);
+              // Server returns the step it WAS at, then atomically advances 0→1
+              // so a fast reload can't replay the greeting.
               const serverStep = Number.isFinite(j.step) ? Number(j.step) : 0;
-              setManishStep(serverStep);
-              try { localStorage.setItem(MANISH_LOCAL_KEY, String(serverStep)); } catch { /* noop */ }
-              // If we haven't greeted Manish yet, do it now (only once, ever).
               if (serverStep === 0) {
+                // We display the greeting; server has already moved to step 1,
+                // so locally we set 1 too — Manish's next message will trigger
+                // MANISH_QUESTION via the send() interceptor.
                 setMessages((prev) => {
                   const alreadyHasGreeting = prev.some((m) => m.text.startsWith("Hello Manish sir"));
                   if (alreadyHasGreeting) return prev;
                   return [...prev.filter((m) => m !== seed), MANISH_GREETING];
                 });
                 persistMessage(MANISH_GREETING);
-                setManishStepBoth(1);
+                setManishStep(1);
+              } else {
+                // Already greeted previously — pick up wherever we left off.
+                setManishStep(serverStep);
               }
+              try { localStorage.setItem(MANISH_LOCAL_KEY, String(Math.max(serverStep, 1))); } catch { /* noop */ }
             }
           }
         } catch { /* noop */ }
@@ -253,27 +260,33 @@ export default function YahaviChat() {
 
     const userMsg: ChatMsg = { role: "user", text: q };
     setMessages((m) => [...m, userMsg]);
-    persistMessage(userMsg);
     setInput("");
     setSending(true);
 
     /* ── Manish scripted-opener interception ───────────────────────── */
-    if (manishStep === 1) {
-      // Manish replied to greeting → ask the gentle permission question.
+    // Owner-guard: only the verified owner can ever enter the scripted branches,
+    // so a non-owner sharing the device with stale state cannot trigger them.
+    if (isOwnerLocal && manishStep === 1) {
+      // We are NOT calling /chat here, so the user message must be persisted
+      // explicitly. The bot reply MANISH_QUESTION is also persisted explicitly.
+      persistMessage(userMsg);
+      // Advance state SYNCHRONOUSLY before the setTimeout, so a fast double-send
+      // can't be processed twice as step-1.
+      setManishStepBoth(2);
       setTimeout(() => {
         setMessages((m) => [...m, MANISH_QUESTION]);
         persistMessage(MANISH_QUESTION);
-        setManishStepBoth(2);
         setSending(false);
       }, 600);
       return;
     }
-    if (manishStep === 2) {
+    if (isOwnerLocal && manishStep === 2) {
+      persistMessage(userMsg);
+      setManishStepBoth(3); // exit the scripted flow regardless of yes/no
       if (isAffirmative(q)) {
         setTimeout(() => {
           setMessages((m) => [...m, MANISH_EXCEL_JOKE]);
           persistMessage(MANISH_EXCEL_JOKE);
-          setManishStepBoth(3);
           setSending(false);
         }, 700);
         return;
@@ -291,11 +304,13 @@ export default function YahaviChat() {
       setTimeout(() => {
         setMessages((m) => [...m, polite]);
         persistMessage(polite);
-        setManishStepBoth(3);
         setSending(false);
       }, 500);
       return;
     }
+    // Normal flow → /chat will be called below. The PHP rest_pre_dispatch hook
+    // auto-saves both the user message and the bot reply, so we deliberately
+    // do NOT call persistMessage(userMsg) here to avoid duplicate rows.
 
     /* ── Normal Gemini round-trip ──────────────────────────────────── */
     try {
@@ -349,7 +364,7 @@ export default function YahaviChat() {
     } finally {
       setSending(false);
     }
-  }, [messages, sending, manishStep, persistMessage, setManishStepBoth, authHeaders]);
+  }, [messages, sending, manishStep, isOwnerLocal, persistMessage, setManishStepBoth, authHeaders]);
 
   const handleSuggestion = (href: string) => {
     setOpen(false);

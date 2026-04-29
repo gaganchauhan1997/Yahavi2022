@@ -1233,9 +1233,11 @@ function hackknow_chat_history_get(WP_REST_Request $req) {
         if ($session_id === '') {
             return new WP_REST_Response(['messages' => []], 200);
         }
+        // Anon read MUST exclude rows that were later associated with a logged-in user.
+        // This prevents a session-id leak from exposing post-login conversation.
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT id, role, message, meta, created_at FROM {$table}
-             WHERE session_id = %s ORDER BY id ASC LIMIT %d",
+             WHERE session_id = %s AND user_id = 0 ORDER BY id ASC LIMIT %d",
             $session_id, $limit
         ), ARRAY_A);
     }
@@ -1331,8 +1333,18 @@ function hackknow_chat_owner_state_get(WP_REST_Request $req) {
     if (!$is_owner) {
         return new WP_REST_Response(['isOwner' => false, 'step' => 3, 'name' => $user->display_name], 200);
     }
-    $step = (int) get_user_meta($uid, 'hk_owner_chat_step', true);
+    $raw  = get_user_meta($uid, 'hk_owner_chat_step', true);
+    $step = ($raw === '' || $raw === null) ? 0 : (int) $raw;
     if ($step < 0 || $step > 3) $step = 0;
+
+    // ── "Exactly Once" guarantee for Manish sir's greeting ──────────
+    // Atomically advance step 0 → 1 the moment we serve the greeting,
+    // so a fast page reload can't trigger the greeting twice.
+    if ($step === 0) {
+        update_user_meta($uid, 'hk_owner_chat_step', 1);
+        // We still TELL the client step=0 so it knows to display the greeting,
+        // but the server is now at step 1 — any subsequent GET will return 1.
+    }
     return new WP_REST_Response([
         'isOwner' => true,
         'step'    => $step,
