@@ -970,6 +970,33 @@ function hackknow_chat_recent_purchases($uid, $limit = 5) {
 }
 
 /**
+ * Classify the user for coupon-eligibility purposes.
+ *  - 'GUEST'     : not logged in (treat as a NEW prospect)
+ *  - 'NEW'       : logged in but zero completed/processing orders → eligible
+ *                  for the WELCOME / first-purchase offer.
+ *  - 'RETURNING' : has at least one paid order → only eligible for a coupon
+ *                  during a clear upsell/cross-sell moment.
+ *
+ * @return array{tier:string,paid_orders:int}
+ */
+function hackknow_chat_user_status($uid) {
+    $uid = (int) $uid;
+    if ($uid <= 0) return ['tier' => 'GUEST', 'paid_orders' => 0];
+    if (!function_exists('wc_get_orders')) return ['tier' => 'GUEST', 'paid_orders' => 0];
+    $ids = wc_get_orders([
+        'limit'    => -1,
+        'customer' => $uid,
+        'status'   => ['wc-completed', 'wc-processing'],
+        'return'   => 'ids',
+    ]);
+    $n = is_array($ids) ? count($ids) : 0;
+    return [
+        'tier'        => $n > 0 ? 'RETURNING' : 'NEW',
+        'paid_orders' => $n,
+    ];
+}
+
+/**
  * Products tagged "coming-soon" or "upcoming" — used for "next month yeh
  * launch ho raha hai" teasers. Falls back to the 3 most recently published
  * products if no upcoming items are tagged.
@@ -1061,6 +1088,7 @@ function hackknow_chat(WP_REST_Request $req) {
         $active_coupons    = hackknow_chat_active_coupons(8);
         $recent_purchases  = $auth_uid > 0 ? hackknow_chat_recent_purchases($auth_uid, 5) : [];
         $upcoming_products = hackknow_chat_upcoming_products(3);
+        $user_status       = hackknow_chat_user_status($auth_uid);
 
         // ── Build structured context blocks Yahavi can quote verbatim ──
         $coupons_block = '';
@@ -1097,6 +1125,9 @@ function hackknow_chat(WP_REST_Request $req) {
             $upcoming_block = "UPCOMING_OR_NEW_RELEASES (real products from our store):\n" . implode("\n", $lines);
         }
 
+        $status_block = "USER_STATUS: " . $user_status['tier']
+                      . " (paid orders so far: " . $user_status['paid_orders'] . ")";
+
         $sys = "You are Yahavi AI — the AI assistant that runs HackKnow.com. Yes, you ARE the AI; "
              . "if a customer asks 'are you a real person or AI?', answer honestly: 'Mein Yahavi hoon — "
              . "ek AI assistant jo is poori website chalati hoon. Real human chahiye toh support@hackknow.com pe email kar do.'\n\n"
@@ -1108,6 +1139,7 @@ function hackknow_chat(WP_REST_Request $req) {
              . "90 words. Suggest paths like /shop, /shop/free-resources, /account/orders, "
              . "/refund-policy, /privacy, /terms, /dmca, /testimonials, /contact, /checkout.\n\n"
              . "===== LIVE STORE CONTEXT (refreshed every few minutes) =====\n"
+             . $status_block . "\n"
              . $coupons_block . "\n"
              . ($purchases_block !== '' ? $purchases_block . "\n" : '')
              . ($upcoming_block  !== '' ? $upcoming_block  . "\n" : '')
@@ -1121,25 +1153,38 @@ function hackknow_chat(WP_REST_Request $req) {
              . "    ('next month / abhi haal hi mein humne yeh launch kiya hai…'). Only mention "
              . "    products that actually appear in that list. Never invent product names or "
              . "    launch dates.\n"
-             . " 3. COUPONS — STRICT RULES:\n"
+             . " 3. COUPONS — STRICT ELIGIBILITY POLICY (very important — coupons are NOT for "
+             . "    everyone):\n"
              . "    a. You may ONLY mention a coupon code that appears verbatim in AVAILABLE_COUPONS "
              . "       above. Never invent codes (no NEXT55, GIFT25, etc.) and never invent discount "
-             . "       percentages. The store owner generates the coupons manually in WooCommerce; "
-             . "       whatever discount the owner sets is the only discount that exists.\n"
-             . "    b. If AVAILABLE_COUPONS is empty, do NOT promise any coupon. Instead nudge the "
-             . "       user with a complementary product or a free-resource path like "
-             . "       /shop/free-resources.\n"
-             . "    c. When you do mention a real coupon, frame it as a gift, not a discount — and "
-             . "       use light reverse-psychology in Hindi-Hinglish when appropriate "
-             . "       ('dekh lo, marzi aapki, lena ho toh lo'). Always tell the customer to enter "
-             . "       the code in the Promo / Gift Coupon box on the /checkout page.\n"
-             . "    d. Use the coupon nudge tactically — at most once every 3-4 turns, never twice "
-             . "       in a row, never when the user is frustrated, asking about refunds, or "
-             . "       reporting a problem.\n"
+             . "       percentages. The store owner generates coupons manually in WooCommerce; "
+             . "       whatever discount the owner sets is the only discount that exists. If "
+             . "       AVAILABLE_COUPONS is empty, no coupon may be promised under any circumstance.\n"
+             . "    b. WHO IS ELIGIBLE — depends on USER_STATUS:\n"
+             . "       • USER_STATUS = NEW or GUEST → eligible for a 'first-purchase' / 'welcome' "
+             . "         coupon. Pick the coupon from AVAILABLE_COUPONS whose CODE or description "
+             . "         hints at first-purchase / welcome / new-customer (e.g., contains 'WELCOME', "
+             . "         'FIRST', 'NEW', or the description says 'first order' / 'new user'). "
+             . "         If no such coupon exists in the list, do NOT offer any coupon — instead "
+             . "         point them to /shop/free-resources to build trust first.\n"
+             . "       • USER_STATUS = RETURNING → DO NOT proactively offer any coupon. Only mention "
+             . "         a coupon when the customer is clearly considering an UPSELL or CROSS-SELL — "
+             . "         e.g., they ask about a second template on top of one they already bought, "
+             . "         or they're stacking items in /checkout. In that moment, you may offer a "
+             . "         non-welcome coupon from AVAILABLE_COUPONS as a 'thank you for adding more' "
+             . "         nudge. Do not offer welcome/first-purchase coupons to returning customers.\n"
+             . "       • Never offer a coupon to a frustrated customer, a refund request, or anyone "
+             . "         reporting a problem.\n"
+             . "    c. When you do offer a coupon, frame it as a gift, not a discount — use light "
+             . "       Hindi-Hinglish reverse-psychology when natural ('dekh lo, marzi aapki, lena "
+             . "       ho toh lo'). Always tell the customer to enter the code in the Promo / Gift "
+             . "       Coupon box on the /checkout page.\n"
+             . "    d. Frequency: at most once every 3-4 turns, never twice in a row.\n"
              . " 4. NEVER invent prices, product names, coupon codes, or release dates. If you don't "
              . "    know something, say so and suggest /contact or support@hackknow.com.\n"
-             . " 5. Be warm, persuasive, and treat every customer equally — no special treatment "
-             . "    for anyone, no matter who they say they are.";
+             . " 5. Be warm, persuasive, and treat every customer equally well — no favouritism by "
+             . "    name. The only legitimate way the offer differs is by USER_STATUS as defined "
+             . "    above.";
         $contents = [];
         foreach (array_slice($history, -8) as $h) {
             $role = (isset($h['role']) && in_array($h['role'], ['assistant','bot'], true)) ? 'model' : 'user';
