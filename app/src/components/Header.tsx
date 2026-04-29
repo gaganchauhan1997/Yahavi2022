@@ -34,10 +34,8 @@ export default function Header() {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
-            ? "glass border-b border-hack-black/10 shadow-sm"
-            : "bg-transparent"
+        className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-hack-black/10 transition-all duration-300 ${
+          isScrolled ? "shadow-md" : "shadow-sm"
         }`}
       >
         <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -49,7 +47,7 @@ export default function Header() {
                 className="p-2 -ml-2 hover:bg-hack-black/5 rounded-full transition-colors lg:block hidden"
                 aria-label="Open categories"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-5 h-5 text-hack-black" />
               </button>
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -57,15 +55,15 @@ export default function Header() {
                 aria-label="Toggle menu"
               >
                 {isMobileMenuOpen ? (
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-hack-black" />
                 ) : (
-                  <Menu className="w-5 h-5" />
+                  <Menu className="w-5 h-5 text-hack-black" />
                 )}
               </button>
               <Link
                 to="/"
                 onClick={closeMobileMenu}
-                className="font-display font-bold text-xl lg:text-2xl tracking-tight"
+                className="font-display font-bold text-xl lg:text-2xl tracking-tight text-hack-black"
               >
                 HACKKNOW
               </Link>
@@ -79,35 +77,35 @@ export default function Header() {
               <Link
                 to="/shop"
                 onClick={closeMobileMenu}
-                className="text-sm font-medium hover:text-hack-magenta transition-colors"
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
               >
                 Shop
               </Link>
               <Link
                 to="/shop?filter=new"
                 onClick={closeMobileMenu}
-                className="text-sm font-medium hover:text-hack-magenta transition-colors"
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
               >
                 New Arrivals
               </Link>
               <Link
                 to="/shop?filter=bestseller"
                 onClick={closeMobileMenu}
-                className="text-sm font-medium hover:text-hack-magenta transition-colors"
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
               >
                 Best Sellers
               </Link>
               <Link
                 to="/shop/free-resources"
                 onClick={closeMobileMenu}
-                className="text-sm font-medium hover:text-hack-magenta transition-colors"
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
               >
                 Freebies
               </Link>
               <Link
                 to="/about"
                 onClick={closeMobileMenu}
-                className="text-sm font-medium hover:text-hack-magenta transition-colors"
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
               >
                 About
               </Link>
@@ -121,9 +119,9 @@ export default function Header() {
                 aria-label="Search"
               >
                 {isSearchOpen ? (
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-hack-black" />
                 ) : (
-                  <Search className="w-5 h-5" />
+                  <Search className="w-5 h-5 text-hack-black" />
                 )}
               </button>
               <Link
@@ -131,7 +129,7 @@ export default function Header() {
                 onClick={closeMobileMenu}
                 className="p-2 hover:bg-hack-black/5 rounded-full transition-colors relative hidden sm:block"
               >
-                <Heart className="w-5 h-5" />
+                <Heart className="w-5 h-5 text-hack-black" />
                 {state.wishlist.length > 0 && (
                   <span className="absolute top-0 right-0 w-4 h-4 bg-hack-magenta text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {state.wishlist.length}
@@ -143,14 +141,14 @@ export default function Header() {
                 onClick={closeMobileMenu}
                 className="p-2 hover:bg-hack-black/5 rounded-full transition-colors hidden sm:block"
               >
-                <User className="w-5 h-5" />
+                <User className="w-5 h-5 text-hack-black" />
               </Link>
               <button
                 onClick={() => dispatch({ type: "TOGGLE_CART" })}
                 className="p-2 hover:bg-hack-black/5 rounded-full transition-colors relative"
                 aria-label="Open cart"
               >
-                <ShoppingCart className="w-5 h-5" />
+                <ShoppingCart className="w-5 h-5 text-hack-black" />
                 {cartCount > 0 && (
                   <span className="absolute top-0 right-0 w-4 h-4 bg-hack-yellow text-hack-black text-[10px] font-bold rounded-full flex items-center justify-center">
                     {cartCount}
@@ -163,7 +161,7 @@ export default function Header() {
 
         {/* Search Bar */}
         {isSearchOpen && (
-          <div className="border-t border-hack-black/10 bg-hack-white/95 backdrop-blur-sm">
+          <div className="border-t border-hack-black/10 bg-white">
             <form
               onSubmit={handleSearch}
               className="w-full px-4 sm:px-6 lg:px-8 py-4"
@@ -186,26 +184,26 @@ export default function Header() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-hack-white pt-20">
-          <div className="px-6 py-8 space-y-6">
+        <div className="fixed inset-0 z-40 bg-white pt-16 overflow-y-auto">
+          <div className="px-6 py-8 space-y-6 pb-24">
             <Link
               to="/shop"
               onClick={closeMobileMenu}
-              className="block text-2xl font-display font-bold"
+              className="block text-2xl font-display font-bold text-hack-black"
             >
               Shop All
             </Link>
             <Link
               to="/shop?filter=new"
               onClick={closeMobileMenu}
-              className="block text-2xl font-display font-bold"
+              className="block text-2xl font-display font-bold text-hack-black"
             >
               New Arrivals
             </Link>
             <Link
               to="/shop?filter=bestseller"
               onClick={closeMobileMenu}
-              className="block text-2xl font-display font-bold"
+              className="block text-2xl font-display font-bold text-hack-black"
             >
               Best Sellers
             </Link>
@@ -219,7 +217,7 @@ export default function Header() {
                     key={cat.id}
                     to={`/shop/${cat.slug}`}
                     onClick={closeMobileMenu}
-                    className="flex items-center justify-between text-lg"
+                    className="flex items-center justify-between text-lg text-hack-black"
                   >
                     <span>{cat.title}</span>
                     <span className="text-sm text-hack-black/50 font-mono">
@@ -230,10 +228,10 @@ export default function Header() {
               </div>
             </div>
             <div className="border-t border-hack-black/10 pt-6 space-y-3">
-              <Link to="/about" onClick={closeMobileMenu} className="block text-lg">
+              <Link to="/about" onClick={closeMobileMenu} className="block text-lg text-hack-black">
                 About
               </Link>
-              <Link to="/support" onClick={closeMobileMenu} className="block text-lg">
+              <Link to="/support" onClick={closeMobileMenu} className="block text-lg text-hack-black">
                 Support
               </Link>
             </div>
@@ -243,13 +241,13 @@ export default function Header() {
               </p>
               {isAuthenticated() ? (
                 <>
-                  <Link to="/account" onClick={closeMobileMenu} className="block text-lg">
+                  <Link to="/account" onClick={closeMobileMenu} className="block text-lg text-hack-black">
                     My Account
                   </Link>
-                  <Link to="/account/downloads" onClick={closeMobileMenu} className="block text-lg">
+                  <Link to="/account/downloads" onClick={closeMobileMenu} className="block text-lg text-hack-black">
                     Downloads
                   </Link>
-                  <Link to="/account/wishlist" onClick={closeMobileMenu} className="block text-lg">
+                  <Link to="/account/wishlist" onClick={closeMobileMenu} className="block text-lg text-hack-black">
                     Wishlist
                   </Link>
                   <button
@@ -261,8 +259,8 @@ export default function Header() {
                 </>
               ) : (
                 <>
-                  <Link to="/login" onClick={closeMobileMenu} className="block text-lg">Sign in</Link>
-                  <Link to="/signup" onClick={closeMobileMenu} className="block text-lg">Create account</Link>
+                  <Link to="/login" onClick={closeMobileMenu} className="block text-lg text-hack-black">Sign in</Link>
+                  <Link to="/signup" onClick={closeMobileMenu} className="block text-lg text-hack-black">Create account</Link>
                 </>
               )}
             </div>
