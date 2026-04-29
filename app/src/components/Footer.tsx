@@ -262,6 +262,15 @@ export default function Footer() {
 
       {/* Bottom Bar */}
       <div className="border-t border-hack-white/10">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4 border-b border-hack-white/10 flex flex-col sm:flex-row items-center justify-center gap-6">
+          <a href="mailto:support@hackknow.com" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">
+            <span>✉</span> support@hackknow.com
+          </a>
+          <span className="hidden sm:block text-hack-white/20">|</span>
+          <a href="tel:+918796018700" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">
+            <span>📞</span> +91 87960 18700
+          </a>
+        </div>
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-hack-white/40">
             &copy; 2026 Hackknow. All rights reserved.
