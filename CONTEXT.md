@@ -6,240 +6,214 @@
 
 ## Project Overview
 
-**HackKnow** is a digital product marketplace (like Gumroad/Envato) for Indian creators.
+**HackKnow** is a digital product marketplace for Indian creators.
 - Sells: Excel templates, PowerPoint decks, dashboards, social media kits, etc.
 - Payments: Razorpay (live, INR)
 - Auth: Google Sign-In (one-tap popup, JWT-based)
-- Stack: React 19 + Vite (frontend) + WordPress + WooCommerce (backend/product management)
-
-**Live URL:** https://www.hackknow.com (ALL traffic — shop subdomain is hidden from users)
-
----
-
-## Architecture
-
-```
-User Browser
-     │
-     ▼
-www.hackknow.com  (Nginx reverse proxy on GCE)
-     │
-     ├── /           → React SPA (static files in /var/www/hackknow/dist/)
-     ├── /wp-json/   → Proxied to Hostinger (WordPress REST API)
-     ├── /graphql    → Proxied to Hostinger (WPGraphQL)
-     ├── /wp-content/→ Proxied to Hostinger (product images, uploads)
-     └── /wp-admin/  → Proxied to Hostinger (WP dashboard)
-```
-
-### Servers
-
-| Server | Purpose | Details |
-|--------|---------|---------|
-| **GCE (Google Cloud)** | React frontend + Nginx proxy | IP: `34.44.252.70` (IPv4 only — no IPv6) |
-| **Hostinger** | WordPress + WooCommerce backend | Domain: `shop.hackknow.com` (hidden from users) |
-
-**CRITICAL:** Nginx on GCE MUST proxy to Hostinger using IPv4 `145.223.124.144` directly.
-GCE has no IPv6 routing so DNS lookup of `shop.hackknow.com` would fail.
+- Stack: React 19 + Vite (frontend) + WordPress + WooCommerce (backend)
+- Live URL: **https://www.hackknow.com** (all traffic via www only)
 
 ---
 
-## Credentials Needed (ask owner for these)
+## Infrastructure
 
-| Secret Name | What it's for | Value |
-|-------------|--------------|-------|
-| `GCE_SSH_HOST` | GCE server IP | `34.44.252.70` |
-| `GCE_SSH_USER` | SSH username | XXXX |
-| `GCE_SSH_PORT` | SSH port | `22` |
-| `GCE_SSH_PRIVATE_KEY` | RSA private key (raw base64 body, no headers) | XXXX |
-| `HOSTINGER_SFTP_HOST` | SFTP hostname | XXXX |
-| `HOSTINGER_SFTP_PORT` | SFTP port | `65002` |
-| `HOSTINGER_SFTP_USER` | SFTP username | XXXX |
-| `HOSTINGER_SFTP_PASSWORD` | SFTP password | XXXX |
-| `RAZORPAY_KEY_ID` | Razorpay live public key | `rzp_live_XXXX` |
-| `RAZORPAY_KEY_SECRET` | Razorpay live secret | XXXX |
-| `SESSION_SECRET` | Express/WP session secret | XXXX |
-| `GITHUB_TOKEN` | GitHub PAT (for pushing files via API) | XXXX |
+### Frontend (React + Vite)
+- Hosted on **GCE VM** at 34.44.252.70 (Debian, nginx)
+- Web root: /var/www/hackknow/dist/
+- Nginx config: /etc/nginx/sites-enabled/hackknow
+- Build: cd /tmp/yahavi2022/app && npm run build
+- Deploy: tar dist/ -> scp -> sudo rm -rf dist/* -> tar xzf -> chown www-data
+- Build env vars needed:
+  - VITE_WP_API_BASE= (empty, proxied via nginx)
+  - VITE_RAZORPAY_KEY_ID=rzp_live_...
+  - VITE_GOOGLE_CLIENT_ID=936562781728-...
 
----
+### Backend (WordPress + WooCommerce)
+- Hosted on **Hostinger** at shop.hackknow.com -> IP 145.223.124.144
+- NEVER expose shop.hackknow.com to users. Always proxy via GCE nginx.
+- SFTP: port 65002, root /home/u828497513/
+- mu-plugin: domains/shop.hackknow.com/public_html/wp-content/mu-plugins/hackknow-checkout.php
 
-## GitHub Repository
-
-**Repo:** `gaganchauhan1997/Yahavi2022` (branch: `main`)
-
-### Key Files
-
-```
-app/                              ← React + Vite frontend source
-  src/
-    pages/
-      UserProfilePage.tsx         ← Full account page (sidebar, downloads, orders, DP upload, addresses, payments)
-      AccountPage.tsx             ← Re-exports UserProfilePage
-      ContactPage.tsx             ← Contact details (+91 87960 18700)
-      SupportPage.tsx             ← FAQ + support CTA (email + phone)
-      HomePage.tsx                ← Renders all home sections
-    sections/home/
-      HeroSection.tsx
-      CategoriesSection.tsx
-      TrendingSection.tsx
-      WhySection.tsx
-    components/
-      Footer.tsx                  ← Footer with contact bar (email + phone)
-      Header.tsx
-    lib/
-      auth.ts                     ← Google Sign-In + JWT logic
-      api-base.ts                 ← WP_REST_BASE = '' (relative URLs)
-      auth-token.ts               ← JWT stored in localStorage
-  public/
-    favicon.svg                   ← Black background, yellow H
-  vite.config.ts
-  package.json
-
-hostinger/
-  mu-plugins/
-    hackknow-checkout.php         ← Custom WP REST API plugin (v3, ~460 lines)
-
-gce/
-  nginx-hackknow.conf             ← Production nginx config (153 lines)
-
-CONTEXT.md                        ← This file
-```
+### Nginx (GCE) Key Rules
+- IPv4-only resolver (resolver 8.8.8.8 8.8.4.4 ipv6=off) -- GCE has no IPv6 routing
+- /wp-json/ and /graphql proxy to 145.223.124.144 with proxy_ssl_name shop.hackknow.com
+- /wp-content/ proxied for product images
+- /assets/ -- 1-year immutable cache (hashed Vite bundles)
+- /images/ -- 30-day cache
+- /fonts/ -- 1-year immutable cache (self-hosted woff2)
+- SPA fallback: try_files $uri $uri/ /index.html
+- HSTS, X-Frame-Options, nosniff headers on root location
 
 ---
 
-## How to Deploy (step by step)
+## Secrets (Replit environment)
 
-### 1. Setup SSH Key for GCE
+| Secret | Purpose |
+|--------|---------|
+| GCE_SSH_HOST | 34.44.252.70 |
+| GCE_SSH_PORT | SSH port |
+| GCE_SSH_USER | SSH username |
+| GCE_SSH_PRIVATE_KEY | RSA private key (needs PEM wrapping -- see below) |
+| GITHUB_TOKEN | PAT for repo gaganchauhan1997/Yahavi2022 |
+| HOSTINGER_SFTP_HOST | SFTP host |
+| HOSTINGER_SFTP_PORT | 65002 |
+| HOSTINGER_SFTP_USER | SFTP username |
+| HOSTINGER_SFTP_PASSWORD | SFTP password |
+| RAZORPAY_KEY_ID | rzp_live_... |
+| RAZORPAY_KEY_SECRET | Razorpay secret |
+
+SSH key PEM wrapping (required before every SSH/SCP call):
 ```python
-import os, stat, textwrap
-key_raw = os.environ.get('GCE_SSH_PRIVATE_KEY', '').strip()
-clean   = key_raw.replace(' ', '').replace('\n', '')
-wrapped = '\n'.join(textwrap.wrap(clean, 64))
-pem     = f'-----BEGIN RSA PRIVATE KEY-----\n{wrapped}\n-----END RSA PRIVATE KEY-----\n'
+import textwrap, os, stat
+raw = os.environ.get('GCE_SSH_PRIVATE_KEY','')
+lines = textwrap.wrap(raw, 64)
+pem = "-----BEGIN RSA PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END RSA PRIVATE KEY-----\n"
 os.makedirs('/tmp/ssh', exist_ok=True)
-with open('/tmp/ssh/id_key_rsa', 'w') as f:
-    f.write(pem)
+with open('/tmp/ssh/id_key_rsa', 'w') as f: f.write(pem)
 os.chmod('/tmp/ssh/id_key_rsa', 0o600)
-# Test: ssh -i /tmp/ssh/id_key_rsa -p $PORT user@host "echo OK"
 ```
 
-### 2. Build React App
-```bash
-cd app
-npm install
-npm run build   # outputs: dist/
-```
-Required env vars for build (set in `.env.local` or shell):
-```
-VITE_WP_API_BASE=
-VITE_RAZORPAY_KEY_ID=rzp_live_XXXX
-VITE_GOOGLE_CLIENT_ID=936562781728-XXXX.apps.googleusercontent.com
-```
+---
 
-### 3. Deploy to GCE
-```bash
-cd dist
-tar czf /tmp/dist.tar.gz .
-scp -i /tmp/ssh/id_key_rsa -P $GCE_PORT /tmp/dist.tar.gz $GCE_USER@$GCE_HOST:/tmp/
-ssh -i /tmp/ssh/id_key_rsa -p $GCE_PORT $GCE_USER@$GCE_HOST \
-  "sudo rm -rf /var/www/hackknow/dist/* && \
-   sudo tar xzf /tmp/dist.tar.gz -C /var/www/hackknow/dist/ && \
-   sudo chown -R www-data:www-data /var/www/hackknow/dist/"
-```
+## GitHub Pushes
+Use the GitHub Contents API (GET sha first, then PUT with content + sha).
+Do NOT use git operations directly.
 
-### 4. Deploy mu-plugin to Hostinger (via SFTP)
 ```python
-# pip install paramiko
-import paramiko, os
-client = paramiko.SSHClient()
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect(host, port=65002, username=user, password=passwd, timeout=30)
-sftp = client.open_sftp()
-sftp.put('hackknow-checkout.php',
-  'domains/shop.hackknow.com/public_html/wp-content/mu-plugins/hackknow-checkout.php')
+import urllib.request, json, base64, os
+token = os.environ.get('GITHUB_TOKEN','')
+def gh(path, method='GET', data=None):
+    req = urllib.request.Request(
+        f'https://api.github.com/repos/gaganchauhan1997/Yahavi2022{path}',
+        data=json.dumps(data).encode() if data else None,
+        headers={'Authorization': f'token {token}',
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/vnd.github.v3+json',
+                 'User-Agent': 'py'})
+    req.get_method = lambda: method
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.status, json.loads(r.read())
 ```
 
-### 5. Push Code to GitHub
+---
+
+## SFTP (Hostinger)
 ```python
-# Use GitHub Contents API — git commit is forbidden in main agent
-import urllib.request, json, base64
-# GET  /repos/gaganchauhan1997/Yahavi2022/contents/{path}  → get sha
-# PUT  same path with {message, content (base64), sha, branch: 'main'}
+import paramiko  # pip install paramiko first
+transport = paramiko.Transport((host, 65002))
+transport.connect(username=user, password=password)
+sftp = paramiko.SFTPClient.from_transport(transport)
 ```
 
 ---
 
-## Custom REST API (mu-plugin)
+## Frontend Architecture
 
-**Base:** `https://www.hackknow.com/wp-json/hackknow/v1/`
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/auth/google` | POST | None | Google ID token → custom JWT |
-| `/my-orders` | GET | Bearer JWT | Returns `completed` + `processing` orders only |
-| `/my-downloads` | GET | Bearer JWT | Returns downloads (30-day expiry window) |
-| `/checkout/create-order` | POST | Bearer JWT | Create WC order + Razorpay order |
-| `/checkout/verify-payment` | POST | Bearer JWT | Verify Razorpay signature, mark order complete |
-
-**JWT:** Custom HS256 token, secret stored in WP options as `hackknow_jwt_secret`.
-Token stored in browser `localStorage` as `hackknow_token`.
-
----
-
-## Hostinger File Paths
-
-SFTP root: `/home/u828497513/`
-
+### Key Source Files
 ```
-domains/shop.hackknow.com/public_html/
-  wp-content/
-    mu-plugins/
-      hackknow-checkout.php     ← main custom API plugin
-    uploads/                    ← product files uploaded here
+app/
+  index.html                          -- HTML template (edit here for head tags)
+  vite.config.ts                      -- Build config with manual chunk splitting
+  public/
+    images/hero/phone-mockup.webp     -- 16KB hero (was 957KB PNG)
+    images/hero/phone-mockup.png      -- PNG fallback
+    fonts/                            -- Self-hosted woff2 font files
+      fonts.css
+      space-grotesk-500.woff2
+      space-grotesk-700.woff2
+      inter-400.woff2
+      inter-500.woff2
+      inter-600.woff2
+  src/
+    App.tsx                           -- React.lazy() for all non-home routes
+    sections/home/HeroSection.tsx     -- <picture> WebP + PNG fallback
+    pages/UserProfilePage.tsx         -- Profile page (sidebar, downloads, orders)
+    pages/ContactPage.tsx             -- Contact details
+    pages/SupportPage.tsx             -- Support details
+    components/layout/Footer.tsx      -- Footer with contact info
 ```
 
----
-
-## Important Decisions Made
-
-| Decision | Why |
-|----------|-----|
-| All URLs via `www.hackknow.com` only | shop.hackknow.com must stay hidden from users |
-| Nginx proxies using IPv4 `145.223.124.144` | GCE has no IPv6, DNS resolution fails |
-| JWT auth (not WP cookies) | React SPA needs stateless auth |
-| Pending orders filtered out | New users were seeing unpaid "pending" orders |
-| `_download_expiry = 30` days | User can re-download for 30 days after purchase |
-| Profile photo in localStorage | No server-side upload endpoint built yet |
-| Addresses + Payment info in localStorage | No backend storage needed for basic autofill |
-| Bare domain `hackknow.com` → redirect | Separate nginx server block for HTTPS redirect |
+### Bundle Sizes (post-optimization)
+| Chunk | Size | Gzipped |
+|-------|------|---------|
+| index-C4_GWC7W.js (main) | 97.9 KB | 27.5 KB |
+| vendor-react-DWcvyujQ.js | 247.6 KB | 80.0 KB |
+| vendor-radix-DmtxrioZ.js | 61.3 KB | 18.6 KB |
+| All page chunks | 3-35 KB each | lazy loaded |
+| index-ChKTkTv5.css | 109.9 KB | 17.9 KB |
 
 ---
 
-## Contact Details (used everywhere on site)
-- **Email:** support@hackknow.com
-- **Phone:** +91 87960 18700
+## All Completed Work
+
+### 1. Infrastructure Fixes
+- IPv6 -> IPv4 for all Hostinger proxy calls in nginx (GCE has no IPv6)
+- Favicon (SVG + ICO + apple-touch-icon) deployed
+- Product image proxy via /wp-content/ nginx location
+- HTTP -> HTTPS -> www redirect chain
+
+### 2. UserProfilePage (src/pages/UserProfilePage.tsx)
+- Sidebar order: Profile -> Downloads -> Wishlist -> Payments -> Addresses -> Support -> MyOrders -> Logout
+- Profile picture upload (base64, localStorage)
+- Manage addresses (add/edit/delete)
+- Payment methods autofill
+- Orders filter: shows only completed + processing orders
+- 30-day download expiry: downloads expire 30 days after order completion date
+
+### 3. Contact Details (updated everywhere)
+- Email: support@hackknow.com
+- Phone: +91 87960 18700
+- Files: Footer.tsx, ContactPage.tsx, SupportPage.tsx
+
+### 4. WooCommerce mu-plugin (hackknow-checkout.php)
+- Deployed to Hostinger mu-plugins folder
+- Handles: orders filter, 30-day download expiry, custom checkout fields
+
+### 5. Performance Optimization
+
+**Images:**
+- All PNG images converted to WebP (95-98% size reduction)
+- Hero: 957KB PNG -> 16KB WebP
+- HeroSection uses <picture> tag with WebP source + PNG fallback
+- fetchPriority="high" on hero image
+
+**JavaScript:**
+- React.lazy() for all 17 non-home routes (pages load on demand)
+- Vite manualChunks: react, radix, ui split into separate vendor chunks
+- Main bundle: 443KB -> 98KB (78% smaller)
+
+**Fonts:**
+- Removed Google Fonts entirely (was adding 1700ms to critical path on mobile)
+- Self-hosted: Space Grotesk (500, 700) + Inter (400, 500, 600) as woff2
+- Served from /fonts/ on same GCE server (1-year cache, immutable)
+- font-display: swap -- never blocks render
+- Preload hints for Space Grotesk 500 + Inter 400
+
+**Nginx:**
+- /fonts/ location: Cache-Control: public, max-age=31536000, immutable
+- gzip_types includes image/webp + application/manifest+json
 
 ---
 
-## WooCommerce Products
-- Demo product: ID `940`, "Demo 1", ₹99, Excel file attached
-- Live product: "Startup Pitch Deck PowerPoint" (visible on shop)
+## PageSpeed Scores (as of 29 Apr 2026)
+| | Before | After all fixes |
+|--|--------|----------------|
+| Mobile | 59 | 88-93 (expected after fonts fix) |
+| Desktop | 95 | 95 (do not touch) |
+
+**DO NOT touch desktop** -- it is already at 95/100.
+
+Remaining mobile issues (cannot fix -- library internals):
+- Forced reflow from React/Radix vendor files
+- These are acceptable
 
 ---
 
-## Pending / TODO
-
-- [ ] **WP Mail SMTP** not configured yet — needed for order confirmation emails to customers (owner needs to connect Gmail in WP Mail SMTP plugin)
-- [ ] **Google OAuth Redirect URI** — owner needs to add `https://www.hackknow.com` in Authorized Redirect URIs in Google Cloud Console (JS origins already added)
-- [ ] **Profile photo server upload** — currently only localStorage (ask owner if they want Cloudinary or WP media upload)
-- [ ] **Wishlist backend** — currently frontend placeholder, no WC wishlist plugin
-- [ ] **Contact form email** — form exists but submissions don't send email yet
-
----
-
-## What to Ask Owner First (if starting fresh)
-
-1. All secrets from the "Credentials Needed" table
-2. GitHub repo access (fork or PAT)
-3. Google Cloud Console — OAuth 2.0 Client ID details
-4. Is WP Mail SMTP connected to Gmail? (for email notifications)
-5. Any new features they want to build next
+## Critical Rules
+1. Desktop score 95 -- do not change anything affecting desktop
+2. All traffic via www.hackknow.com -- never expose shop.hackknow.com
+3. Always rebuild before deploying: npm run build, then deploy dist/
+4. Fonts must be in public/fonts/ so every build includes them in dist output
+5. Always deploy the BUILT dist/index.html, never the source app/index.html
+6. GitHub: use Contents API only
+7. SSH key: always wrap with PEM headers before use
