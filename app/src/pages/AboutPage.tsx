@@ -78,30 +78,30 @@ function pickYahaviVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice |
     let s = 0;
     const name = v.name.toLowerCase();
     const lang = v.lang.toLowerCase();
-    if (lang.startsWith("hi")) s += 50; // Hindi preferred for Hinglish content
-    if (lang.startsWith("en-in")) s += 35;
-    if (lang.startsWith("en-gb")) s += 12;
-    if (lang.startsWith("en")) s += 10;
-    // Female-leaning voice names across vendors
-    if (/female|woman|aditi|kalpana|swara|priya|veena|raveena|isha|leela|ananya/.test(name)) s += 30;
-    if (/(google).*(hindi|india)/.test(name)) s += 20;
-    if (/samantha|victoria|karen|tessa|moira|fiona|serena|allison|joanna/.test(name)) s += 15;
-    if (/microsoft.*(swara|kalpana|aditi|neerja|heera)/.test(name)) s += 25;
+    // English-only, professional storyteller tone — prefer warm en-US/en-GB
+    // female voices that vendors ship as their flagship "narrator" voices.
+    if (lang.startsWith("en-us")) s += 40;
+    if (lang.startsWith("en-gb")) s += 35;
+    if (lang.startsWith("en-au") || lang.startsWith("en-ca")) s += 20;
+    if (lang.startsWith("en")) s += 15;
+    // High-quality / neural / premium voices score highest
+    if (/neural|premium|enhanced|natural|wavenet|studio/.test(name)) s += 35;
+    if (/microsoft.*(aria|jenny|sonia|libby|emma|ava|nova)/.test(name)) s += 40;
+    if (/google.*us.*english.*female|google.*uk.*english.*female/.test(name)) s += 30;
+    if (/(samantha|allison|ava|joanna|karen|serena|victoria|tessa|moira|fiona|kate|stephanie)/.test(name)) s += 25;
+    if (/female|woman/.test(name)) s += 15;
+    // Penalise obviously low-quality / novelty voices
+    if (/espeak|festival|robot|whisper/.test(name)) s -= 30;
     return s;
   };
   return [...voices].sort((a, b) => score(b) - score(a))[0];
 }
 
 function buildPageScript(): string {
-  return [
-    "Namaste! Main hoon Yahavi, HackKnow ki AI saathi. Aaiye main aapko is page ke baare mein bataati hoon.",
-    "HackKnow ek digital legacy hai, jo India mein bani hai duniya ke liye. Yeh sirf ek marketplace nahi — yeh ek digital empire hai, jise teen logon ne haath se gadha hai. Ek globe trotting mentor, ek shaant lekin tez mastermind developer, aur ek nidar AI orchestrator. Hum sab milkar duniya bhar ke creators, students aur small businesses ke haath mein world class digital tools dete hain. Hum Delhi, India se kaam karte hain.",
-    `Pehle baat karte hain hamare mentor ki. ${founders[0].name}. ${founders[0].role}. ${founders[0].tagline} ${founders[0].bio}`,
-    `Ab milte hain ${founders[1].name} se. ${founders[1].role}. ${founders[1].tagline} ${founders[1].bio}`,
-    `Aur teesre hain ${founders[2].name}. ${founders[2].role}. ${founders[2].tagline} ${founders[2].bio}`,
-    "Hamari kahaani: HackKnow ek B.Tech ke dorm room se shuru hua tha — Manish ki personal mission thi ki duniya ghoom kar jo bhi seekha, usse aise tools mein badle jo har creator use kar sake. Excel dashboards, presentation decks, Notion systems, marketing kits. Ek baar banao, sab ke saath share karo, fair price rakho. Aaj HackKnow ek self funded, India mein bani digital marketplace hai jo 120 se zyada deshon ke creators ko serve karti hai.",
-    "Agar aap is journey ka hissa banna chahte hain, toh shop section dekhiye, ya humse seedhe baat kijiye contact page par. Dhanyavaad sunne ke liye!",
-  ].join(" ");
+  // Strictly the mentor's description — exactly as written in the bio block.
+  // Delivered as a tight professional motivational read; no extra framing.
+  const mentor = founders[0];
+  return `${mentor.tagline} ${mentor.bio}`;
 }
 
 /* ----------------------------------- Page ----------------------------------- */
@@ -139,10 +139,12 @@ export default function AboutPage() {
         utter.voice = voice;
         utter.lang = voice.lang;
       } else {
-        utter.lang = "hi-IN";
+        utter.lang = "en-US";
       }
-      utter.rate = 0.96;
-      utter.pitch = 1.05;
+      // Professional motivational storyteller cadence: slightly slow,
+      // natural pitch, full volume.
+      utter.rate = 0.9;
+      utter.pitch = 1.02;
       utter.volume = 1;
       utter.onstart = () => setVoiceState("playing");
       utter.onend = () => {
@@ -258,12 +260,10 @@ export default function AboutPage() {
 
   const speakerLabel =
     voiceState === "playing"
-      ? "Yahavi padh rahi hain — band karne ke liye dabaayein"
+      ? "Yahavi is reading — tap to stop"
       : voiceState === "paused"
-        ? "Yahavi ruk gayi hain — chalu karne ke liye dabaayein"
-        : autoplayBlocked
-          ? "Tap karke Yahavi se yeh page sunein"
-          : "Tap karke Yahavi se yeh page sunein";
+        ? "Yahavi is paused — tap to stop"
+        : "Tap to hear the mentor's story narrated by Yahavi";
 
   const mentor = founders[0];
   const others = founders.slice(1);
@@ -340,8 +340,7 @@ export default function AboutPage() {
                     {voiceState === "playing" ? (
                       <>
                         <Volume2 className="w-4 h-4 animate-pulse" strokeWidth={2.75} />
-                        <span className="hidden xs:inline">Yahavi padh rahi hai…</span>
-                        <span className="xs:hidden">Sun rahe ho</span>
+                        Yahavi narrating…
                       </>
                     ) : voiceState === "paused" ? (
                       <>
@@ -351,7 +350,7 @@ export default function AboutPage() {
                     ) : (
                       <>
                         <Volume2 className="w-4 h-4" strokeWidth={2.75} />
-                        Tap to hear Yahavi
+                        Tap to hear the story
                       </>
                     )}
                   </span>
@@ -370,11 +369,11 @@ export default function AboutPage() {
                   <p className="text-xs sm:text-sm text-hack-black/70 font-semibold">
                     {supported
                       ? autoplayBlocked && voiceState === "idle"
-                        ? "Aapke browser ne auto-play rok diya — photo pe tap karein."
+                        ? "Your browser blocked auto-play — tap the photo to listen."
                         : voiceState === "playing"
-                          ? "Yahavi aapko yeh page padh kar suna rahi hain."
-                          : "Photo par tap karke Yahavi ki awaaz mein page sunein."
-                      : "Aapka browser voice support nahi karta — text padhein."}
+                          ? "Yahavi is narrating the mentor's story."
+                          : "Tap the photo to hear the mentor's story in Yahavi's voice."
+                      : "Your browser doesn't support voice — please read the text."}
                   </p>
 
                   {voiceState === "playing" && (
