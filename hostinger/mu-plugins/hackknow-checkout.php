@@ -308,9 +308,52 @@ if (!defined('HACKKNOW_MAIL_FROM_NAME')) { define('HACKKNOW_MAIL_FROM_NAME', 'Ha
  * a real mailbox on Hostinger and almost always fails SPF/DMARC checks → mail
  * silently drops or lands in spam. We force every outbound email to come from
  * support@hackknow.com (a real mailbox the owner controls) so the password-
- * reset, order-confirmation, and contact-form emails actually reach inboxes. */
-add_filter('wp_mail_from',      function ($from) { return HACKKNOW_MAIL_FROM; },      99);
-add_filter('wp_mail_from_name', function ($name) { return HACKKNOW_MAIL_FROM_NAME; }, 99);
+ * reset, order-confirmation, and contact-form emails actually reach inboxes.
+ *
+ * IMPORTANT: WooCommerce (and some other plugins) set an explicit `From:`
+ * header in $args['headers'] (e.g. `From: Hackknow <ceo.hackknow@gmail.com>`).
+ * When WP sees a From header in $headers it uses it directly and SKIPS the
+ * wp_mail_from filter entirely. That's why setting only wp_mail_from is not
+ * enough — we MUST also strip any From: header from $args['headers'] AND
+ * override the PHPMailer object directly in phpmailer_init. Otherwise
+ * password-reset / order / welcome emails go out claiming `From: gmail.com`
+ * from a Hostinger IP, which Gmail's DMARC `p=reject` policy silently TRASHES
+ * (not even spam). Hours of "no email arrived" bug reports trace back to
+ * exactly this. */
+add_filter('wp_mail_from',      function ($from) { return HACKKNOW_MAIL_FROM; },      PHP_INT_MAX);
+add_filter('wp_mail_from_name', function ($name) { return HACKKNOW_MAIL_FROM_NAME; }, PHP_INT_MAX);
+
+/* Strip any plugin-supplied `From:` header so WP falls back to wp_mail_from
+ * filter (which we control). Runs at PHP_INT_MAX so it sees the final
+ * header list after every other filter has had its turn. */
+add_filter('wp_mail', function ($args) {
+    if (!is_array($args)) return $args;
+    $headers = isset($args['headers']) ? $args['headers'] : [];
+    if (is_string($headers)) {
+        // Remove any "From:" line (case-insensitive, multi-line safe)
+        $headers = preg_replace('/^From:.*$/im', '', $headers);
+        $headers = preg_replace("/\n\s*\n/", "\n", trim($headers));
+    } elseif (is_array($headers)) {
+        $headers = array_values(array_filter($headers, function ($h) {
+            return !preg_match('/^\s*From\s*:/i', (string) $h);
+        }));
+    }
+    $args['headers'] = $headers;
+    return $args;
+}, PHP_INT_MAX);
+
+/* Last line of defence — override the PHPMailer object right before send.
+ * This catches code paths that bypass wp_mail() entirely (rare) and any
+ * future plugin that might re-set From after our wp_mail filter. */
+add_action('phpmailer_init', function ($phpmailer) {
+    try {
+        $phpmailer->From     = HACKKNOW_MAIL_FROM;
+        $phpmailer->FromName = HACKKNOW_MAIL_FROM_NAME;
+        $phpmailer->Sender   = HACKKNOW_MAIL_FROM; // Return-Path / envelope sender
+    } catch (\Throwable $e) {
+        error_log('[hackknow] phpmailer_init From override failed: ' . $e->getMessage());
+    }
+}, PHP_INT_MAX);
 
 /* Surface any wp_mail failures into the PHP error log so the owner can debug
  * delivery issues from /var/log without guessing. */
