@@ -52,7 +52,18 @@ function hackknow_user_payload(WP_User $user) {
         'last_name'  => $last,
         'joinedDate' => mysql2date('F Y', $user->user_registered, false),
         'isVerified' => true,
+        'isOwner'    => hackknow_is_owner($user->user_email),
     ];
+}
+
+/* ── Owner detection: Manish sir gets the special Yahavi greeting once ── */
+if (!defined('HACKKNOW_OWNER_EMAILS')) {
+    define('HACKKNOW_OWNER_EMAILS', 'monukumar1991.mk@gmail.com');
+}
+function hackknow_is_owner($email) {
+    if (!is_string($email) || $email === '') return false;
+    $owners = array_map('trim', explode(',', strtolower(HACKKNOW_OWNER_EMAILS)));
+    return in_array(strtolower($email), $owners, true);
 }
 function hackknow_extract_bearer(WP_REST_Request $req) {
     $h = $req->get_header('authorization');
@@ -135,6 +146,15 @@ add_action('rest_api_init', function () {
     register_rest_route('hackknow/v1', '/admin/reviews/(?P<id>\d+)/approve', array_merge($open, ['methods' => 'POST', 'callback' => 'hackknow_admin_review_approve']));
     register_rest_route('hackknow/v1', '/admin/reviews',                array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_admin_reviews_list']));
     register_rest_route('hackknow/v1', '/chat',                         array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_chat']));
+
+    /* ── Yahavi AI: per-user history, owner-state, coupons, upsell ── */
+    register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_chat_history_get']));
+    register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_chat_history_save']));
+    register_rest_route('hackknow/v1', '/chat/history',     array_merge($open, ['methods' => 'DELETE', 'callback' => 'hackknow_chat_history_clear']));
+    register_rest_route('hackknow/v1', '/chat/owner-state', array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_chat_owner_state_get']));
+    register_rest_route('hackknow/v1', '/chat/owner-state', array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_chat_owner_state_set']));
+    register_rest_route('hackknow/v1', '/coupon/validate',  array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_coupon_validate']));
+    register_rest_route('hackknow/v1', '/upsell',           array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_upsell_get']));
 });
 
 /* ── Auth: register ────────────────────────────────────────────────────── */
@@ -1138,3 +1158,341 @@ function hackknow_chat_search_products($query) {
     }
     return $out;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Yahavi AI v2: per-user history, owner state, coupon validate, upsell
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Create / migrate the chat-history table on every plugin load (idempotent).
+ */
+function hackknow_chat_install_table() {
+    global $wpdb;
+    $table   = $wpdb->prefix . 'hk_chat_messages';
+    $charset = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE IF NOT EXISTS {$table} (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+        user_email VARCHAR(190) NOT NULL DEFAULT '',
+        session_id VARCHAR(64) NOT NULL DEFAULT '',
+        role VARCHAR(16) NOT NULL DEFAULT 'user',
+        message LONGTEXT NOT NULL,
+        meta LONGTEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY user_idx (user_id, created_at),
+        KEY session_idx (session_id, created_at),
+        KEY email_idx (user_email)
+    ) {$charset};";
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+}
+add_action('init', 'hackknow_chat_install_table', 5);
+
+/** Insert one row of chat history. Returns inserted ID or false. */
+function hackknow_chat_insert_row($user_id, $user_email, $session_id, $role, $message, $meta = null) {
+    global $wpdb;
+    $table = $wpdb->prefix . 'hk_chat_messages';
+    $message = (string) $message;
+    if (strlen($message) > 32000) $message = substr($message, 0, 32000);
+    $row = [
+        'user_id'    => (int)$user_id,
+        'user_email' => substr((string)$user_email, 0, 190),
+        'session_id' => substr((string)$session_id, 0, 64),
+        'role'       => in_array($role, ['user','bot','system'], true) ? $role : 'user',
+        'message'    => $message,
+        'meta'       => $meta ? wp_json_encode($meta) : null,
+        'created_at' => current_time('mysql'),
+    ];
+    $ok = $wpdb->insert($table, $row);
+    return $ok ? (int)$wpdb->insert_id : false;
+}
+
+/**
+ * GET /chat/history?session_id=xxx&limit=200
+ *  - If logged in: returns latest N messages for that user (across all sessions
+ *    on this account). Token via Authorization: Bearer header.
+ *  - If anonymous: requires session_id query param; returns rows for that session.
+ */
+function hackknow_chat_history_get(WP_REST_Request $req) {
+    global $wpdb;
+    $table = $wpdb->prefix . 'hk_chat_messages';
+    $limit = max(1, min(500, (int) $req->get_param('limit') ?: 200));
+
+    $token = hackknow_extract_bearer($req);
+    $uid   = $token ? (int) hackknow_verify_token($token) : 0;
+
+    if ($uid > 0) {
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, role, message, meta, created_at FROM {$table}
+             WHERE user_id = %d ORDER BY id ASC LIMIT %d",
+            $uid, $limit
+        ), ARRAY_A);
+    } else {
+        $session_id = sanitize_text_field((string) $req->get_param('session_id'));
+        if ($session_id === '') {
+            return new WP_REST_Response(['messages' => []], 200);
+        }
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, role, message, meta, created_at FROM {$table}
+             WHERE session_id = %s ORDER BY id ASC LIMIT %d",
+            $session_id, $limit
+        ), ARRAY_A);
+    }
+
+    $out = [];
+    foreach ($rows as $r) {
+        $meta = $r['meta'] ? json_decode($r['meta'], true) : [];
+        $out[] = [
+            'id'          => (int)$r['id'],
+            'role'        => $r['role'],
+            'text'        => $r['message'],
+            'suggestions' => is_array($meta) && isset($meta['suggestions']) ? $meta['suggestions'] : [],
+            'products'    => is_array($meta) && isset($meta['products'])    ? $meta['products']    : [],
+            'createdAt'   => $r['created_at'],
+        ];
+    }
+    return new WP_REST_Response(['messages' => $out], 200);
+}
+
+/**
+ * POST /chat/history
+ *   body: { session_id, role, text, suggestions?, products? }
+ */
+function hackknow_chat_history_save(WP_REST_Request $req) {
+    $session_id  = sanitize_text_field((string) $req->get_param('session_id'));
+    $role        = sanitize_text_field((string) $req->get_param('role'));
+    $text        = (string) $req->get_param('text');
+    $suggestions = $req->get_param('suggestions');
+    $products    = $req->get_param('products');
+
+    if ($session_id === '' || trim($text) === '') {
+        return new WP_Error('bad_request', 'session_id and text are required', ['status' => 400]);
+    }
+
+    $token = hackknow_extract_bearer($req);
+    $uid   = $token ? (int) hackknow_verify_token($token) : 0;
+    $email = '';
+    if ($uid > 0) {
+        $u = get_user_by('id', $uid);
+        if ($u) $email = $u->user_email;
+    }
+
+    $meta = [];
+    if (is_array($suggestions)) $meta['suggestions'] = array_slice($suggestions, 0, 8);
+    if (is_array($products))    $meta['products']    = array_slice($products, 0, 8);
+
+    $id = hackknow_chat_insert_row($uid, $email, $session_id, $role, $text, $meta ?: null);
+    if (!$id) return new WP_Error('db_error', 'Failed to save message', ['status' => 500]);
+
+    return new WP_REST_Response(['ok' => true, 'id' => $id], 200);
+}
+
+/**
+ * DELETE /chat/history?session_id=xxx
+ *   - logged-in user: clears all their history across sessions (DPDP right to erasure)
+ *   - anon: must provide session_id
+ */
+function hackknow_chat_history_clear(WP_REST_Request $req) {
+    global $wpdb;
+    $table = $wpdb->prefix . 'hk_chat_messages';
+    $token = hackknow_extract_bearer($req);
+    $uid   = $token ? (int) hackknow_verify_token($token) : 0;
+    if ($uid > 0) {
+        $deleted = $wpdb->delete($table, ['user_id' => $uid], ['%d']);
+        // Also reset Manish's owner-state so the special opener can be replayed if he wants.
+        delete_user_meta($uid, 'hk_owner_chat_step');
+    } else {
+        $session_id = sanitize_text_field((string) $req->get_param('session_id'));
+        if ($session_id === '') {
+            return new WP_Error('bad_request', 'session_id required for anonymous clear', ['status' => 400]);
+        }
+        $deleted = $wpdb->delete($table, ['session_id' => $session_id], ['%s']);
+    }
+    return new WP_REST_Response(['ok' => true, 'deleted' => (int)$deleted], 200);
+}
+
+/**
+ * GET /chat/owner-state
+ *   Returns the scripted-greeting state for the logged-in owner.
+ *   { isOwner: bool, step: 0|1|2|3, name: 'Manish' }
+ *   step 0 = needs greeting, 1 = greeted (waiting for Manish reply),
+ *   2 = asked permission (waiting for yes), 3 = done (regular chat from now on)
+ */
+function hackknow_chat_owner_state_get(WP_REST_Request $req) {
+    $uid = hackknow_authed_uid($req);
+    if (is_wp_error($uid)) {
+        return new WP_REST_Response(['isOwner' => false, 'step' => 3, 'name' => null], 200);
+    }
+    $user = get_user_by('id', $uid);
+    if (!$user) return new WP_REST_Response(['isOwner' => false, 'step' => 3, 'name' => null], 200);
+
+    $is_owner = hackknow_is_owner($user->user_email);
+    if (!$is_owner) {
+        return new WP_REST_Response(['isOwner' => false, 'step' => 3, 'name' => $user->display_name], 200);
+    }
+    $step = (int) get_user_meta($uid, 'hk_owner_chat_step', true);
+    if ($step < 0 || $step > 3) $step = 0;
+    return new WP_REST_Response([
+        'isOwner' => true,
+        'step'    => $step,
+        'name'    => $user->first_name ?: ($user->display_name ?: 'Manish'),
+    ], 200);
+}
+
+/**
+ * POST /chat/owner-state  body: { step: 0|1|2|3 }
+ *   Persists Manish sir's scripted-greeting progress so it never replays.
+ */
+function hackknow_chat_owner_state_set(WP_REST_Request $req) {
+    $uid = hackknow_authed_uid($req);
+    if (is_wp_error($uid)) return $uid;
+    $user = get_user_by('id', $uid);
+    if (!$user || !hackknow_is_owner($user->user_email)) {
+        return new WP_Error('forbidden', 'Owner-only endpoint', ['status' => 403]);
+    }
+    $step = (int) $req->get_param('step');
+    if ($step < 0 || $step > 3) $step = 0;
+    update_user_meta($uid, 'hk_owner_chat_step', $step);
+    return new WP_REST_Response(['ok' => true, 'step' => $step], 200);
+}
+
+/**
+ * POST /coupon/validate  body: { code, cart_total? }
+ *   Validates a WooCommerce coupon and returns the discount info.
+ *   Does NOT apply the coupon — the cart will re-validate at checkout.
+ */
+function hackknow_coupon_validate(WP_REST_Request $req) {
+    $code = strtolower(trim((string) $req->get_param('code')));
+    if ($code === '') {
+        return new WP_Error('bad_request', 'Coupon code is required', ['status' => 400]);
+    }
+    if (!class_exists('WC_Coupon')) {
+        return new WP_REST_Response([
+            'valid'  => false,
+            'reason' => 'WooCommerce is not active on this site.',
+        ], 200);
+    }
+    $coupon = new WC_Coupon($code);
+    $coupon_id = (int) $coupon->get_id();
+    if ($coupon_id <= 0) {
+        return new WP_REST_Response([
+            'valid'  => false,
+            'reason' => 'That promo code does not exist.',
+        ], 200);
+    }
+    // Expiry check
+    $expires_ts = $coupon->get_date_expires() ? $coupon->get_date_expires()->getTimestamp() : 0;
+    if ($expires_ts && $expires_ts < time()) {
+        return new WP_REST_Response([
+            'valid'  => false,
+            'reason' => 'This coupon has expired.',
+        ], 200);
+    }
+    // Usage-limit check
+    $usage_limit  = (int) $coupon->get_usage_limit();
+    $usage_count  = (int) $coupon->get_usage_count();
+    if ($usage_limit > 0 && $usage_count >= $usage_limit) {
+        return new WP_REST_Response([
+            'valid'  => false,
+            'reason' => 'This coupon has reached its usage limit.',
+        ], 200);
+    }
+    $type   = $coupon->get_discount_type();           // percent / fixed_cart / fixed_product
+    $amount = (float) $coupon->get_amount();
+    $desc   = (string) $coupon->get_description();
+
+    $human = $type === 'percent'
+        ? rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.') . '% off'
+        : '₹' . rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.') . ' off';
+
+    return new WP_REST_Response([
+        'valid'         => true,
+        'code'          => $coupon->get_code(),
+        'discount_type' => $type,
+        'amount'        => $amount,
+        'human'         => $human,
+        'description'   => $desc,
+        'minimum'       => (float) $coupon->get_minimum_amount(),
+        'expires'       => $expires_ts ? gmdate('c', $expires_ts) : null,
+    ], 200);
+}
+
+/**
+ * GET /upsell?ids=12,34
+ *   For each given product id: returns its WooCommerce cross-sell + upsell
+ *   product objects (deduped, max 6 total). Used to show "People also love".
+ */
+function hackknow_upsell_get(WP_REST_Request $req) {
+    if (!function_exists('wc_get_product')) {
+        return new WP_REST_Response(['products' => []], 200);
+    }
+    $raw = (string) $req->get_param('ids');
+    $ids = array_filter(array_map('intval', explode(',', $raw)), function ($v) { return $v > 0; });
+    if (empty($ids)) {
+        // Best-sellers as fallback
+        return new WP_REST_Response(['products' => hackknow_chat_top_products(6)], 200);
+    }
+    $related_ids = [];
+    foreach ($ids as $pid) {
+        $p = wc_get_product($pid);
+        if (!$p) continue;
+        $related_ids = array_merge($related_ids, $p->get_cross_sell_ids(), $p->get_upsell_ids());
+    }
+    $related_ids = array_values(array_unique(array_diff(array_map('intval', $related_ids), $ids)));
+    if (empty($related_ids)) {
+        return new WP_REST_Response(['products' => hackknow_chat_top_products(6)], 200);
+    }
+    $out = [];
+    foreach (array_slice($related_ids, 0, 6) as $rid) {
+        $p = wc_get_product($rid);
+        if (!$p || $p->get_status() !== 'publish') continue;
+        $out[] = [
+            'id'    => (int) $rid,
+            'name'  => $p->get_name(),
+            'price' => wp_strip_all_tags($p->get_price_html()),
+            'href'  => '/product/' . $p->get_slug(),
+            'image' => get_the_post_thumbnail_url($rid, 'thumbnail') ?: '',
+        ];
+    }
+    return new WP_REST_Response(['products' => $out], 200);
+}
+
+/**
+ * Tap into hackknow_chat to auto-save user message + bot reply if a
+ * session_id is provided. Wraps the existing handler without changing it.
+ */
+add_filter('rest_pre_dispatch', function ($result, $server, $request) {
+    if ($request->get_route() !== '/hackknow/v1/chat' || $request->get_method() !== 'POST') {
+        return $result;
+    }
+    $session_id = sanitize_text_field((string) $request->get_param('session_id'));
+    if ($session_id === '') return $result; // nothing to save
+
+    $message = trim((string) $request->get_param('message'));
+    if ($message === '') return $result;
+
+    // Resolve user (if any)
+    $token = hackknow_extract_bearer($request);
+    $uid   = $token ? (int) hackknow_verify_token($token) : 0;
+    $email = '';
+    if ($uid > 0) {
+        $u = get_user_by('id', $uid);
+        if ($u) $email = $u->user_email;
+    }
+    // Save the user turn pre-flight.
+    hackknow_chat_insert_row($uid, $email, $session_id, 'user', $message, null);
+
+    // Dispatch the original handler.
+    $response = $server->dispatch($request);
+    if ($response instanceof WP_REST_Response) {
+        $data = $response->get_data();
+        if (is_array($data) && !empty($data['reply'])) {
+            $meta = [];
+            if (!empty($data['suggestions']) && is_array($data['suggestions'])) $meta['suggestions'] = $data['suggestions'];
+            if (!empty($data['products'])    && is_array($data['products']))    $meta['products']    = $data['products'];
+            hackknow_chat_insert_row($uid, $email, $session_id, 'bot', (string)$data['reply'], $meta ?: null);
+        }
+    }
+    return $response;
+}, 10, 3);
