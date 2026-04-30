@@ -1,26 +1,29 @@
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
-import { products, getBestsellers, getNewArrivals } from "@/data/products";
-import { useState } from "react";
+import { useStore } from "@/context/StoreContext";
+import { useMemo, useState } from "react";
 
 type FilterType = "all" | "bestseller" | "new" | "free";
 
 export default function TrendingSection() {
+  const { state } = useStore();
+  const allProducts = state.products;
+  const loading = state.loading;
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
 
-  const filteredProducts = (() => {
+  const filteredProducts = useMemo(() => {
     switch (activeFilter) {
       case "bestseller":
-        return getBestsellers(products);
+        return allProducts.filter((p) => p.isBestseller);
       case "new":
-        return getNewArrivals(products);
+        return allProducts.filter((p) => p.isNew);
       case "free":
-        return products.filter((p) => p.isFree);
+        return allProducts.filter((p) => p.isFree);
       default:
-        return products;
+        return allProducts;
     }
-  })();
+  }, [activeFilter, allProducts]);
 
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: "All Products" },
@@ -71,11 +74,21 @@ export default function TrendingSection() {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-6">
-          {filteredProducts.slice(0, 8).map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {loading && filteredProducts.length === 0 ? (
+          <div className="flex items-center gap-2 text-hack-black/60 py-10">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading products…
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="bg-white border-[2px] border-dashed border-hack-black/30 rounded-2xl p-10 text-center text-hack-black/55 text-sm">
+            No products to show in this filter yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-6">
+            {filteredProducts.slice(0, 8).map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

@@ -64,10 +64,113 @@ export interface HKVerifyMe {
 }
 
 /* ── Fetch helpers ─────────────────────────────────────────── */
-async function get<T>(path: string): Promise<T> {
+async function getRaw(path: string): Promise<unknown> {
   const r = await fetch(`${WP_REST_BASE}${path}`, { headers: { Accept: 'application/json' } });
   if (!r.ok) throw new Error(`GET ${path} → ${r.status}`);
   return r.json();
+}
+/**
+ * Backend list endpoints return either a bare JSON array OR `{ items: [...] }`.
+ * This helper normalises both shapes and applies an optional per-item adapter
+ * to bridge field-name drift between WP plugin output and frontend types.
+ */
+async function getList<T>(path: string, mapItem?: (raw: unknown) => T): Promise<HKListResp<T>> {
+  const raw = await getRaw(path);
+  const arr: unknown[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { items?: unknown[] })?.items)
+      ? ((raw as { items: unknown[] }).items)
+      : [];
+  const items = (mapItem ? arr.map(mapItem) : (arr as T[]));
+  const total = (raw && typeof (raw as { total?: number }).total === 'number')
+    ? (raw as { total: number }).total
+    : items.length;
+  return { items, total };
+}
+
+/* ── Per-resource adapters (tolerate field-name drift between WP plugin & FE types) ─── */
+type Bag = Record<string, unknown>;
+const asArr = <X = unknown>(v: unknown): X[] => (Array.isArray(v) ? (v as X[]) : []);
+const asStr = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v));
+
+function adaptCategory(r: unknown): HKCategory {
+  const o = (r ?? {}) as Bag;
+  return {
+    id: Number(o.id ?? 0),
+    slug: asStr(o.slug),
+    name: asStr(o.name),
+    parent: Number(o.parent ?? 0),
+    description: asStr(o.description),
+    count: Number(o.count ?? 0),
+  };
+}
+
+function adaptCourse(r: unknown): HKCourse {
+  const o = (r ?? {}) as Bag;
+  const durationStr = asStr(o.duration)
+    || (o.duration_hours ? `${o.duration_hours}h` : '');
+  const priceStr = asStr(o.price)
+    || (o.price_rs && Number(o.price_rs) > 0 ? `₹${o.price_rs}` : (o.price_rs === 0 ? 'Free' : ''));
+  const categorySlugs: string[] = Array.isArray(o.category_slugs)
+    ? (o.category_slugs as string[])
+    : asArr<Bag>(o.categories).map(c => asStr((c as Bag).slug)).filter(Boolean);
+  return {
+    id: Number(o.id ?? 0),
+    slug: asStr(o.slug),
+    title: asStr(o.title),
+    excerpt: asStr(o.excerpt),
+    content: typeof o.content === 'string' ? o.content : undefined,
+    level: asStr(o.level),
+    duration: durationStr,
+    price: priceStr,
+    chapters: asArr(o.chapters) as HKCourse['chapters'],
+    requirements: asArr<string>(o.requirements),
+    outcomes: asArr<string>(o.outcomes),
+    tools: asArr<string>(o.tools),
+    category_slugs: categorySlugs,
+    thumbnail: typeof o.thumbnail === 'string' ? o.thumbnail : undefined,
+  };
+}
+
+function adaptRoadmap(r: unknown): HKRoadmap {
+  const o = (r ?? {}) as Bag;
+  const career = (o.career ?? o.career_outcome) as string | null | undefined;
+  const hours = Number(o.hours_estimated ?? o.estimated_hours ?? 0) || 0;
+  const diff = o.difficulty as HKRoadmap['difficulty'] | undefined;
+  return {
+    id: Number(o.id ?? 0),
+    slug: asStr(o.slug),
+    title: asStr(o.title),
+    excerpt: asStr(o.excerpt),
+    career: career || null,
+    difficulty: diff || null,
+    hours_estimated: hours,
+    requirements: asArr<string>(o.requirements),
+    outcomes: asArr<string>(o.outcomes),
+    sections: asArr(o.sections) as HKRoadmap['sections'],
+    thumbnail: (typeof o.thumbnail === 'string' ? o.thumbnail : null),
+    date_published: typeof o.date_published === 'string' ? o.date_published : undefined,
+  };
+}
+
+function adaptRelease(r: unknown): HKRelease {
+  const o = (r ?? {}) as Bag;
+  return {
+    id: (typeof o.id === 'number' || typeof o.id === 'string') ? o.id : 0,
+    slug: asStr(o.slug),
+    title: asStr(o.title),
+    summary: asStr(o.summary || o.excerpt),
+    content_html: asStr(o.content_html || o.content),
+    release_date: asStr(o.release_date || o.date_published),
+    date_published: typeof o.date_published === 'string' ? o.date_published : undefined,
+    type: asStr(o.type || o.release_type),
+    source_url: asStr(o.source_url),
+    image: (typeof o.image === 'string' ? o.image : null),
+    tags: asArr<string>(o.tags),
+    rss_source: asStr(o.rss_source) || 'HackKnow',
+    rss_source_key: asStr(o.rss_source_key) || 'curated',
+    rss_color: typeof o.rss_color === 'string' ? o.rss_color : undefined,
+  };
 }
 async function authPost<T>(path: string, body: unknown): Promise<T> {
   const tok = getAuthToken();
@@ -90,25 +193,60 @@ async function authGet<T>(path: string): Promise<T> {
 }
 
 /* ── Public APIs ───────────────────────────────────────────── */
-export const fetchCourseCategories = () => get<HKListResp<HKCategory>>('/course-categories');
+export const fetchCourseCategories = () => getList<HKCategory>('/course-categories', adaptCategory);
 export const fetchCourses = (cat?: string) =>
-  get<HKListResp<HKCourse>>(`/courses${cat ? `?category=${encodeURIComponent(cat)}` : ''}`);
-export const fetchCourse = (slug: string) => get<HKCourse>(`/courses/${slug}`);
+  getList<HKCourse>(`/courses${cat ? `?category=${encodeURIComponent(cat)}` : ''}`, adaptCourse);
+export const fetchCourse = async (slug: string): Promise<HKCourse> =>
+  adaptCourse(await getRaw(`/courses/${slug}`));
 
-export const fetchRoadmaps = () => get<HKListResp<HKRoadmap>>('/roadmaps');
-export const fetchRoadmap  = (slug: string) => get<HKRoadmap>(`/roadmaps/${slug}`);
+export const fetchRoadmaps = () => getList<HKRoadmap>('/roadmaps', adaptRoadmap);
+export const fetchRoadmap  = async (slug: string): Promise<HKRoadmap> =>
+  adaptRoadmap(await getRaw(`/roadmaps/${slug}`));
 
 export const fetchReleases = (type?: string) =>
-  get<HKListResp<HKRelease>>(`/releases${type ? `?type=${encodeURIComponent(type)}` : ''}`);
-export const fetchReleaseTypes = () => get<HKListResp<{ slug: string; name: string; count: number }>>('/release-types');
+  getList<HKRelease>(`/releases${type ? `?type=${encodeURIComponent(type)}` : ''}`, adaptRelease);
+export const fetchReleaseTypes = () =>
+  getList<{ slug: string; name: string; count: number }>('/release-types');
 
-/** Live RSS only (TechCrunch + The Verge + dev.to + Hacker News + GitHub Blog) */
-export const fetchLiveNews = (source: string = 'all', limit = 30) =>
-  get<HKNewsFeedResp>(`/news/feed?source=${encodeURIComponent(source)}&limit=${limit}`);
+/** Live RSS only (TechCrunch + The Verge + dev.to + Hacker News + GitHub Blog).
+ *  Backend route `/news/feed` may not be registered yet — degrade to empty feed
+ *  rather than throwing so the page still renders. */
+export const fetchLiveNews = async (source: string = 'all', limit = 30): Promise<HKNewsFeedResp> => {
+  try {
+    const raw = await getRaw(`/news/feed?source=${encodeURIComponent(source)}&limit=${limit}`);
+    if (raw && Array.isArray((raw as HKNewsFeedResp).items)) return raw as HKNewsFeedResp;
+    if (Array.isArray(raw)) {
+      const items = (raw as unknown[]).slice(0, limit).map(adaptRelease);
+      return { items, total: items.length, sources: [], cached_for_seconds: 0 };
+    }
+  } catch (_) { /* fall through to empty */ }
+  return { items: [], total: 0, sources: [], cached_for_seconds: 0 };
+};
 
-/** Admin-curated releases + live RSS, merged + sorted by date */
-export const fetchAllNews = (limit = 50) =>
-  get<HKNewsAllResp>(`/news/all?limit=${limit}`);
+/** Admin-curated releases + live RSS, merged + sorted by date.
+ *  Backend route `/news/all` may not be registered — fall back to `/releases`
+ *  (admin-curated only) so users still see news instead of an error page. */
+export const fetchAllNews = async (limit = 50): Promise<HKNewsAllResp> => {
+  // Preferred path
+  try {
+    const raw = await getRaw(`/news/all?limit=${limit}`);
+    if (raw && Array.isArray((raw as HKNewsAllResp).items)) {
+      return raw as HKNewsAllResp;
+    }
+    if (Array.isArray(raw)) {
+      const items = (raw as unknown[]).slice(0, limit).map(adaptRelease);
+      return { items, total: items.length, curated: items.length, live: 0 };
+    }
+  } catch (_) { /* fall back below */ }
+
+  // Fallback: curated-only via /releases
+  const list = await getList<HKRelease>('/releases', adaptRelease);
+  const items = list.items
+    .slice()
+    .sort((a, b) => (b.release_date || '').localeCompare(a.release_date || ''))
+    .slice(0, limit);
+  return { items, total: items.length, curated: items.length, live: 0 };
+};
 
 export const fetchVerifyStatus = () => authGet<HKVerifyMe>('/verify/me');
 export const submitVerify = (body: {
