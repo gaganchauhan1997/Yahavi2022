@@ -70,7 +70,7 @@ export default function ChatPanel({ onAskKeys, resetSignal }: Props) {
       let acc = '';
       await chatStream(
         messages, loadKeys(),
-        { temperature: 0.78, maxTokens: 2048 },
+        { temperature: 0.78, maxTokens: 8192 },
         (chunk, done) => {
           if (chunk) { acc += chunk; setStreamBuf(acc); }
           if (done) {
@@ -246,21 +246,46 @@ function MessageBubble({ role, html, raw, copied, onCopy, onExport, streaming }:
         }>
           <div className="bx-prose break-words" dangerouslySetInnerHTML={{ __html: html }} />
           {streaming && raw && <span className="inline-block w-2 h-4 bg-bx-orange align-text-bottom ml-1 animate-pulse" />}
-          {!streaming && raw && (onCopy || onExport) && (
-            <div className="absolute -top-3 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {!streaming && raw && !isUser && (onCopy || onExport) && (
+            <div className="mt-3 pt-3 border-t border-bx-line/60 flex flex-wrap gap-2 items-center">
               {onCopy && (
-                <button onClick={onCopy} className="bx-btn-ghost py-1 flex items-center gap-1" title="Copy">
-                  {copied ? <Check className="w-3 h-3 text-bx-orange" /> : <Copy className="w-3 h-3" />}
-                  <span className="text-[9px]">{copied ? 'Copied' : 'Copy'}</span>
+                <button
+                  onClick={onCopy}
+                  className={
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-mono uppercase tracking-wider transition-colors ' +
+                    (copied
+                      ? 'bg-bx-orange text-black border-bx-orange'
+                      : 'bg-bx-orangeDim border-bx-orange/60 text-bx-orange hover:bg-bx-orange hover:text-black')
+                  }
+                  title="Copy entire response to clipboard"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Copied!' : 'Copy All'}</span>
                 </button>
               )}
               {onExport && (
-                <button onClick={onExport} className="bx-btn-ghost py-1 flex items-center gap-1" title="Export as Markdown">
-                  <Download className="w-3 h-3" />
-                  <span className="text-[9px]">.md</span>
+                <button
+                  onClick={onExport}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-bx-line2 bg-bx-panel2 text-bx-dim hover:text-bx-text hover:border-bx-line text-xs font-mono uppercase tracking-wider transition-colors"
+                  title="Download as Markdown file"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>.md</span>
                 </button>
               )}
+              <span className="text-[10px] font-mono uppercase tracking-wider text-bx-mute ml-auto">
+                {raw.length.toLocaleString()} chars
+              </span>
             </div>
+          )}
+          {!streaming && raw && isUser && onCopy && (
+            <button
+              onClick={onCopy}
+              className="absolute -top-2 -left-2 w-7 h-7 rounded-md bg-bx-panel border border-bx-line2 text-bx-dim hover:text-bx-orange flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Copy"
+            >
+              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            </button>
           )}
         </div>
       </div>
