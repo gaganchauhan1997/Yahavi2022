@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, BadgePercent, BookOpen, ChevronRight, GraduationCap,
-  Heart, Home, Loader2, LogOut, Map, Newspaper, Package, ShieldCheck,
-  ShoppingBag, Sparkles, Tag, User, UserPlus, X,
+  Heart, Home, Loader2, LogOut, Map, MessageSquare, Newspaper, Package,
+  ShieldCheck, ShoppingBag, Sparkles, Tag, User, UserPlus, X,
 } from 'lucide-react';
 import { fetchCourseCategories, type HKCategory } from '@/lib/hk-content';
 
@@ -144,6 +144,7 @@ function RootView({ onNav, onDrillIn, isAuthed }: { onNav: () => void; onDrillIn
       <DrillItem to="/hacked-news"  label="Hacked News"     icon={Newspaper}   onClose={onNav} subtitle="Tools · championships · deadlines" />
       <DrillItem to="/mis-templates" label="MIS Templates"  icon={BadgePercent} onClose={onNav}
         rightBadge={<span className="px-1.5 py-0.5 bg-hack-yellow border border-hack-black rounded text-[10px] font-mono">90% OFF</span>} />
+      <DrillItem to="/testimonials" label="Reviews"          icon={MessageSquare} onClose={onNav} subtitle="Real buyers · 963+ creators" />
 
       <div className="my-3 border-t border-hack-black/10" />
 

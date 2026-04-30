@@ -44,6 +44,7 @@ const RoadmapsPage        = lazy(() => import('./pages/RoadmapsPage'));
 const RoadmapDetailPage   = lazy(() => import('./pages/RoadmapDetailPage'));
 const HackedNewsPage      = lazy(() => import('./pages/HackedNewsPage'));
 const VerifyPage          = lazy(() => import('./pages/VerifyPage'));
+const TestimonialsPage    = lazy(() => import('./pages/TestimonialsPage'));
 
 function PageLoader() {
   return (
@@ -137,6 +138,8 @@ function App() {
                 <Route path="/hacked-news"          element={<HackedNewsPage />} />
                 <Route path="/news"                 element={<Navigate to="/hacked-news" replace />} />
                 <Route path="/verify"               element={<VerifyPage />} />
+                <Route path="/testimonials"         element={<TestimonialsPage />} />
+                <Route path="/reviews"              element={<Navigate to="/testimonials" replace />} />
 
                 <Route path="*"                    element={<Navigate to="/" replace />} />
               </Routes>

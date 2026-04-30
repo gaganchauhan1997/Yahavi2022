@@ -106,6 +106,10 @@ export default function Header() {
                 MIS
                 <span className="px-1.5 py-0.5 bg-hack-yellow border border-hack-black rounded text-[10px] font-mono">90% OFF</span>
               </Link>
+              <Link to="/testimonials" onClick={closeMobileMenu}
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
+                Reviews
+              </Link>
               <Link to="/about" onClick={closeMobileMenu}
                 className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
                 About
