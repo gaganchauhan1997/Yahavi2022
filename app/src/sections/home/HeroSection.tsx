@@ -79,19 +79,139 @@ export default function HeroSection() {
             <span className="block text-gradient">INSTANT IMPACT.</span>
           </h1>
 
-          {/* Mobile Phone Mockup — bigger but fitted */}
-          <div className="lg:hidden flex justify-end -mt-2 mb-4">
-            <div className="relative">
-              <img
-                src="/images/hero/phone-mockup.png"
-                alt="Hackknow App"
-                width="200"
-                height="400"
-                className="w-[170px] sm:w-[200px] h-auto drop-shadow-2xl animate-float rounded-[1.75rem] border-[3px] border-hack-black"
-                loading="lazy"
+          {/* MOBILE: Animated Asset Stack — replaces phone mockup.
+              Pure CSS keyframes (GPU-only transforms). Visualises the
+              "DIGITAL ASSETS" headline with 4 stacked neo-brutal cards
+              that gently breathe + a live downloads counter strip. */}
+          <div className="lg:hidden mb-5 -mt-1" aria-label="Live HackKnow asset drop">
+            <style>{`
+              @keyframes hk-card-bob-0 {
+                0%, 100% { transform: translate(-50%, 0) rotate(-9deg); }
+                50%      { transform: translate(-50%, -6px) rotate(-11deg); }
+              }
+              @keyframes hk-card-bob-1 {
+                0%, 100% { transform: translate(-50%, 0) rotate(-3deg); }
+                50%      { transform: translate(-50%, -4px) rotate(-1deg); }
+              }
+              @keyframes hk-card-bob-2 {
+                0%, 100% { transform: translate(-50%, 0) rotate(3deg); }
+                50%      { transform: translate(-50%, -7px) rotate(5deg); }
+              }
+              @keyframes hk-card-bob-3 {
+                0%, 100% { transform: translate(-50%, 0) rotate(8deg); }
+                50%      { transform: translate(-50%, -9px) rotate(10deg); }
+              }
+              @keyframes hk-stamp-pop {
+                0%, 70%, 100% { transform: rotate(-14deg) scale(1); }
+                80%           { transform: rotate(-18deg) scale(1.18); }
+                90%           { transform: rotate(-14deg) scale(1); }
+              }
+              @keyframes hk-pulse-dot {
+                0%, 100% { opacity: 1;   box-shadow: 0 0 0 0 rgba(255,193,7,0.7); }
+                50%      { opacity: 0.6; box-shadow: 0 0 0 6px rgba(255,193,7,0); }
+              }
+              @keyframes hk-ticker-up {
+                0%   { transform: translateY(0);    opacity: 1; }
+                85%  { transform: translateY(-90%); opacity: 1; }
+                90%  { transform: translateY(-90%); opacity: 0; }
+                91%  { transform: translateY(100%); opacity: 0; }
+                100% { transform: translateY(0);    opacity: 1; }
+              }
+              .hk-anim { will-change: transform; }
+              @media (prefers-reduced-motion: reduce) {
+                .hk-anim { animation: none !important; }
+              }
+            `}</style>
+
+            <div className="relative h-[170px] w-full max-w-[300px] mx-auto">
+              {/* Card 1 — back (.pdf magenta) */}
+              <div
+                className="hk-anim absolute top-7 left-1/2 w-[210px] h-[125px] bg-hack-magenta border-[3px] border-hack-black rounded-2xl shadow-[5px_5px_0_#1A1A1A] p-3 flex flex-col"
+                style={{ animation: "hk-card-bob-0 4.2s ease-in-out infinite" }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white/80">.pdf</span>
+                  <span className="font-mono text-[9px] font-bold text-white/70">120+</span>
+                </div>
+                <div className="mt-auto">
+                  <div className="font-display font-black text-white text-[22px] leading-none">EBOOKS</div>
+                  <div className="font-mono text-[10px] text-white/85 mt-0.5">Hindi + English</div>
+                </div>
+              </div>
+
+              {/* Card 2 (.ppt orange) */}
+              <div
+                className="hk-anim absolute top-5 left-1/2 w-[210px] h-[125px] bg-hack-orange border-[3px] border-hack-black rounded-2xl shadow-[5px_5px_0_#1A1A1A] p-3 flex flex-col"
+                style={{ animation: "hk-card-bob-1 4.2s ease-in-out infinite 0.35s" }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white/85">.pptx</span>
+                  <span className="font-mono text-[9px] font-bold text-white/75">350+</span>
+                </div>
+                <div className="mt-auto">
+                  <div className="font-display font-black text-white text-[22px] leading-none">PITCH&nbsp;DECKS</div>
+                  <div className="font-mono text-[10px] text-white/85 mt-0.5">Investor ready</div>
+                </div>
+              </div>
+
+              {/* Card 3 (.zip code, dark) */}
+              <div
+                className="hk-anim absolute top-3 left-1/2 w-[210px] h-[125px] bg-hack-black text-white border-[3px] border-hack-black rounded-2xl shadow-[5px_5px_0_#1A1A1A] p-3 flex flex-col"
+                style={{ animation: "hk-card-bob-2 4.2s ease-in-out infinite 0.7s" }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-hack-yellow">.zip</span>
+                  <span className="font-mono text-[9px] font-bold text-white/70">90+</span>
+                </div>
+                <div className="mt-auto">
+                  <div className="font-display font-black text-hack-yellow text-[22px] leading-none">CODE&nbsp;KITS</div>
+                  <div className="font-mono text-[10px] text-white/80 mt-0.5">React · Next · WP</div>
+                </div>
+              </div>
+
+              {/* Card 4 — front (.xlsx yellow) */}
+              <div
+                className="hk-anim absolute top-1 left-1/2 w-[210px] h-[125px] bg-hack-yellow border-[3px] border-hack-black rounded-2xl shadow-[6px_6px_0_#1A1A1A] p-3 flex flex-col"
+                style={{ animation: "hk-card-bob-3 4.2s ease-in-out infinite 1.05s" }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-hack-black">.xlsx</span>
+                  <span className="font-mono text-[9px] font-bold text-hack-black/80">500+</span>
+                </div>
+                <div className="mt-auto">
+                  <div className="font-display font-black text-hack-black text-[22px] leading-none">MIS&nbsp;DASHBOARDS</div>
+                  <div className="font-mono text-[10px] text-hack-black/75 mt-0.5">90% off for MIS pros</div>
+                </div>
+              </div>
+
+              {/* Diagonal "INSTANT DL" stamp */}
+              <div
+                className="hk-anim absolute -top-1 -right-1 z-10 bg-white text-hack-black px-2.5 py-1 border-[3px] border-hack-black rounded-md font-display font-black text-[11px] tracking-wider shadow-[3px_3px_0_#1A1A1A] origin-center"
+                style={{ animation: "hk-stamp-pop 3s ease-out infinite" }}
+              >
+                INSTANT&nbsp;DL
+              </div>
+            </div>
+
+            {/* Live downloads ticker — vertical scroll */}
+            <div className="mt-3 flex items-center gap-2 px-3 py-1.5 bg-hack-black border-[2.5px] border-hack-yellow rounded-full max-w-[300px] mx-auto overflow-hidden shadow-[3px_3px_0_rgba(255,193,7,0.35)]">
+              <span
+                className="hk-anim w-2 h-2 rounded-full bg-hack-yellow shrink-0"
+                style={{ animation: "hk-pulse-dot 1.6s ease-in-out infinite" }}
+                aria-hidden="true"
               />
-              <div className="absolute -bottom-3 -left-3 bg-hack-yellow text-hack-black px-2.5 py-1 rounded-lg font-display font-bold text-[10px] whitespace-nowrap border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A]">
-                10K+ Customers
+              <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-hack-yellow shrink-0">LIVE</span>
+              <div className="relative h-[14px] flex-1 overflow-hidden">
+                <div
+                  className="hk-anim absolute inset-0 flex flex-col font-mono text-[11px] font-semibold text-white whitespace-nowrap"
+                  style={{ animation: "hk-ticker-up 12s ease-in-out infinite" }}
+                >
+                  <span className="h-[14px] leading-[14px]">Rohit ne MIS Dashboard download kiya</span>
+                  <span className="h-[14px] leading-[14px]">Priya got Resume Bundle &mdash; Rs 0</span>
+                  <span className="h-[14px] leading-[14px]">Aman ne Notion OS uthaya</span>
+                  <span className="h-[14px] leading-[14px]">Sara &mdash; Pitch Deck Pro just now</span>
+                  <span className="h-[14px] leading-[14px]">Vikram unlocked Code Kit free</span>
+                </div>
               </div>
             </div>
           </div>
