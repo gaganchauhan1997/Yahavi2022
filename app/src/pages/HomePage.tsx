@@ -7,10 +7,15 @@ import CommunitySection from "@/sections/home/CommunitySection";
 import TestimonialsSection from "@/sections/home/TestimonialsSection";
 import FAQSection from "@/sections/home/FAQSection";
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 // Lazy-load the AI credits block so it doesn't compete with the LCP hero
 const AICreditsSection = lazy(() => import("@/sections/home/AICreditsSection"));
 
 export default function HomePage() {
+  useDocumentMeta({
+    title: "Hackknow – Premium Digital Products, Courses & Roadmaps",
+    description: "India's trusted digital marketplace. Excel dashboards, PowerPoint templates, courses, dev roadmaps & latest tech news. Instant download.",
+  });
   return (
     <>
       <HeroSection />

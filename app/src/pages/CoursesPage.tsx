@@ -3,12 +3,17 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BookOpen, Clock, GraduationCap, Loader2, Tag } from 'lucide-react';
 import { fetchCourseCategories, fetchCourses, type HKCategory, type HKCourse } from '@/lib/hk-content';
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 const CAT_ICON: Record<string, string> = {
   python: '🐍', java: '☕', wordpress: '📝', php: '🐘', 'node-js': '🟢',
   vercel: '▲', netlify: '🌐', 'ai-infrastructure': '🤖',
 };
 
 export default function CoursesPage() {
+  useDocumentMeta({
+    title: "Online Courses – Python, Java, WordPress, Node.js, AI | Hackknow",
+    description: "Hands-on dev & AI courses. Python, Java, WordPress, PHP, Node.js, Vercel, Netlify, AI Infrastructure. Verified students get 6 months free.",
+  });
   const { catSlug } = useParams<{ catSlug?: string }>();
   const [cats, setCats] = useState<HKCategory[]>([]);
   const [courses, setCourses] = useState<HKCourse[]>([]);

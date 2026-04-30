@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, ExternalLink, Loader2, Newspaper, Radio, RefreshCcw } from 'lucide-react';
 import { fetchAllNews, type HKRelease } from '@/lib/hk-content';
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 const TYPE_COLOR: Record<string, string> = {
   'tool-release':  'bg-hack-yellow text-hack-black',
   'tool-launch':   'bg-hack-yellow text-hack-black',
@@ -33,6 +34,10 @@ function monthKey(d: string): string {
 }
 
 export default function HackedNewsPage() {
+  useDocumentMeta({
+    title: "Hacked News – Latest AI & Tech Releases | Hackknow",
+    description: "Live tech & AI news from TechCrunch, The Verge, GitHub Blog, Hugging Face, MIT Tech Review and more — curated for builders.",
+  });
   const [items, setItems] = useState<HKRelease[]>([]);
   const [counts, setCounts] = useState<{ curated: number; live: number; total: number }>({ curated: 0, live: 0, total: 0 });
   const [filter, setFilter] = useState<string>('all');

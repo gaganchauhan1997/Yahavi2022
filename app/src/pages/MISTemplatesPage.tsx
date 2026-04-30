@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BadgePercent, FileSpreadsheet, BarChart3, Target, ShieldCheck, CheckCircle } from 'lucide-react';
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 const perks = [
   { icon: FileSpreadsheet, title: 'MIS Reports', desc: 'Daily/Weekly/Monthly attendance, sales, ops, finance — pre-built sheets.' },
   { icon: BarChart3,       title: 'Live Dashboards', desc: 'Power BI / Excel pivot dashboards with auto-refresh formulas.' },
@@ -13,6 +14,10 @@ const proof = [
 ];
 
 export default function MISTemplatesPage() {
+  useDocumentMeta({
+    title: "MIS, Dashboards & Templates – 90% Off for MIS Pros | Hackknow",
+    description: "Premium MIS dashboards, reporting templates and Excel kits. Verified MIS professionals get 90% off automatically.",
+  });
   return (
     <div className="min-h-screen bg-[#fffbea]">
 

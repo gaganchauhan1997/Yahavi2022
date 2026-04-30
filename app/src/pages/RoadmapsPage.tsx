@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Briefcase, Clock, GraduationCap, Loader2, Map } from 'lucide-react';
 import { fetchRoadmaps, type HKRoadmap } from '@/lib/hk-content';
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 const DIFF_COLOR: Record<string, string> = {
   beginner:     'bg-emerald-200 text-emerald-900 border-emerald-900',
   intermediate: 'bg-orange-200 text-orange-900 border-orange-900',
@@ -10,6 +11,10 @@ const DIFF_COLOR: Record<string, string> = {
 };
 
 export default function RoadmapsPage() {
+  useDocumentMeta({
+    title: "Developer Roadmaps 2026 – Python, AI, Frontend, Backend | Hackknow",
+    description: "Step-by-step learning roadmaps for Python, AI, Frontend, Backend, DevOps and more. Tools, hours and career outcomes laid out clearly.",
+  });
   const [items, setItems] = useState<HKRoadmap[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);

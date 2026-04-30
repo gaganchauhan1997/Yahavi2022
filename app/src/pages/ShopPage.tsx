@@ -5,6 +5,7 @@ import ProductCard from "@/components/ProductCard";
 import { useStore } from "@/context/StoreContext";
 import { categories } from "@/data/products";
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 const PRODUCTS_PER_PAGE = 12;
 
 /* ── Numbered Pagination Component ─────────────────────────────────────── */
@@ -136,6 +137,10 @@ function parsePrice(price?: string): number {
 
 /* ── ShopPage ─────────────────────────────────────────────────────────── */
 export default function ShopPage() {
+  useDocumentMeta({
+    title: "Shop Premium Templates & Dashboards | Hackknow",
+    description: "Browse Excel dashboards, PowerPoint templates, marketing kits, Notion templates and more. India's leading digital marketplace.",
+  });
   const { category: categorySlug } = useParams<{ category?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();

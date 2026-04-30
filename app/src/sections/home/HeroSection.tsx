@@ -38,14 +38,18 @@ export default function HeroSection() {
         {/* Phone Mockup */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="relative">
-            <img
-              src="/images/hero/phone-mockup.png"
-              alt="Hackknow App"
-              width="380"
-              height="760"
-              className="w-[340px] xl:w-[400px] h-auto drop-shadow-2xl animate-float rounded-[2.5rem] ring-2 ring-hack-black"
-              fetchPriority="high"
-            />
+            <picture>
+              <source srcSet="/images/hero/phone-mockup.webp" type="image/webp" />
+              <img
+                src="/images/hero/phone-mockup.png"
+                alt="Hackknow App"
+                width="380"
+                height="760"
+                className="w-[340px] xl:w-[400px] h-auto drop-shadow-2xl animate-float rounded-[2.5rem] ring-2 ring-hack-black"
+                fetchPriority="high"
+                decoding="async"
+              />
+            </picture>
             {/* Floating Badge - neo-brutal */}
             <div className="absolute -bottom-5 -right-6 bg-hack-yellow text-hack-black px-4 py-2 rounded-xl font-display font-bold text-sm border-[3px] border-hack-black shadow-[5px_5px_0_0_#1A1A1A] animate-bounce-subtle">
               10K+ Happy Customers

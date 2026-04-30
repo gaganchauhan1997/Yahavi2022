@@ -14,6 +14,7 @@ import {
   Pause,
 } from "lucide-react";
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 type Founder = {
   name: string;
   role: string;
@@ -77,6 +78,10 @@ const MENTOR_AUDIO_SRC = "/manish-mentor.mp3";
 /* ----------------------------------- Page ----------------------------------- */
 
 export default function AboutPage() {
+  useDocumentMeta({
+    title: "About Hackknow – India's Digital Marketplace",
+    description: "Hackknow is India's trusted source for premium digital products, dev courses and tech roadmaps. Built for creators, students and pros.",
+  });
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const audioRef = useRef<HTMLAudioElement | null>(null);
 

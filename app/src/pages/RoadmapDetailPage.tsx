@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Check, ChevronDown, ChevronRight, Clock, Loader2, GraduationCap } from 'lucide-react';
 import { fetchRoadmap, type HKRoadmap } from '@/lib/hk-content';
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 const DIFF_COLOR: Record<string, string> = {
   beginner:     'bg-emerald-200 text-emerald-900',
   intermediate: 'bg-orange-200 text-orange-900',
@@ -10,6 +11,10 @@ const DIFF_COLOR: Record<string, string> = {
 };
 
 export default function RoadmapDetailPage() {
+  useDocumentMeta({
+    title: "Roadmap | Hackknow",
+    description: "Detailed step-by-step learning roadmap with sections, topics, tools and career outcome.",
+  });
   const { slug } = useParams<{ slug: string }>();
   const [rm, setRm] = useState<HKRoadmap | null>(null);
   const [loading, setLoading] = useState(true);

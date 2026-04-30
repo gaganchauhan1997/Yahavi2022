@@ -3,7 +3,12 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Check, CheckSquare, Clock, GraduationCap, Loader2, Wrench } from 'lucide-react';
 import { fetchCourse, type HKCourse } from '@/lib/hk-content';
 
+import { useDocumentMeta } from '@/lib/useDocumentMeta';
 export default function CourseDetailPage() {
+  useDocumentMeta({
+    title: "Course Detail | Hackknow",
+    description: "Course curriculum, requirements, tools and outcomes on Hackknow.",
+  });
   const { slug } = useParams<{ slug: string }>();
   const [course, setCourse] = useState<HKCourse | null>(null);
   const [loading, setLoading] = useState(true);
