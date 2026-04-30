@@ -9,7 +9,8 @@ export interface HkBadges {
   logged_in: boolean;
   wallet_coins?: number;
   community?: boolean;
-  sponsor_tier?: "none" | "bronze" | "silver" | "gold";
+  sponsor_tier?: "none" | "bronze" | "silver" | "gold" | "platinum" | "godfather";
+  sponsor_total_rs?: number;
   verified_role?: string;
 }
 
@@ -19,10 +20,61 @@ export interface WalletData {
 }
 
 export interface SponsorTier {
-  tier: "bronze" | "silver" | "gold";
+  tier: string;          // 'bronze' | 'silver' | 'gold' | 'platinum' | 'godfather'
   name: string;
-  monthly: number;
+  monthly: number;       // legacy alias — same as `min`, "starts at ₹X"
+  min: number;
+  max: number | null;
+  color: string;
   perks: string[];
+}
+
+export interface SponsorMe {
+  tier: string;
+  since: number;
+  total_paise: number;
+  total_rs: number;
+}
+
+export interface SponsorOrderResponse {
+  ok: boolean;
+  order_id: string;
+  amount: number;        // paise
+  currency: string;
+  key_id: string;
+  receipt: string;
+  template_id?: number;
+}
+
+export interface SponsorVerifyResponse {
+  ok: boolean;
+  tier: string;
+  total_rs: number;
+  amount_paid_rs: number;
+  sponsorship_id?: number;
+  template?: { id: number; title: string };
+}
+
+export interface SponsorshipTemplate {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  min_rs: number;
+  suggested_rs: number;
+  thumbnail: string | null;
+  created_at: number;
+}
+
+export interface SponsorshipWall {
+  tiers: Array<{
+    tier: string;
+    name: string;
+    color: string;
+    sponsors: Array<{ name: string; amount_rs: number; paid_at: number }>;
+  }>;
+  stats: { total_rs: number; total_count: number; anon_count: number };
 }
 
 export interface CommunityStatus {
@@ -95,12 +147,48 @@ export const hkBadges = {
   communityMe: () => getJson<CommunityStatus>("/community/me"),
   communityJoin: () => postJson<{ ok: boolean; joined_at: number }>("/community/join"),
 
-  /* Sponsor */
+  /* Sponsor — tiers + status */
   sponsorTiers: () => getJson<SponsorTier[]>("/sponsor/tiers"),
-  sponsorMe: () => getJson<{ tier: string; since: number }>("/sponsor/me"),
-  sponsorIntent: (tier: "bronze" | "silver" | "gold") =>
+  sponsorMe: () => getJson<SponsorMe>("/sponsor/me"),
+
+  /* Sponsor — REAL Razorpay flow (replaces intent) */
+  sponsorOrder: (body: { amount_rs: number; sponsor_name?: string; anonymous?: boolean; message?: string }) =>
+    postJson<SponsorOrderResponse>("/sponsor/order", body),
+  sponsorVerify: (body: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    sponsor_name?: string;
+    anonymous?: boolean;
+    message?: string;
+  }) => postJson<SponsorVerifyResponse>("/sponsor/verify", body),
+
+  /* Sponsor — legacy intent (kept for backward compatibility) */
+  sponsorIntent: (tier: string) =>
     postJson<{ ok: boolean; status: string; tier: string; message: string }>(
       "/sponsor/intent",
       { tier }
     ),
+
+  /* Pay-what-you-want community templates */
+  sponsorshipTemplates: () => getJson<SponsorshipTemplate[]>("/sponsorship/templates"),
+  sponsorshipTemplateOrder: (body: {
+    template_id: number;
+    amount_rs: number;
+    sponsor_name?: string;
+    anonymous?: boolean;
+    message?: string;
+  }) => postJson<SponsorOrderResponse>("/sponsorship/template/order", body),
+  sponsorshipTemplateVerify: (body: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    template_id: number;
+    sponsor_name?: string;
+    anonymous?: boolean;
+    message?: string;
+  }) => postJson<SponsorVerifyResponse>("/sponsorship/template/verify", body),
+
+  /* Public sponsor wall */
+  sponsorshipWall: () => getJson<SponsorshipWall>("/sponsorship/wall"),
 };
