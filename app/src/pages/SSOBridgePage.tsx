@@ -14,6 +14,7 @@ import { getCurrentUser, isAuthenticated } from '@/lib/auth';
 import { getAuthToken } from '@/lib/auth-token';
 
 const ALLOWED_RETURN_ORIGINS = [
+  'https://tdm.hackknow.com',
   'https://ai.hackknow.com',
   'http://localhost:5174',
 ];

@@ -60,3 +60,16 @@ export function hasMinimumKeys(): boolean {
   const k = loadKeys();
   return !!(k.groq || k.gemini);
 }
+
+const FIRST_LAUNCH_KEY = 'dmwt-launched';
+
+/** Returns true if the cinematic launch animation has already played once. */
+export function hasLaunched(): boolean {
+  return localStorage.getItem(FIRST_LAUNCH_KEY) === '1';
+}
+export function markLaunched(): void {
+  try { localStorage.setItem(FIRST_LAUNCH_KEY, '1'); } catch {}
+}
+export function resetLaunch(): void {
+  try { localStorage.removeItem(FIRST_LAUNCH_KEY); } catch {}
+}

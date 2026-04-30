@@ -17,18 +17,17 @@ export default function OutputEditor({ markdown, onChange, fileBaseName }: Props
 
   marked.setOptions({ gfm: true, breaks: false });
   const html = useMemo(() => DOMPurify.sanitize(marked.parse(markdown) as string), [markdown]);
-
   const wc = (markdown.match(/\b[\w']+\b/g) || []).length;
 
   const copy = async (kind: 'md' | 'html') => {
-    const txt = kind === 'md' ? markdown : html.replace(/<[^>]+>/g, m => m); // copy as HTML — will paste rich
     if (kind === 'html') {
-      const blob = new Blob([html], { type: 'text/html' });
-      const data = [new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([markdown], { type: 'text/plain' }) })];
-      try { await navigator.clipboard.write(data); }
-      catch { await navigator.clipboard.writeText(markdown); }
+      try {
+        const blob = new Blob([html], { type: 'text/html' });
+        const data = [new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([markdown], { type: 'text/plain' }) })];
+        await navigator.clipboard.write(data);
+      } catch { await navigator.clipboard.writeText(markdown); }
     } else {
-      await navigator.clipboard.writeText(txt);
+      await navigator.clipboard.writeText(markdown);
     }
     setCopied(kind);
     setTimeout(() => setCopied(null), 1400);
@@ -39,7 +38,7 @@ export default function OutputEditor({ markdown, onChange, fileBaseName }: Props
     if (kind === 'md') { content = markdown; mime = 'text/markdown'; ext = 'md'; }
     else if (kind === 'html') {
       content = `<!doctype html><html><head><meta charset="utf-8"><title>${fileBaseName}</title>
-<style>body{font-family:Georgia,serif;max-width:760px;margin:2rem auto;padding:0 1rem;line-height:1.65;color:#222}h1,h2,h3{font-family:Helvetica,Arial,sans-serif}h2{border-bottom:1px solid #ddd;padding-bottom:.3rem;margin-top:2rem}pre{background:#f4f4f4;padding:1rem;overflow:auto}code{background:#f4f4f4;padding:.1rem .3rem;border-radius:3px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:.5rem}th{background:#f4f4f4;text-align:left}blockquote{border-left:3px solid #c41e3a;padding-left:1rem;color:#555;margin:1rem 0}</style>
+<style>body{font-family:Georgia,serif;max-width:760px;margin:2rem auto;padding:0 1rem;line-height:1.65;color:#222}h1,h2,h3{font-family:Helvetica,Arial,sans-serif}h2{border-bottom:1px solid #ddd;padding-bottom:.3rem;margin-top:2rem}pre{background:#f4f4f4;padding:1rem;overflow:auto}code{background:#f4f4f4;padding:.1rem .3rem;border-radius:3px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:.5rem}th{background:#f4f4f4;text-align:left}blockquote{border-left:3px solid #ff6b00;padding-left:1rem;color:#555;margin:1rem 0}</style>
 </head><body>${html}</body></html>`;
       mime = 'text/html'; ext = 'html';
     } else {
@@ -49,13 +48,10 @@ export default function OutputEditor({ markdown, onChange, fileBaseName }: Props
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `${fileBaseName}.${ext}`;
-    a.click();
+    a.href = url; a.download = `${fileBaseName}.${ext}`; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  // Auto-grow textarea
   useEffect(() => {
     if (view !== 'markdown') return;
     const el = document.getElementById('md-editor') as HTMLTextAreaElement | null;
@@ -63,42 +59,42 @@ export default function OutputEditor({ markdown, onChange, fileBaseName }: Props
   }, [view, markdown]);
 
   return (
-    <div className="noir-card overflow-hidden">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-noir-fog/30 bg-noir-black/40">
+    <div className="bx-card overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border-b border-bx-line bg-bx-ink">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setView('preview')}
-            className={'noir-btn-ghost flex items-center gap-1.5 ' + (view === 'preview' ? 'border-noir-gold text-noir-gold' : '')}
+            className={'bx-btn-ghost flex items-center gap-1.5 ' + (view === 'preview' ? 'border-bx-orange text-bx-orange' : '')}
           >
             <Eye className="w-3.5 h-3.5" /> Preview
           </button>
           <button
             onClick={() => setView('markdown')}
-            className={'noir-btn-ghost flex items-center gap-1.5 ' + (view === 'markdown' ? 'border-noir-gold text-noir-gold' : '')}
+            className={'bx-btn-ghost flex items-center gap-1.5 ' + (view === 'markdown' ? 'border-bx-orange text-bx-orange' : '')}
           >
             <Code className="w-3.5 h-3.5" /> Markdown
           </button>
-          <span className="font-mono text-[10px] text-noir-fog uppercase tracking-wider ml-2">{wc.toLocaleString()} words</span>
+          <span className="font-mono text-[10px] text-bx-mute uppercase tracking-wider ml-2">{wc.toLocaleString()} words</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => copy('md')} className="noir-btn-ghost flex items-center gap-1.5">
-            {copied === 'md' ? <Check className="w-3.5 h-3.5 text-noir-gold" /> : <Copy className="w-3.5 h-3.5" />}
+          <button onClick={() => copy('md')} className="bx-btn-ghost flex items-center gap-1.5">
+            {copied === 'md' ? <Check className="w-3.5 h-3.5 text-bx-orange" /> : <Copy className="w-3.5 h-3.5" />}
             Copy MD
           </button>
-          <button onClick={() => copy('html')} className="noir-btn-ghost flex items-center gap-1.5">
-            {copied === 'html' ? <Check className="w-3.5 h-3.5 text-noir-gold" /> : <Copy className="w-3.5 h-3.5" />}
+          <button onClick={() => copy('html')} className="bx-btn-ghost flex items-center gap-1.5">
+            {copied === 'html' ? <Check className="w-3.5 h-3.5 text-bx-orange" /> : <Copy className="w-3.5 h-3.5" />}
             Copy Rich
           </button>
           <div className="relative group">
-            <button className="noir-btn-ghost flex items-center gap-1.5">
+            <button className="bx-btn-ghost flex items-center gap-1.5">
               <FileDown className="w-3.5 h-3.5" /> Export ▾
             </button>
-            <div className="absolute right-0 top-full mt-1 bg-noir-ash border border-noir-fog rounded-sm shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity z-10 min-w-[160px]">
+            <div className="absolute right-0 top-full mt-1 bg-bx-panel border border-bx-line2 rounded-md shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity z-10 min-w-[140px]">
               {(['md', 'html', 'txt'] as const).map(k => (
                 <button
                   key={k}
                   onClick={() => download(k)}
-                  className="w-full text-left px-3 py-2 text-xs font-mono uppercase tracking-wider hover:bg-noir-blood/30 hover:text-noir-bone text-noir-bone/80 flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 text-xs font-mono uppercase tracking-wider hover:bg-bx-orangeDim hover:text-bx-orange text-bx-text flex items-center gap-2"
                 >
                   <Download className="w-3 h-3" /> .{k}
                 </button>
@@ -109,13 +105,13 @@ export default function OutputEditor({ markdown, onChange, fileBaseName }: Props
       </div>
 
       {view === 'preview' ? (
-        <div className="prose-noir p-6 sm:p-8 max-h-[70vh] overflow-y-auto" dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="bx-prose p-5 sm:p-7 max-h-[70vh] overflow-y-auto" dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
         <textarea
           id="md-editor"
           value={markdown}
           onChange={e => onChange(e.target.value)}
-          className="w-full bg-noir-black/60 text-noir-bone font-mono text-sm p-6 leading-relaxed border-0 focus:outline-none focus:ring-0 min-h-[400px] resize-none"
+          className="w-full bg-bx-ink text-bx-text font-mono text-sm p-5 leading-relaxed border-0 focus:outline-none focus:ring-0 min-h-[400px] resize-none"
           spellCheck={false}
         />
       )}

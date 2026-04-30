@@ -1,45 +1,66 @@
-import { Skull, Settings, LogOut } from 'lucide-react';
+import { Skull, Settings, LogOut, Trash2, MessageSquarePlus } from 'lucide-react';
 import type { AuthUser } from '@/lib/auth';
 
 interface Props {
   user: AuthUser | null;
   onOpenSettings: () => void;
   onLogout: () => void;
+  onNewChat?: () => void;
+  onClearHistory?: () => void;
+  memoryTokens?: number;
 }
 
-export default function Header({ user, onOpenSettings, onLogout }: Props) {
+export default function Header({ user, onOpenSettings, onLogout, onNewChat, onClearHistory, memoryTokens = 0 }: Props) {
   return (
-    <header className="border-b border-noir-fog/30 bg-noir-black/80 backdrop-blur sticky top-0 z-30">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-        <a href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-noir-blood/20 border border-noir-blood/50 rounded-sm flex items-center justify-center group-hover:bg-noir-blood/40 transition-colors">
-            <Skull className="w-5 h-5 text-noir-blood animate-flicker" />
+    <header className="sticky top-0 z-30 border-b border-bx-line bg-bx-black/95 backdrop-blur">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+        {/* Brand: clickable skull → home */}
+        <a href="/" className="flex items-center gap-2.5 group">
+          <div className="w-8 h-8 rounded-md border border-bx-line group-hover:border-bx-orange flex items-center justify-center transition-colors">
+            <Skull className="w-4 h-4 text-bx-orange group-hover:animate-flicker" />
           </div>
           <div className="leading-tight">
-            <div className="font-display text-base sm:text-lg font-bold tracking-wide text-noir-bone">
-              Dead Man Will Tell
+            <div className="text-sm font-semibold text-bx-white tracking-wide">
+              The Dead Man <span className="text-bx-orange">·</span> Last Tale
             </div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-noir-gold/70 -mt-0.5">
-              Last Tale · By HackKnow
+            <div className="text-[9px] font-mono uppercase tracking-[0.25em] text-bx-mute -mt-0.5">
+              By HackKnow
             </div>
           </div>
         </a>
-        <div className="flex items-center gap-2 sm:gap-3">
-          {user && (
-            <div className="hidden sm:block text-right leading-tight mr-2">
-              <div className="text-xs text-noir-bone/80 font-medium">{user.name || user.email}</div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-noir-gold/60">
-                {user.isVerified ? 'Verified' : 'Member'}
-              </div>
+
+        <div className="flex items-center gap-2">
+          {memoryTokens > 0 && (
+            <div className="hidden md:flex bx-chip">
+              <span className="w-1.5 h-1.5 rounded-full bg-bx-orange animate-pulse" />
+              {memoryTokens.toLocaleString()} / 10k tokens
             </div>
           )}
-          <button onClick={onOpenSettings} className="noir-btn-ghost flex items-center gap-2" title="API keys & settings">
-            <Settings className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Keys</span>
+          {onNewChat && (
+            <button onClick={onNewChat} className="bx-btn-icon" title="New chat">
+              <MessageSquarePlus className="w-4 h-4" />
+            </button>
+          )}
+          {onClearHistory && (
+            <button onClick={onClearHistory} className="bx-btn-icon" title="Forget everything">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          <button onClick={onOpenSettings} className="bx-btn-icon" title="API keys">
+            <Settings className="w-4 h-4" />
           </button>
           {user && (
-            <button onClick={onLogout} className="noir-btn-ghost flex items-center gap-2" title="Sign out">
-              <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Out</span>
-            </button>
+            <>
+              <div className="hidden sm:block px-2 text-right leading-tight">
+                <div className="text-xs text-bx-text font-medium truncate max-w-[140px]">{user.name || user.email}</div>
+                <div className="text-[9px] font-mono uppercase tracking-wider text-bx-orange/80">
+                  {user.isVerified ? 'Verified' : 'Member'}
+                </div>
+              </div>
+              <button onClick={onLogout} className="bx-btn-icon" title="Sign out">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
           )}
         </div>
       </div>
