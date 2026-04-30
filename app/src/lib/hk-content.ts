@@ -214,7 +214,10 @@ export const fetchReleaseTypes = () =>
 export const fetchLiveNews = async (source: string = 'all', limit = 30): Promise<HKNewsFeedResp> => {
   try {
     const raw = await getRaw(`/news/feed?source=${encodeURIComponent(source)}&limit=${limit}`);
-    if (raw && Array.isArray((raw as HKNewsFeedResp).items)) return raw as HKNewsFeedResp;
+    if (raw && Array.isArray((raw as HKNewsFeedResp).items)) {
+      const r = raw as HKNewsFeedResp;
+      return { ...r, items: r.items.map(adaptRelease) };
+    }
     if (Array.isArray(raw)) {
       const items = (raw as unknown[]).slice(0, limit).map(adaptRelease);
       return { items, total: items.length, sources: [], cached_for_seconds: 0 };
@@ -227,11 +230,13 @@ export const fetchLiveNews = async (source: string = 'all', limit = 30): Promise
  *  Backend route `/news/all` may not be registered — fall back to `/releases`
  *  (admin-curated only) so users still see news instead of an error page. */
 export const fetchAllNews = async (limit = 50): Promise<HKNewsAllResp> => {
-  // Preferred path
+  // Preferred path: always run items through adaptRelease so future field-name
+  // drift on the WP plugin can't reach the page rendering layer.
   try {
     const raw = await getRaw(`/news/all?limit=${limit}`);
     if (raw && Array.isArray((raw as HKNewsAllResp).items)) {
-      return raw as HKNewsAllResp;
+      const r = raw as HKNewsAllResp;
+      return { ...r, items: r.items.map(adaptRelease) };
     }
     if (Array.isArray(raw)) {
       const items = (raw as unknown[]).slice(0, limit).map(adaptRelease);
