@@ -22,7 +22,7 @@ import earthImg from '../assets/cinema/earth.webp';
 import moonImg from '../assets/cinema/moon.webp';
 
 const DURATION_MS = 14000;
-const HERO_IMG = `${import.meta.env.BASE_URL || '/'}dead-man-hero.png`;
+const HERO_BASE = `${import.meta.env.BASE_URL || '/'}dead-man-hero`;
 
 interface Props {
   onDone: () => void;
@@ -99,15 +99,44 @@ export default function LaunchAnimation({ onDone }: Props) {
       {/* Real Moon — rises from below */}
       <img src={moonImg} alt="" className="launch-moon-img" draggable={false} />
 
-      {/* Dead Man — animated hero portrait */}
+      {/* Dead Man — HD hero portrait with Comet-style premium polish */}
       <div className="launch-hero-wrap">
-        <img src={HERO_IMG} alt="" className="launch-hero-img" draggable={false} />
+        {/* Frame: AVIF (modern, 19KB) → WebP (Safari, 78KB) → PNG fallback */}
+        <picture>
+          <source srcSet={`${HERO_BASE}.avif`} type="image/avif" />
+          <source srcSet={`${HERO_BASE}.webp`} type="image/webp" />
+          <img
+            src={`${HERO_BASE}.png`}
+            alt=""
+            className="launch-hero-img"
+            draggable={false}
+            decoding="async"
+            fetchPriority="high"
+          />
+        </picture>
+
+        {/* Aurora gradient flow — Perplexity Comet–style colour sweep */}
+        <div className="launch-aurora" aria-hidden="true" />
+
+        {/* Diagonal light ray sweep — single pass, premium reveal */}
+        <div className="launch-lightray" aria-hidden="true" />
+
+        {/* Film grain overlay — cinematic texture */}
+        <div className="launch-grain" aria-hidden="true" />
+
         {/* Ember particles drifting across the figure */}
         <div className="launch-embers">
           {Array.from({ length: 18 }).map((_, i) => (
             <span key={i} className={`ember ember-${i}`} />
           ))}
         </div>
+      </div>
+
+      {/* Orbiting satellites — 3 ember moons revolving around the hero orb (TDM signature) */}
+      <div className="launch-orbits" aria-hidden="true">
+        <div className="orbit orbit-1"><span className="satellite sat-a" /></div>
+        <div className="orbit orbit-2"><span className="satellite sat-b" /></div>
+        <div className="orbit orbit-3"><span className="satellite sat-c" /></div>
       </div>
 
       {/* Vignette tightens as Dead Man emerges */}

@@ -162,6 +162,57 @@
   50%      { transform: translate(-50%, 0) scale(1.018); }
 }
 
+/* Ken Burns — slow inner zoom-out on the image itself (camera pulls back) */
+@keyframes anim-hero-kenburns {
+  0%   { transform: scale(1.10) translate3d(-1%, -1%, 0); }
+  100% { transform: scale(1.00) translate3d(0, 0, 0); }
+}
+
+/* Aurora flow — Perplexity Comet–style colour sweep across the portrait */
+@keyframes anim-aurora-flow {
+  0%   { transform: translate(-12%, -8%) rotate(-8deg); opacity: 0; }
+  20%  { opacity: 0.55; }
+  80%  { opacity: 0.55; }
+  100% { transform: translate( 12%,  8%) rotate( 8deg); opacity: 0; }
+}
+
+/* Diagonal light ray — single-pass premium reveal */
+@keyframes anim-lightray {
+  0%   { transform: translateX(-160%) skewX(-22deg); opacity: 0; }
+  10%  { opacity: 0.85; }
+  90%  { opacity: 0.85; }
+  100% { transform: translateX(160%) skewX(-22deg); opacity: 0; }
+}
+
+/* TDM iris reveal — shutter opens, hero awakens from the void */
+@keyframes anim-tdm-iris {
+  0%   { clip-path: circle(0%   at 50% 50%); filter: brightness(1.6) contrast(1.2); }
+  35%  { clip-path: circle(18%  at 50% 50%); filter: brightness(1.3) contrast(1.1); }
+  100% { clip-path: circle(75%  at 50% 50%); filter: brightness(1.0) contrast(1.0); }
+}
+
+/* Satellite orbits — 3 ember moons revolve around the hero (TDM signature) */
+@keyframes anim-orbit-cw  { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes anim-orbit-ccw { to { transform: translate(-50%, -50%) rotate(-360deg); } }
+@keyframes anim-orbit-fade {
+  0%, 100% { opacity: 0; }
+  20%, 90% { opacity: 1; }
+}
+
+/* Film grain — barely-visible animated texture */
+@keyframes anim-grain {
+  0%, 100% { transform: translate(0, 0); }
+  10%      { transform: translate(-2%, -1%); }
+  20%      { transform: translate( 2%,  1%); }
+  30%      { transform: translate(-1%,  2%); }
+  40%      { transform: translate( 1%, -2%); }
+  50%      { transform: translate(-2%,  1%); }
+  60%      { transform: translate( 2%, -1%); }
+  70%      { transform: translate(-1%, -2%); }
+  80%      { transform: translate( 1%,  2%); }
+  90%      { transform: translate(-2%, -1%); }
+}
+
 /* Cosmic aura — pulses once hero starts emerging (orange→magenta→blue) */
 @keyframes anim-red-aura {
   0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(0.95); }
@@ -402,28 +453,128 @@
   pointer-events: none;
 }
 
-/* Hero portrait wrapper — fixes positioning so animations stack cleanly */
+/* Hero portrait — CIRCULAR cosmic orb (matches Earth + Moon family) */
 .launch-hero-wrap {
-  position: absolute; left: 50%; top: 18%;
-  width: min(92vw, 720px);
-  aspect-ratio: 1080 / 558;
-  transform: translate(-50%, 60%) scale(0.7);
+  position: absolute; left: 50%; top: 22%;
+  width: min(85vw, 460px);
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, 60%) scale(0.55);
   opacity: 0;
   z-index: 13;
+  border-radius: 50%;
   animation:
     anim-hero-rise 14s cubic-bezier(.34, 1.35, .64, 1) 0s forwards,
     anim-hero-breath 7s ease-in-out 13.0s 1;
   will-change: transform, opacity, filter;
   pointer-events: none;
 }
+.launch-hero-wrap picture {
+  display: block; width: 100%; height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  /* TDM iris reveal — circular shutter opens from a slit (resurrection moment) */
+  clip-path: circle(0% at 50% 50%);
+  animation: anim-tdm-iris 1.6s cubic-bezier(.65, .05, .35, 1) 11.0s forwards;
+}
 .launch-hero-img {
   width: 100%; height: 100%;
   object-fit: cover;
-  border-radius: 14px;
+  object-position: center 35%; /* favor head/upper body in circular crop */
+  border-radius: 50%;
   filter: url(#hero-flutter) saturate(1.15) contrast(1.05);
+  animation: anim-hero-kenburns 7s ease-out 11.0s both;
+  will-change: transform;
+}
+/* Cosmic ring around hero — matches Earth glow family (orange→magenta→blue) */
+.launch-hero-wrap::before {
+  content: '';
+  position: absolute; inset: -22px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    transparent 58%,
+    rgba(255,140,40,0.55) 66%,
+    rgba(255,80,200,0.35) 74%,
+    rgba(80,120,255,0.25) 82%,
+    transparent 100%
+  );
+  pointer-events: none;
+  animation: anim-earth-glow 4s ease-in-out infinite;
+  z-index: -1;
+}
+/* Inner shadow rim — like Earth's terminator (gives 3D orb feel) */
+.launch-hero-wrap::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 50%;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.04),
+    inset -20px -10px 50px rgba(0,0,0,0.55),
+    inset 14px 8px 36px rgba(255,170,80,0.18),
+    0 0 0 1px rgba(255,255,255,0.06),
     0 30px 80px -20px rgba(0,0,0,0.85);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* TDM orbital satellites — 3 ember moons revolving around the hero orb */
+.launch-orbits {
+  position: absolute; left: 50%; top: 22%;
+  width: min(85vw, 460px);
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, 0);
+  z-index: 14;
+  pointer-events: none;
+}
+.launch-orbits .orbit {
+  position: absolute; left: 50%; top: 50%;
+  border-radius: 50%;
+  border: 1px dashed rgba(255,180,80,0.10);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+.launch-orbits .orbit-1 {
+  width: 118%; height: 118%;
+  animation:
+    anim-orbit-cw 14s linear 12.0s infinite,
+    anim-orbit-fade 14s ease-in-out 12.0s infinite;
+}
+.launch-orbits .orbit-2 {
+  width: 138%; height: 138%;
+  border-style: dotted;
+  border-color: rgba(255,90,140,0.10);
+  animation:
+    anim-orbit-ccw 22s linear 12.4s infinite,
+    anim-orbit-fade 22s ease-in-out 12.4s infinite;
+}
+.launch-orbits .orbit-3 {
+  width: 162%; height: 162%;
+  border-color: rgba(120,170,255,0.10);
+  animation:
+    anim-orbit-cw 34s linear 12.8s infinite,
+    anim-orbit-fade 34s ease-in-out 12.8s infinite;
+}
+/* Satellites — small glowing embers riding each orbit ring */
+.launch-orbits .satellite {
+  position: absolute; top: 50%; left: 100%;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  filter: blur(0.4px);
+}
+.launch-orbits .sat-a {
+  background: radial-gradient(circle, #ffd28a 0%, #ff8c2a 50%, transparent 80%);
+  box-shadow: 0 0 14px 3px rgba(255,160,60,0.85), 0 0 30px 8px rgba(255,120,40,0.45);
+}
+.launch-orbits .sat-b {
+  width: 8px; height: 8px;
+  background: radial-gradient(circle, #ffc8e8 0%, #ff4080 50%, transparent 80%);
+  box-shadow: 0 0 12px 3px rgba(255,90,160,0.75), 0 0 26px 6px rgba(220,60,180,0.35);
+}
+.launch-orbits .sat-c {
+  width: 6px; height: 6px;
+  background: radial-gradient(circle, #cfe0ff 0%, #5588ff 50%, transparent 80%);
+  box-shadow: 0 0 10px 2px rgba(100,140,255,0.7), 0 0 22px 5px rgba(80,120,255,0.3);
 }
 
 /* SVG defs container — invisible, just hosts the turbulence filter */
@@ -434,12 +585,76 @@
   pointer-events: none;
 }
 
+/* Aurora gradient flow — Comet-style colour sweep across the orb */
+.launch-aurora {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 4;
+  background:
+    conic-gradient(
+      from 0deg at 40% 50%,
+      rgba(255, 90, 40, 0)   0deg,
+      rgba(255,140,60, 0.45) 60deg,
+      rgba(220, 60,200, 0.4) 130deg,
+      rgba(80, 120,255, 0.4) 200deg,
+      rgba(60, 220,200, 0.3) 270deg,
+      rgba(255, 90, 40, 0)   360deg
+    );
+  mix-blend-mode: overlay;
+  filter: blur(18px) saturate(1.4);
+  opacity: 0;
+  animation: anim-aurora-flow 8s ease-in-out 11.4s infinite;
+}
+
+/* Diagonal light ray sweep — single premium pass */
+.launch-lightray {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 6;
+}
+.launch-lightray::before {
+  content: '';
+  position: absolute; left: 0; top: -20%;
+  width: 28%; height: 140%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.0) 30%,
+    rgba(255,235,200,0.55) 50%,
+    rgba(255,255,255,0.0) 70%,
+    transparent 100%
+  );
+  filter: blur(2px);
+  transform: translateX(-160%) skewX(-22deg);
+  animation: anim-lightray 3.2s cubic-bezier(.4,0,.2,1) 12.0s 1;
+}
+
+/* Film grain — barely-visible animated SVG turbulence */
+.launch-grain {
+  position: absolute; inset: -10%;
+  pointer-events: none;
+  z-index: 7;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.45 0'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.6'/></svg>");
+  background-size: 200px 200px;
+  opacity: 0;
+  mix-blend-mode: overlay;
+  border-radius: 50%;
+  animation:
+    anim-grain 0.8s steps(10) 11.4s infinite,
+    anim-aura-show 0.6s ease-out 11.4s forwards;
+}
+
 /* Ember particle layer over the hero (drift up-and-across, fade in/out) */
 .launch-embers {
   position: absolute; inset: 0;
   pointer-events: none;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 50%;
+  z-index: 8;
 }
 .launch-embers .ember {
   position: absolute;
