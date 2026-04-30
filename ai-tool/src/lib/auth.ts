@@ -8,6 +8,8 @@
  *      from its own localStorage and bounces back with #sso=...)
  */
 
+import { resetLaunch } from './keys';
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -53,19 +55,22 @@ export function clearUser(): void {
 
 export function logout(): void {
   clearUser();
+  // Reset cinematic flag so the next successful login replays the Dead Man intro.
+  resetLaunch();
   window.location.href = `${SSO_BRIDGE}?logout=1&return=${encodeURIComponent(window.location.origin)}`;
 }
 
 /** Resolve current user — handles fragment + redirect. Call once at app boot. */
 export function resolveAuth(): AuthUser | null {
-  // 1. Fragment incoming from SSO bridge
+  // 1. Fragment incoming from SSO bridge — this is a FRESH login, replay cinematic.
   const fromFrag = decodeFragment();
   if (fromFrag) {
     persistUser(fromFrag);
     stripFragment();
+    resetLaunch();
     return fromFrag;
   }
-  // 2. Cached
+  // 2. Cached — already logged in this browser, no replay.
   const cached = getCachedUser();
   if (cached) return cached;
   return null;

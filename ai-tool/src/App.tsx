@@ -22,6 +22,15 @@ export default function App() {
     if (user && user !== 'pending' && !hasMinimumKeys()) setSettingsOpen(true);
   }, [user]);
 
+  // Replay the Dead Man cinematic on every fresh login (resetLaunch was called
+  // by auth.ts when the SSO fragment was decoded). Also covers the case where
+  // the user already has keys from a previous session.
+  useEffect(() => {
+    if (user && user !== 'pending' && hasMinimumKeys() && !hasLaunched()) {
+      setLaunchPlaying(true);
+    }
+  }, [user]);
+
   const handleFirstKey = useCallback(() => {
     setSettingsOpen(false);
     if (!hasLaunched()) setLaunchPlaying(true);
