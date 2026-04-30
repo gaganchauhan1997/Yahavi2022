@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Briefcase, Clock, Loader2, Map } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Briefcase, Clock, GraduationCap, Loader2, Map } from 'lucide-react';
 import { fetchRoadmaps, type HKRoadmap } from '@/lib/hk-content';
+
+const DIFF_COLOR: Record<string, string> = {
+  beginner:     'bg-emerald-200 text-emerald-900 border-emerald-900',
+  intermediate: 'bg-orange-200 text-orange-900 border-orange-900',
+  advanced:     'bg-red-200 text-red-900 border-red-900',
+};
 
 export default function RoadmapsPage() {
   const [items, setItems] = useState<HKRoadmap[]>([]);
@@ -34,7 +40,7 @@ export default function RoadmapsPage() {
             <h1 className="font-display font-bold text-4xl lg:text-6xl mb-4">Career Roadmaps</h1>
             <p className="text-white/60 text-base max-w-2xl">
               No "watch 50 YouTube playlists" energy. Pick a goal, follow the steps —
-              every node has topics, requirements and curated resources.
+              every section has topics, prerequisites and learning outcomes.
             </p>
           </div>
         </div>
@@ -52,21 +58,41 @@ export default function RoadmapsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {items.map(r => (
-                <Link key={r.id} to={`/roadmaps/${r.slug}`}
-                  className="bg-white border-[3px] border-hack-black rounded-2xl p-6 shadow-[6px_6px_0_#000] hover:shadow-[3px_3px_0_#000] hover:translate-x-[3px] hover:translate-y-[3px] transition flex flex-col">
-                  <h3 className="font-display font-bold text-2xl mb-2">{r.title}</h3>
-                  <p className="text-hack-black/65 text-sm mb-4">{r.excerpt}</p>
-                  <div className="flex flex-wrap gap-2 text-xs font-mono uppercase tracking-wider mb-4">
-                    {r.career_outcome && <span className="inline-flex items-center gap-1 px-2 py-1 bg-hack-yellow border border-hack-black rounded-md"><Briefcase className="w-3 h-3" />{r.career_outcome}</span>}
-                    {r.total_hours && <span className="inline-flex items-center gap-1 px-2 py-1 bg-hack-black text-hack-yellow rounded-md"><Clock className="w-3 h-3" />{r.total_hours}</span>}
-                    {r.nodes?.length > 0 && <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-hack-black rounded-md">{r.nodes.length} steps</span>}
-                  </div>
-                  <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold">
-                    Open roadmap <ArrowRight className="w-4 h-4" strokeWidth={3} />
-                  </span>
-                </Link>
-              ))}
+              {items.map(r => {
+                const topicCount = (r.sections || []).reduce((acc, s) => acc + (s.topics?.length || 0), 0);
+                return (
+                  <Link key={r.id} to={`/roadmaps/${r.slug}`}
+                    className="bg-white border-[3px] border-hack-black rounded-2xl p-6 shadow-[6px_6px_0_#000] hover:shadow-[3px_3px_0_#000] hover:translate-x-[3px] hover:translate-y-[3px] transition flex flex-col">
+                    <h3 className="font-display font-bold text-2xl mb-2">{r.title}</h3>
+                    <p className="text-hack-black/65 text-sm mb-4 line-clamp-2">{r.excerpt}</p>
+                    <div className="flex flex-wrap gap-2 text-xs font-mono uppercase tracking-wider mb-4">
+                      {r.career && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-hack-yellow border border-hack-black rounded-md">
+                          <Briefcase className="w-3 h-3" />{r.career}
+                        </span>
+                      )}
+                      {r.difficulty && (
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 border rounded-md ${DIFF_COLOR[r.difficulty] || 'bg-white text-hack-black border-hack-black'}`}>
+                          <GraduationCap className="w-3 h-3" />{r.difficulty}
+                        </span>
+                      )}
+                      {!!r.hours_estimated && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-hack-black text-hack-yellow rounded-md">
+                          <Clock className="w-3 h-3" />{r.hours_estimated}h
+                        </span>
+                      )}
+                      {topicCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-hack-black rounded-md">
+                          {(r.sections || []).length} sections · {topicCount} topics
+                        </span>
+                      )}
+                    </div>
+                    <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold">
+                      Open roadmap <ArrowRight className="w-4 h-4" strokeWidth={3} />
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

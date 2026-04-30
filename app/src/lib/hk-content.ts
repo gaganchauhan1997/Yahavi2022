@@ -1,5 +1,5 @@
 /**
- * HackKnow custom CPT fetchers — Courses, Roadmaps, Hacked News, Verify.
+ * HackKnow custom CPT fetchers — Courses, Roadmaps, Hacked News, Live RSS, Verify.
  * All endpoints live under /wp-json/hackknow/v1/* on shop.hackknow.com,
  * proxied through www.hackknow.com via nginx.
  */
@@ -8,7 +8,7 @@ import { getAuthToken } from './auth-token';
 
 /* ── Types ─────────────────────────────────────────────────── */
 export interface HKCategory  { id: number; slug: string; name: string; parent: number; description: string; count: number; }
-export interface HKListResp<T> { items: T[]; total: number; total_pages: number; page: number; }
+export interface HKListResp<T> { items: T[]; total: number; total_pages?: number; page?: number; }
 
 export interface HKCourse {
   id: number; slug: string; title: string; excerpt: string; content?: string;
@@ -18,19 +18,41 @@ export interface HKCourse {
   category_slugs: string[]; thumbnail?: string;
 }
 
+/** Roadmap topic (leaf in a section) */
+export interface HKRoadmapTopic { name: string; description?: string; level: number; }
+/** Roadmap section (group of topics under a "# Header") */
+export interface HKRoadmapSection { title: string; topics: HKRoadmapTopic[]; }
+
 export interface HKRoadmap {
   id: number; slug: string; title: string; excerpt: string;
-  career_outcome: string; total_hours: string;
-  nodes: { id: string; title: string; topics?: string[]; resources?: { label: string; url: string }[]; status?: string }[];
-  edges: { from: string; to: string }[];
-  requirements: string[]; thumbnail?: string;
+  career?: string | null;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced' | null;
+  hours_estimated?: number;
+  requirements: string[];
+  outcomes: string[];
+  sections: HKRoadmapSection[];
+  thumbnail?: string | null;
+  date_published?: string;
 }
 
 export interface HKRelease {
-  id: number; slug: string; title: string; excerpt: string;
-  release_date: string; release_type: string; source_url: string;
-  image?: string; tags: string[];
+  id: number | string; slug: string; title: string;
+  summary?: string;
+  content_html?: string;
+  release_date: string;
+  date_published?: string;
+  type: string;
+  source_url?: string;
+  image?: string | null;
+  tags: string[];
+  /** "HackKnow" for curated, "TechCrunch" / "DEV.to" / etc for live RSS */
+  rss_source?: string;
+  rss_source_key?: string;
+  rss_color?: string;
 }
+
+export interface HKNewsAllResp { items: HKRelease[]; total: number; curated: number; live: number; }
+export interface HKNewsFeedResp { items: HKRelease[]; total: number; sources: { key: string; name: string; color: string }[]; cached_for_seconds: number; }
 
 export interface HKVerifyMe {
   status: 'none' | 'pending' | 'approved' | 'rejected';
@@ -80,11 +102,19 @@ export const fetchReleases = (type?: string) =>
   get<HKListResp<HKRelease>>(`/releases${type ? `?type=${encodeURIComponent(type)}` : ''}`);
 export const fetchReleaseTypes = () => get<HKListResp<{ slug: string; name: string; count: number }>>('/release-types');
 
+/** Live RSS only (TechCrunch + The Verge + dev.to + Hacker News + GitHub Blog) */
+export const fetchLiveNews = (source: string = 'all', limit = 30) =>
+  get<HKNewsFeedResp>(`/news/feed?source=${encodeURIComponent(source)}&limit=${limit}`);
+
+/** Admin-curated releases + live RSS, merged + sorted by date */
+export const fetchAllNews = (limit = 50) =>
+  get<HKNewsAllResp>(`/news/all?limit=${limit}`);
+
 export const fetchVerifyStatus = () => authGet<HKVerifyMe>('/verify/me');
 export const submitVerify = (body: {
   type: 'mis' | 'student';
   proof_type: 'linkedin' | 'id' | 'email' | 'other';
   proof_url?: string;
-  proof_image?: string;   // base64 data URL
+  proof_image?: string;
   notes?: string;
 }) => authPost<{ ok: boolean; status: string }>('/verify', body);

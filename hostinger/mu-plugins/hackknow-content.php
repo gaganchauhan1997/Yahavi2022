@@ -368,6 +368,8 @@ function hk_content_register_rest_routes() {
     register_rest_route('hackknow/v1', '/roadmaps/(?P<slug>[a-z0-9-]+)', array_merge($public, ['methods' => 'GET', 'callback' => 'hk_content_rest_roadmap_get']));
     register_rest_route('hackknow/v1', '/releases',               array_merge($public, ['methods' => 'GET', 'callback' => 'hk_content_rest_releases_list']));
     register_rest_route('hackknow/v1', '/release-types',          array_merge($public, ['methods' => 'GET', 'callback' => 'hk_content_rest_release_types']));
+    register_rest_route('hackknow/v1', '/news/feed',              array_merge($public, ['methods' => 'GET', 'callback' => 'hk_content_rest_news_feed']));
+    register_rest_route('hackknow/v1', '/news/all',               array_merge($public, ['methods' => 'GET', 'callback' => 'hk_content_rest_news_all']));
 
     /* ─── Verification (auth required, checked inside callback) ─── */
     register_rest_route('hackknow/v1', '/verify',                 array_merge($public, ['methods' => 'POST', 'callback' => 'hk_content_rest_verify_submit']));
@@ -485,17 +487,15 @@ function hk_content_format_roadmap($p) {
         return array_values(array_filter(array_map('trim', preg_split("/\r?\n/", $raw))));
     };
 
-    /* Parse outline into nested tree */
+    /* Parse outline into nested tree (index-based — references in foreach are fragile) */
     $outline_raw = (string) get_post_meta($p->ID, '_hk_roadmap_outline', true);
     $sections = [];
-    $current_section = null;
+    $ci = -1;
     foreach (preg_split("/\r?\n/", $outline_raw) as $line) {
         if (trim($line) === '') continue;
         if (preg_match('/^\s*#\s+(.+)$/', $line, $m)) {
-            $current_section = ['title' => trim($m[1]), 'topics' => []];
-            $sections[] = &$current_section;
-            unset($current_section);
-            $current_section = &$sections[count($sections) - 1];
+            $sections[] = ['title' => trim($m[1]), 'topics' => []];
+            $ci = count($sections) - 1;
             continue;
         }
         if (preg_match('/^(\s*)-\s+(.+)$/', $line, $m)) {
@@ -504,16 +504,13 @@ function hk_content_format_roadmap($p) {
             $body   = trim($m[2]);
             $parts  = array_map('trim', explode('|', $body, 2));
             $topic  = ['name' => $parts[0], 'description' => $parts[1] ?? '', 'level' => $level];
-            if ($current_section === null) {
-                $current_section = ['title' => 'Untitled', 'topics' => []];
-                $sections[] = &$current_section;
-                unset($current_section);
-                $current_section = &$sections[count($sections) - 1];
+            if ($ci < 0) {
+                $sections[] = ['title' => 'Untitled', 'topics' => []];
+                $ci = count($sections) - 1;
             }
-            $current_section['topics'][] = $topic;
+            $sections[$ci]['topics'][] = $topic;
         }
     }
-    unset($current_section);
 
     /* Optional advanced JSON override */
     $json_raw = trim((string) get_post_meta($p->ID, '_hk_roadmap_json', true));
@@ -629,6 +626,167 @@ function hk_content_rest_release_types() {
     return new WP_REST_Response(['items' => array_map(function($t){
         return ['slug' => $t->slug, 'name' => $t->name, 'count' => (int)$t->count];
     }, $terms)], 200);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   LIVE RSS NEWS FEED — fetches from major tech sources, cached 1h.
+   Endpoints:
+     GET /wp-json/hackknow/v1/news/feed?source=all|techcrunch|hn|verge|devto
+     GET /wp-json/hackknow/v1/news/all  (admin-curated releases + live RSS, merged + sorted)
+   ════════════════════════════════════════════════════════════════════ */
+
+function hk_content_rss_sources() {
+    return [
+        'techcrunch' => ['name' => 'TechCrunch',  'url' => 'https://techcrunch.com/feed/',                   'color' => '#0f9d58'],
+        'verge'      => ['name' => 'The Verge',   'url' => 'https://www.theverge.com/rss/tech/index.xml',    'color' => '#5200ff'],
+        'devto'      => ['name' => 'DEV.to',      'url' => 'https://dev.to/feed',                            'color' => '#000000'],
+        'hn'         => ['name' => 'Hacker News', 'url' => 'https://hnrss.org/frontpage',                    'color' => '#ff6600'],
+        'hnbest'     => ['name' => 'HN Best',     'url' => 'https://hnrss.org/best',                         'color' => '#ff6600'],
+        'github'     => ['name' => 'GitHub Blog', 'url' => 'https://github.blog/feed/',                      'color' => '#24292f'],
+    ];
+}
+
+/**
+ * Fetch one source. Cached 1h via transient. Returns array of items
+ * (max 15 per source). Errors are swallowed and logged.
+ */
+function hk_content_fetch_rss_source($key) {
+    $sources = hk_content_rss_sources();
+    if (!isset($sources[$key])) return [];
+    $cache_key = 'hk_rss_' . $key;
+    $cached = get_transient($cache_key);
+    if ($cached !== false && is_array($cached)) return $cached;
+
+    if (!function_exists('fetch_feed')) {
+        require_once ABSPATH . WPINC . '/feed.php';
+    }
+    add_filter('wp_feed_cache_transient_lifetime', function() { return 3600; });
+    $feed = fetch_feed($sources[$key]['url']);
+    if (is_wp_error($feed)) {
+        error_log('[HackKnow RSS] ' . $key . ' fetch failed: ' . $feed->get_error_message());
+        set_transient($cache_key, [], 600);  // negative cache 10m
+        return [];
+    }
+    $max = $feed->get_item_quantity(15);
+    $items = [];
+    foreach ($feed->get_items(0, $max) as $item) {
+        $img = '';
+        $enclosure = $item->get_enclosure();
+        if ($enclosure) $img = (string) $enclosure->get_link();
+        if (!$img) {
+            // Try to extract first <img> from content
+            $content = (string) $item->get_content();
+            if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $m)) $img = $m[1];
+        }
+        $desc = wp_strip_all_tags((string) $item->get_description());
+        if (mb_strlen($desc) > 240) $desc = mb_substr($desc, 0, 240) . '…';
+
+        $items[] = [
+            'id'             => 'rss-' . $key . '-' . md5((string) $item->get_link()),
+            'slug'           => 'rss-' . $key . '-' . md5((string) $item->get_link()),
+            'title'          => html_entity_decode((string) $item->get_title(), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'summary'        => $desc,
+            'content_html'   => '',  // never inline; user clicks through
+            'release_date'   => $item->get_date('Y-m-d H:i:s') ?: current_time('mysql'),
+            'date_published' => $item->get_date('c') ?: current_time('c'),
+            'type'           => 'rss',
+            'source_url'     => (string) $item->get_link(),
+            'image'          => $img ?: null,
+            'tags'           => [],
+            'rss_source'     => $sources[$key]['name'],
+            'rss_source_key' => $key,
+            'rss_color'      => $sources[$key]['color'],
+        ];
+    }
+    set_transient($cache_key, $items, 3600);
+    return $items;
+}
+
+/**
+ * GET /news/feed?source=all|techcrunch|...&limit=N
+ */
+function hk_content_rest_news_feed(WP_REST_Request $req) {
+    $source = sanitize_key((string) $req->get_param('source')) ?: 'all';
+    $limit  = max(1, min(60, (int) ($req->get_param('limit') ?: 30)));
+    $sources = hk_content_rss_sources();
+
+    $items = [];
+    if ($source === 'all') {
+        foreach (array_keys($sources) as $k) {
+            $items = array_merge($items, hk_content_fetch_rss_source($k));
+        }
+    } elseif (isset($sources[$source])) {
+        $items = hk_content_fetch_rss_source($source);
+    }
+
+    // Sort by release_date DESC
+    usort($items, function($a, $b) {
+        return strcmp($b['release_date'], $a['release_date']);
+    });
+    $items = array_slice($items, 0, $limit);
+
+    return new WP_REST_Response([
+        'items'   => $items,
+        'total'   => count($items),
+        'sources' => array_map(function($k, $v) { return ['key' => $k, 'name' => $v['name'], 'color' => $v['color']]; },
+                              array_keys($sources), $sources),
+        'cached_for_seconds' => 3600,
+    ], 200);
+}
+
+/**
+ * GET /news/all — admin-curated hk_release posts + live RSS, merged & sorted.
+ * Curated items get type=their actual type (tool-release, ai-update, etc); RSS items get type='rss'.
+ */
+function hk_content_rest_news_all(WP_REST_Request $req) {
+    $limit = max(1, min(100, (int) ($req->get_param('limit') ?: 50)));
+
+    // 1. Admin-curated releases
+    $posts = get_posts([
+        'post_type'      => 'hk_release',
+        'post_status'    => 'publish',
+        'posts_per_page' => 50,
+        'orderby'        => 'meta_value',
+        'meta_key'       => '_hk_release_date',
+        'order'          => 'DESC',
+    ]);
+    $curated = [];
+    foreach ($posts as $p) {
+        $curated[] = [
+            'id'             => $p->ID,
+            'slug'           => $p->post_name,
+            'title'          => get_the_title($p),
+            'summary'        => get_post_meta($p->ID, '_hk_release_summary', true) ?: get_the_excerpt($p),
+            'content_html'   => apply_filters('the_content', $p->post_content),
+            'release_date'   => get_post_meta($p->ID, '_hk_release_date', true) ?: $p->post_date,
+            'date_published' => mysql2date('c', $p->post_date_gmt, false),
+            'type'           => get_post_meta($p->ID, '_hk_release_type', true) ?: 'announcement',
+            'source_url'     => get_post_meta($p->ID, '_hk_release_source_url', true),
+            'image'          => get_the_post_thumbnail_url($p->ID, 'large')
+                              ?: (get_post_meta($p->ID, '_hk_release_image_url', true) ?: null),
+            'tags'           => array_filter(array_map('trim', explode(',', (string) get_post_meta($p->ID, '_hk_release_tags', true)))),
+            'rss_source'     => 'HackKnow',
+            'rss_source_key' => 'curated',
+            'rss_color'      => '#FFCB05',
+        ];
+    }
+
+    // 2. Live RSS items (all sources)
+    $rss = [];
+    foreach (array_keys(hk_content_rss_sources()) as $k) {
+        $rss = array_merge($rss, hk_content_fetch_rss_source($k));
+    }
+
+    $all = array_merge($curated, $rss);
+    usort($all, function($a, $b) { return strcmp($b['release_date'], $a['release_date']); });
+    $all = array_slice($all, 0, $limit);
+
+    return new WP_REST_Response([
+        'items'   => $all,
+        'total'   => count($all),
+        'curated' => count($curated),
+        'live'    => count($rss),
+    ], 200);
 }
 
 /* ════════════════════════════════════════════════════════════════════
