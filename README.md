@@ -3,6 +3,11 @@
 Premium digital products marketplace, headless e-commerce, India.
 Live at **[https://www.hackknow.com](https://www.hackknow.com)**.
 
+> **Looking for a repo map?** See [ARCHITECTURE.md](ARCHITECTURE.md) for the
+> full visual layout, build flow, and runtime flow.
+> Legacy / retired files live in [`_archive/`](_archive/README.md).
+
+
 > The official source code for HackKnow.com — a fully headless e-commerce
 > platform for premium digital templates, dashboards, marketing kits, and
 > learning resources.
