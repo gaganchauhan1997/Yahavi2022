@@ -8,20 +8,22 @@
  *   5.5 - 9.5s   Earth flyby: NASA Blue Marble zooms in, atmospheric glow,
  *                rotates, drifts back into the void
  *   8.5 - 12.0s  Moon approach: real lunar surface rises and grows as we land
- *  11.0 - 14.0s  Dead Man emerges: red skull bust rises with red halo,
+ *  11.0 - 14.0s  Dead Man emerges: the hero portrait rises with cosmic aura,
+ *                jacket / hair shimmer via animated SVG turbulence,
+ *                ember particles drift across the frame,
  *                tagline typewrites in blood red
  *  13.4 - 14.0s  Overlay fades to black, hands control to chat
  *
- * Background score: ParadiseTheme — synthesized Cm minor progression
- * (Cm → Eb → Ab → G) with bass + pads + arpeggio + sub rumble. No samples.
+ * Background score: CosmosTheme — original Web Audio synthesis, no samples.
+ *   C → Em → Am → Fmaj7 progression with pad, bell arp, drone, pulsar pings.
  */
 import { useEffect, useRef } from 'react';
 import earthImg from '../assets/cinema/earth.webp';
 import moonImg from '../assets/cinema/moon.webp';
-import skullImg from '../assets/cinema/skull.webp';
-import { ParadiseTheme } from '../lib/paradiseTheme';
+import { CosmosTheme } from '../lib/cosmosTheme';
 
 const DURATION_MS = 14000;
+const HERO_IMG = `${import.meta.env.BASE_URL || '/'}dead-man-hero.png`;
 
 interface Props {
   onDone: () => void;
@@ -30,14 +32,12 @@ interface Props {
 export default function LaunchAnimation({ onDone }: Props) {
   const doneRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const themeRef = useRef<ParadiseTheme | null>(null);
+  const themeRef = useRef<CosmosTheme | null>(null);
 
   useEffect(() => {
-    // Start the score
-    themeRef.current = new ParadiseTheme();
+    themeRef.current = new CosmosTheme();
     themeRef.current.start(DURATION_MS / 1000);
 
-    // Start hyperspace streaks on canvas
     const cleanupCanvas = canvasRef.current ? startHyperspace(canvasRef.current) : undefined;
 
     const t = setTimeout(() => finish(), DURATION_MS);
@@ -58,6 +58,23 @@ export default function LaunchAnimation({ onDone }: Props) {
 
   return (
     <div className="launch-overlay" role="dialog" aria-label="Summoning the Dead Man">
+      {/* SVG turbulence filter for hero shimmer (jacket / hair flutter) */}
+      <svg className="launch-svg-defs" width="0" height="0" aria-hidden="true">
+        <defs>
+          <filter id="hero-flutter" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" numOctaves="2" seed="3" baseFrequency="0.012 0.018">
+              <animate
+                attributeName="baseFrequency"
+                dur="9s"
+                values="0.012 0.018; 0.020 0.026; 0.015 0.022; 0.012 0.018"
+                repeatCount="indefinite"
+              />
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" scale="9" />
+          </filter>
+        </defs>
+      </svg>
+
       {/* Pure black backdrop the cinematic sits on */}
       <div className="launch-bg" />
 
@@ -83,14 +100,22 @@ export default function LaunchAnimation({ onDone }: Props) {
         <div className="launch-earth-glow" />
       </div>
 
-      {/* Red ember halo behind the Dead Man */}
+      {/* Cosmic aura behind the Dead Man (orange→purple→blue radial) */}
       <div className="launch-aura" />
 
       {/* Real Moon — rises from below */}
       <img src={moonImg} alt="" className="launch-moon-img" draggable={false} />
 
-      {/* Dead Man / Red Skull bust */}
-      <img src={skullImg} alt="" className="launch-skull-img" draggable={false} />
+      {/* Dead Man — animated hero portrait */}
+      <div className="launch-hero-wrap">
+        <img src={HERO_IMG} alt="" className="launch-hero-img" draggable={false} />
+        {/* Ember particles drifting across the figure */}
+        <div className="launch-embers">
+          {Array.from({ length: 18 }).map((_, i) => (
+            <span key={i} className={`ember ember-${i}`} />
+          ))}
+        </div>
+      </div>
 
       {/* Vignette tightens as Dead Man emerges */}
       <div className="launch-vignette" />
@@ -143,7 +168,6 @@ function startHyperspace(canvas: HTMLCanvasElement): () => void {
     if (!alive) return;
     const elapsed = now - start;
 
-    // Hyperspace strongest in the first 2.5s, faded by 6s
     let intensity = 0;
     if (elapsed < 2500) intensity = Math.min(1, elapsed / 350);
     else if (elapsed < 6000) intensity = Math.max(0, 1 - (elapsed - 2500) / 3500);
@@ -154,7 +178,6 @@ function startHyperspace(canvas: HTMLCanvasElement): () => void {
       return;
     }
 
-    // Persistent trail effect (low-alpha black overlay each frame)
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -179,7 +202,6 @@ function startHyperspace(canvas: HTMLCanvasElement): () => void {
       ctx.lineTo(x2, y2);
       ctx.stroke();
 
-      // Recycle when out of bounds
       if (s.r > maxR) {
         s.r = Math.random() * 30;
         s.angle = Math.random() * Math.PI * 2;

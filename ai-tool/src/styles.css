@@ -144,23 +144,38 @@
   100% { transform: translate(-50%, -8%) scale(1) rotate(0deg); opacity: 1; filter: blur(0); }
 }
 
-/* Skull — 11s-14s of 14s = 78%-100% */
-@keyframes anim-skull-rise {
-  0%   { transform: translate(-50%, 95%) scale(0.5); opacity: 0; filter: brightness(0.4) blur(8px); }
-  78%  { transform: translate(-50%, 95%) scale(0.5); opacity: 0; filter: brightness(0.4) blur(8px); }
-  88%  { opacity: 0.85; filter: brightness(0.8) blur(2px); }
-  100% { transform: translate(-50%, -2%) scale(1); opacity: 1;
-         filter: brightness(1) blur(0)
-                 drop-shadow(0 0 32px rgba(255,10,30,0.9))
-                 drop-shadow(0 0 70px rgba(255,10,30,0.55)); }
+/* Hero portrait — 11s-14s of 14s = 78%-100% */
+@keyframes anim-hero-rise {
+  0%   { transform: translate(-50%, 60%) scale(0.7); opacity: 0; filter: brightness(0.3) blur(10px); }
+  78%  { transform: translate(-50%, 60%) scale(0.7); opacity: 0; filter: brightness(0.3) blur(10px); }
+  88%  { opacity: 0.9; filter: brightness(0.85) blur(2px); }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1;
+         filter: brightness(1.05) blur(0)
+                 drop-shadow(0 0 28px rgba(255,140,40,0.7))
+                 drop-shadow(0 0 60px rgba(255,80,200,0.35))
+                 drop-shadow(0 0 90px rgba(60,120,255,0.3)); }
 }
 
-/* Red aura — pulses once skull starts emerging */
+/* Subtle breathing scale once hero is fully visible */
+@keyframes anim-hero-breath {
+  0%, 100% { transform: translate(-50%, 0) scale(1); }
+  50%      { transform: translate(-50%, 0) scale(1.018); }
+}
+
+/* Cosmic aura — pulses once hero starts emerging (orange→magenta→blue) */
 @keyframes anim-red-aura {
   0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(0.95); }
-  50%      { opacity: 0.95; transform: translate(-50%, -50%) scale(1.25); }
+  50%      { opacity: 0.9;  transform: translate(-50%, -50%) scale(1.25); }
 }
 @keyframes anim-aura-show { 0% { opacity: 0; } 100% { opacity: 0.7; } }
+
+/* Ember particles drifting up-and-across */
+@keyframes anim-ember {
+  0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  10%  { opacity: 0.85; }
+  90%  { opacity: 0.85; }
+  100% { transform: translate(var(--ember-dx, -180px), var(--ember-dy, -260px)) scale(1.1); opacity: 0; }
+}
 
 /* Star parallax — slower drift (over 14s instead of 6s) */
 @keyframes anim-stars-drift-far  { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(0, -90px, 0); } }
@@ -367,30 +382,93 @@
   animation: anim-moon-rise 14s cubic-bezier(.34, 1.2, .64, 1) 0s forwards;
 }
 
-/* Red aura behind skull */
+/* Cosmic aura behind the hero — orange → magenta → deep blue radial */
 .launch-aura {
-  position: absolute; left: 50%; top: 36%;
-  width: 520px; height: 520px;
+  position: absolute; left: 50%; top: 38%;
+  width: 620px; height: 620px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,10,30,0.75) 0%, rgba(255,10,30,0.32) 35%, transparent 70%);
-  filter: blur(32px);
+  background:
+    radial-gradient(circle,
+      rgba(255,140,40,0.55) 0%,
+      rgba(255,80,180,0.32) 28%,
+      rgba(80,60,220,0.22) 55%,
+      transparent 75%);
+  filter: blur(40px);
   transform: translate(-50%, -50%) scale(0.95);
   opacity: 0;
   z-index: 12;
-  animation: anim-red-aura 2.4s ease-in-out 11.2s infinite,
+  animation: anim-red-aura 2.6s ease-in-out 11.2s infinite,
              anim-aura-show 0.8s ease-out 11.2s forwards;
   pointer-events: none;
 }
 
-/* Dead Man — REAL generated red skull bust */
-.launch-skull-img {
-  position: absolute; left: 50%; top: 22%;
-  width: 290px; height: auto;
-  transform: translate(-50%, 95%) scale(0.5);
+/* Hero portrait wrapper — fixes positioning so animations stack cleanly */
+.launch-hero-wrap {
+  position: absolute; left: 50%; top: 18%;
+  width: min(92vw, 720px);
+  aspect-ratio: 1080 / 558;
+  transform: translate(-50%, 60%) scale(0.7);
   opacity: 0;
   z-index: 13;
-  animation: anim-skull-rise 14s cubic-bezier(.34, 1.45, .64, 1) 0s forwards;
+  animation:
+    anim-hero-rise 14s cubic-bezier(.34, 1.35, .64, 1) 0s forwards,
+    anim-hero-breath 7s ease-in-out 13.0s 1;
+  will-change: transform, opacity, filter;
+  pointer-events: none;
 }
+.launch-hero-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  filter: url(#hero-flutter) saturate(1.15) contrast(1.05);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 30px 80px -20px rgba(0,0,0,0.85);
+}
+
+/* SVG defs container — invisible, just hosts the turbulence filter */
+.launch-svg-defs {
+  position: absolute;
+  width: 0; height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Ember particle layer over the hero (drift up-and-across, fade in/out) */
+.launch-embers {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 14px;
+}
+.launch-embers .ember {
+  position: absolute;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffb060 0%, #ff5818 60%, transparent 80%);
+  filter: blur(0.5px);
+  opacity: 0;
+  animation: anim-ember 6s linear infinite;
+}
+/* Distribute the 18 embers across the frame with varied trajectories */
+.launch-embers .ember-0  { left:  6%; top: 78%; --ember-dx: -120px; --ember-dy: -340px; animation-delay: 11.4s; animation-duration: 5.5s; }
+.launch-embers .ember-1  { left: 14%; top: 92%; --ember-dx:   60px; --ember-dy: -380px; animation-delay: 11.6s; animation-duration: 6.2s; }
+.launch-embers .ember-2  { left: 22%; top: 70%; --ember-dx: -180px; --ember-dy: -300px; animation-delay: 11.9s; animation-duration: 5.8s; }
+.launch-embers .ember-3  { left: 30%; top: 88%; --ember-dx:  100px; --ember-dy: -420px; animation-delay: 11.5s; animation-duration: 6.0s; }
+.launch-embers .ember-4  { left: 38%; top: 60%; --ember-dx: -160px; --ember-dy: -260px; animation-delay: 12.1s; animation-duration: 5.4s; }
+.launch-embers .ember-5  { left: 46%; top: 84%; --ember-dx:  140px; --ember-dy: -360px; animation-delay: 11.7s; animation-duration: 6.4s; }
+.launch-embers .ember-6  { left: 54%; top: 72%; --ember-dx: -100px; --ember-dy: -320px; animation-delay: 12.0s; animation-duration: 5.6s; }
+.launch-embers .ember-7  { left: 62%; top: 90%; --ember-dx:  180px; --ember-dy: -400px; animation-delay: 11.8s; animation-duration: 6.1s; }
+.launch-embers .ember-8  { left: 70%; top: 68%; --ember-dx: -140px; --ember-dy: -280px; animation-delay: 12.2s; animation-duration: 5.7s; }
+.launch-embers .ember-9  { left: 78%; top: 86%; --ember-dx:  120px; --ember-dy: -380px; animation-delay: 11.5s; animation-duration: 6.3s; }
+.launch-embers .ember-10 { left: 86%; top: 76%; --ember-dx: -200px; --ember-dy: -300px; animation-delay: 12.0s; animation-duration: 5.9s; }
+.launch-embers .ember-11 { left: 94%; top: 92%; --ember-dx:   80px; --ember-dy: -420px; animation-delay: 11.6s; animation-duration: 6.0s; }
+.launch-embers .ember-12 { left: 18%; top: 50%; --ember-dx: -150px; --ember-dy: -220px; animation-delay: 12.4s; animation-duration: 5.5s; }
+.launch-embers .ember-13 { left: 42%; top: 46%; --ember-dx:  160px; --ember-dy: -240px; animation-delay: 12.6s; animation-duration: 5.7s; }
+.launch-embers .ember-14 { left: 58%; top: 52%; --ember-dx: -130px; --ember-dy: -260px; animation-delay: 12.5s; animation-duration: 6.2s; }
+.launch-embers .ember-15 { left: 74%; top: 48%; --ember-dx:  170px; --ember-dy: -220px; animation-delay: 12.7s; animation-duration: 5.6s; }
+.launch-embers .ember-16 { left: 10%; top: 36%; --ember-dx: -110px; --ember-dy: -180px; animation-delay: 12.9s; animation-duration: 5.8s; }
+.launch-embers .ember-17 { left: 88%; top: 38%; --ember-dx:  140px; --ember-dy: -200px; animation-delay: 13.0s; animation-duration: 5.7s; }
 
 .launch-line {
   position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
