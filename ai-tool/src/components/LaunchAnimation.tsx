@@ -1,28 +1,32 @@
 /**
- * 14-second cinematic — replays on every fresh login.
+ * TDM "Dead Boot" — 2.4-second signature reveal.
  *
- *   0.0 - 2.0s   Comet ignition: white core flash, then radial hyperspace streaks
- *                exploding outward (canvas-rendered) + sub-bass rumble
- *   1.5 - 6.5s   Universe sweep: rotating nebula clouds (purple / orange / blue)
- *                with multi-layer parallax starfield streaking past
- *   5.5 - 9.5s   Earth flyby: NASA Blue Marble zooms in, atmospheric glow,
- *                rotates, drifts back into the void
- *   8.5 - 12.0s  Moon approach: real lunar surface rises and grows as we land
- *  11.0 - 14.0s  Dead Man emerges: the hero portrait rises with cosmic aura,
- *                jacket / hair shimmer via animated SVG turbulence,
- *                ember particles drift across the frame,
- *                tagline typewrites in blood red
- *  13.4 - 14.0s  Overlay fades to black, hands control to chat
+ * Design rationale:
+ *   TDM is a BYOK AI productivity tool, not a game launcher.
+ *   The intro must (a) brand-anchor in <3s, (b) never block the user from
+ *   reaching the chat surface, (c) honour prefers-reduced-motion, and
+ *   (d) load instantly on first paint (no image / audio assets).
  *
- * Background score: SILENT — audio disabled per user request.
- *   (CosmosTheme synthesis class kept in src/lib/cosmosTheme.ts for future toggle.)
+ * Sequence (timestamps in ms):
+ *   0     Black backdrop, full bleed
+ *   100   CRT scanline sweeps top → bottom (single pass, ~280ms)
+ *   380   SVG skull glyph draws stroke-by-stroke via strokeDashoffset
+ *         (orange line on black, cinematic but minimal — fits the
+ *          Blackbox AI / terminal aesthetic)
+ *   1180  Eye sockets ignite — orange radial-gradient flash + steady glow
+ *   1380  Wordmark "TDM // THE DEAD MAN" types in with monospace cursor
+ *   1780  Tagline "your keys · your model · your rules" fades in
+ *   2100  Whole overlay fades out (300ms)
+ *   2400  onDone() — chat is live
+ *
+ * If `prefers-reduced-motion: reduce` is set, the overlay paints the
+ * final state immediately and dismisses in 600ms (still gives a brand
+ * beat, but no motion).
  */
 import { useEffect, useRef } from 'react';
-import earthImg from '../assets/cinema/earth.webp';
-import moonImg from '../assets/cinema/moon.webp';
 
-const DURATION_MS = 14000;
-const HERO_BASE = `${import.meta.env.BASE_URL || '/'}dead-man-hero`;
+const DURATION_MS = 2400;
+const REDUCED_DURATION_MS = 600;
 
 interface Props {
   onDone: () => void;
@@ -30,16 +34,11 @@ interface Props {
 
 export default function LaunchAnimation({ onDone }: Props) {
   const doneRef = useRef(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const cleanupCanvas = canvasRef.current ? startHyperspace(canvasRef.current) : undefined;
-
-    const t = setTimeout(() => finish(), DURATION_MS);
-    return () => {
-      clearTimeout(t);
-      cleanupCanvas?.();
-    };
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const t = setTimeout(() => finish(), reduced ? REDUCED_DURATION_MS : DURATION_MS);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -50,195 +49,83 @@ export default function LaunchAnimation({ onDone }: Props) {
   };
 
   return (
-    <div className="launch-overlay" role="dialog" aria-label="Summoning the Dead Man">
-      {/* SVG turbulence filter for hero shimmer (jacket / hair flutter) */}
-      <svg className="launch-svg-defs" width="0" height="0" aria-hidden="true">
-        <defs>
-          <filter id="hero-flutter" x="-20%" y="-20%" width="140%" height="140%">
-            <feTurbulence type="fractalNoise" numOctaves="2" seed="3" baseFrequency="0.012 0.018">
-              <animate
-                attributeName="baseFrequency"
-                dur="9s"
-                values="0.012 0.018; 0.020 0.026; 0.015 0.022; 0.012 0.018"
-                repeatCount="indefinite"
-              />
-            </feTurbulence>
-            <feDisplacementMap in="SourceGraphic" scale="9" />
-          </filter>
-        </defs>
-      </svg>
+    <div
+      className="tdm-boot"
+      role="dialog"
+      aria-label="The Dead Man — boot sequence"
+      onClick={finish}
+      onKeyDown={(e) => (e.key === 'Escape' || e.key === 'Enter') && finish()}
+      tabIndex={0}
+    >
+      {/* CRT scanline sweep */}
+      <div className="tdm-boot__scan" aria-hidden="true" />
 
-      {/* Pure black backdrop the cinematic sits on */}
-      <div className="launch-bg" />
-
-      {/* Comet hyperspace streaks — canvas radial */}
-      <canvas ref={canvasRef} className="launch-hyperspace" />
-
-      {/* Nebula sweep (3 colored clouds rotating in opposite directions) */}
-      <div className="launch-nebula launch-nebula-1" />
-      <div className="launch-nebula launch-nebula-2" />
-      <div className="launch-nebula launch-nebula-3" />
-
-      {/* Multi-layer parallax starfield */}
-      <div className="launch-stars launch-stars-far" />
-      <div className="launch-stars launch-stars-mid" />
-      <div className="launch-stars launch-stars-near" />
-
-      {/* Drifting cosmic dust */}
-      <div className="launch-dust" />
-
-      {/* Real Earth — slowly rotates and drifts back into void */}
-      <div className="launch-earth-wrap">
-        <img src={earthImg} alt="" className="launch-earth-img" draggable={false} />
-        <div className="launch-earth-glow" />
-      </div>
-
-      {/* Cosmic aura behind the Dead Man (orange→purple→blue radial) */}
-      <div className="launch-aura" />
-
-      {/* Real Moon — rises from below */}
-      <img src={moonImg} alt="" className="launch-moon-img" draggable={false} />
-
-      {/* Dead Man — HD hero portrait with Comet-style premium polish */}
-      <div className="launch-hero-wrap">
-        {/* Frame: AVIF (modern, 19KB) → WebP (Safari, 78KB) → PNG fallback */}
-        <picture>
-          <source srcSet={`${HERO_BASE}.avif`} type="image/avif" />
-          <source srcSet={`${HERO_BASE}.webp`} type="image/webp" />
-          <img
-            src={`${HERO_BASE}.png`}
-            alt=""
-            className="launch-hero-img"
-            draggable={false}
-            decoding="async"
-            fetchPriority="high"
+      {/* Skull glyph + wordmark */}
+      <div className="tdm-boot__center">
+        <svg
+          className="tdm-boot__skull"
+          viewBox="0 0 200 220"
+          width="180"
+          height="200"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          {/* Cranium (top arc) */}
+          <path
+            className="tdm-boot__stroke tdm-boot__stroke--1"
+            d="M40 110 C 40 50, 160 50, 160 110 L 160 140 C 160 152, 145 158, 130 158 L 70 158 C 55 158, 40 152, 40 140 Z"
           />
-        </picture>
+          {/* Jaw (lower) */}
+          <path
+            className="tdm-boot__stroke tdm-boot__stroke--2"
+            d="M65 158 L 70 195 L 95 195 L 100 175 L 105 195 L 130 195 L 135 158"
+          />
+          {/* Teeth divider */}
+          <path
+            className="tdm-boot__stroke tdm-boot__stroke--3"
+            d="M70 175 L 130 175 M82 175 L82 195 M100 175 L100 195 M118 175 L118 195"
+          />
+          {/* Nose triangle */}
+          <path
+            className="tdm-boot__stroke tdm-boot__stroke--4"
+            d="M95 120 L 100 138 L 105 120 Z"
+          />
+          {/* Eye sockets — drawn as paths so they share the stroke animation */}
+          <circle
+            className="tdm-boot__stroke tdm-boot__stroke--5 tdm-boot__eye"
+            cx="72" cy="105" r="14"
+          />
+          <circle
+            className="tdm-boot__stroke tdm-boot__stroke--5 tdm-boot__eye"
+            cx="128" cy="105" r="14"
+          />
+          {/* Eye glow — radial fills, ignite later */}
+          <circle className="tdm-boot__eyeglow" cx="72"  cy="105" r="6" />
+          <circle className="tdm-boot__eyeglow" cx="128" cy="105" r="6" />
+        </svg>
 
-        {/* Aurora gradient flow — Perplexity Comet–style colour sweep */}
-        <div className="launch-aurora" aria-hidden="true" />
+        <div className="tdm-boot__wordmark" aria-hidden="true">
+          <span className="tdm-boot__type">TDM&nbsp;&nbsp;//&nbsp;&nbsp;THE&nbsp;DEAD&nbsp;MAN</span>
+          <span className="tdm-boot__caret">▮</span>
+        </div>
 
-        {/* Diagonal light ray sweep — single pass, premium reveal */}
-        <div className="launch-lightray" aria-hidden="true" />
-
-        {/* Film grain overlay — cinematic texture */}
-        <div className="launch-grain" aria-hidden="true" />
-
-        {/* Ember particles drifting across the figure */}
-        <div className="launch-embers">
-          {Array.from({ length: 18 }).map((_, i) => (
-            <span key={i} className={`ember ember-${i}`} />
-          ))}
+        <div className="tdm-boot__tagline" aria-hidden="true">
+          your&nbsp;keys&nbsp;&middot;&nbsp;your&nbsp;model&nbsp;&middot;&nbsp;your&nbsp;rules
         </div>
       </div>
 
-      {/* Orbiting satellites — 3 ember moons revolving around the hero orb (TDM signature) */}
-      <div className="launch-orbits" aria-hidden="true">
-        <div className="orbit orbit-1"><span className="satellite sat-a" /></div>
-        <div className="orbit orbit-2"><span className="satellite sat-b" /></div>
-        <div className="orbit orbit-3"><span className="satellite sat-c" /></div>
-      </div>
+      {/* Vignette + grain (subtle, terminal-CRT vibe) */}
+      <div className="tdm-boot__vignette" aria-hidden="true" />
+      <div className="tdm-boot__grain" aria-hidden="true" />
 
-      {/* Vignette tightens as Dead Man emerges */}
-      <div className="launch-vignette" />
-
-      {/* Tagline */}
-      <div className="launch-line">
-        <span className="typewriter">Ask what you want the most</span><span className="caret" />
-      </div>
-
-      {/* Ignition flash — sits above everything for the first 0.6s */}
-      <div className="launch-flash" />
-
-      <button className="launch-skip" onClick={finish} aria-label="Skip">Skip ▸</button>
+      {/* Live region for screen-reader users (so the boot is announced once) */}
+      <span className="tdm-boot__sr" aria-live="polite">
+        The Dead Man — your keys, your model, your rules.
+      </span>
     </div>
   );
-}
-
-/** Renders radial hyperspace streaks shooting outward from the screen center. */
-function startHyperspace(canvas: HTMLCanvasElement): () => void {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return () => {};
-
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const resize = () => {
-    canvas.width = canvas.offsetWidth * dpr;
-    canvas.height = canvas.offsetHeight * dpr;
-  };
-  resize();
-  window.addEventListener('resize', resize);
-
-  type Streak = { angle: number; r: number; speed: number; len: number; hue: number; alpha: number };
-  const streaks: Streak[] = [];
-  const STREAK_COUNT = 240;
-  for (let i = 0; i < STREAK_COUNT; i++) {
-    streaks.push({
-      angle: Math.random() * Math.PI * 2,
-      r: Math.random() * 60,
-      speed: 5 + Math.random() * 22,
-      len: 30 + Math.random() * 70,
-      hue: Math.random() < 0.65 ? 28 : Math.random() < 0.5 ? 200 : 0,
-      alpha: 0.7 + Math.random() * 0.3,
-    });
-  }
-
-  const start = performance.now();
-  let raf = 0;
-  let alive = true;
-
-  const step = (now: number) => {
-    if (!alive) return;
-    const elapsed = now - start;
-
-    let intensity = 0;
-    if (elapsed < 2500) intensity = Math.min(1, elapsed / 350);
-    else if (elapsed < 6000) intensity = Math.max(0, 1 - (elapsed - 2500) / 3500);
-
-    if (intensity <= 0) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      raf = requestAnimationFrame(step);
-      return;
-    }
-
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const maxR = Math.hypot(canvas.width, canvas.height) / 2;
-
-    streaks.forEach(s => {
-      s.r += s.speed * dpr;
-      const x1 = cx + Math.cos(s.angle) * s.r;
-      const y1 = cy + Math.sin(s.angle) * s.r;
-      const x2 = cx + Math.cos(s.angle) * (s.r + s.len * dpr);
-      const y2 = cy + Math.sin(s.angle) * (s.r + s.len * dpr);
-
-      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-      grad.addColorStop(0, `hsla(${s.hue}, 100%, 65%, ${s.alpha * intensity})`);
-      grad.addColorStop(1, `hsla(${s.hue}, 100%, 80%, 0)`);
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = (1.2 + Math.random() * 0.8) * dpr;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-
-      if (s.r > maxR) {
-        s.r = Math.random() * 30;
-        s.angle = Math.random() * Math.PI * 2;
-        s.speed = 5 + Math.random() * 22;
-        s.len = 30 + Math.random() * 70;
-      }
-    });
-
-    raf = requestAnimationFrame(step);
-  };
-  raf = requestAnimationFrame(step);
-
-  return () => {
-    alive = false;
-    cancelAnimationFrame(raf);
-    window.removeEventListener('resize', resize);
-  };
 }
