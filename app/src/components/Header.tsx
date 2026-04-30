@@ -81,20 +81,9 @@ export default function Header() {
                   HACKKNOW
                 </span>
               </Link>
-              <a
-                href={TDM_URL}
-                aria-label="The Dead Man — HackKnow's AI"
-                className="group/tdm inline-flex items-center gap-2 px-2 py-1 rounded-md bg-hack-black border-2 border-hack-black shadow-[3px_3px_0_0_#FFB800] hover:shadow-[1px_1px_0_0_#FFB800] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
-                title="Open The Dead Man — Ask what you want the most"
-              >
-                <TdmSigil size={22} />
-                <span className="hidden sm:flex flex-col leading-none -mt-0.5">
-                  <span className="font-display font-extrabold text-sm text-white tracking-wider">TDM</span>
-                  <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-hack-yellow mt-0.5">
-                    Ask · Get · Done
-                  </span>
-                </span>
-              </a>
+              <span className="hidden sm:inline-block text-[10px] font-mono uppercase tracking-widest text-hack-black/50 -ml-1">
+                Digital Marketplace
+              </span>
             </div>
 
             {/* Center: Desktop Nav */}
@@ -162,6 +151,7 @@ export default function Header() {
               >
                 <User className="w-5 h-5 text-hack-black" />
               </Link>
+              <InstallButton />
               <button
                 onClick={() => dispatch({ type: "TOGGLE_CART" })}
                 className="p-2 hover:bg-hack-black/5 rounded-full transition-colors relative"
@@ -174,7 +164,20 @@ export default function Header() {
                   </span>
                 )}
               </button>
-              <InstallButton />
+              <a
+                href={TDM_URL}
+                aria-label="The Dead Man — HackKnow's AI"
+                title="The Dead Man — Ask what you want the most"
+                className="ml-1 inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-hack-black border-2 border-hack-black shadow-[3px_3px_0_0_#FFB800] hover:shadow-[1px_1px_0_0_#FFB800] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+              >
+                <TdmSigil size={22} />
+                <span className="hidden md:flex flex-col leading-none -mt-0.5">
+                  <span className="font-display font-extrabold text-sm text-white tracking-wider">TDM</span>
+                  <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-hack-yellow mt-0.5">
+                    Ask · Get · Done
+                  </span>
+                </span>
+              </a>
             </div>
           </div>
         </div>
