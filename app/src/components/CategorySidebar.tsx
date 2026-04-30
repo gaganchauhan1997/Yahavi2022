@@ -32,7 +32,17 @@ const topIcons: Record<string, React.ReactNode> = {
   "free-resources": <Gift className="w-5 h-5" />,
 };
 
-const HIDE_SLUGS = new Set(["uncategorized", "uncategorised", "wc-default"]);
+const HIDE_SLUGS = new Set([
+  "uncategorized", "uncategorised", "wc-default",
+  /* Duplicates / legacy — merged into canonical cats: */
+  "excel-templates",      /* dup of excel-sheets */
+  "themes-templates",     /* dup of website-templates */
+  "dashboards",           /* dup of mis-dashboards-templates */
+  /* Empty placeholders (no products yet) — hide until populated: */
+  "bundles",
+  "ai-pro-subscriptions",
+  "data-analysis-tools",
+]);
 
 function buildTree(flat: WPCat[]): CatNode[] {
   const byId = new Map<number, CatNode>();

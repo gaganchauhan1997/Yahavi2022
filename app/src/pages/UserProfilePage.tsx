@@ -96,18 +96,18 @@ const RenderDownloads = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">My Downloads</h2>
+        <h2 className="text-2xl lg:text-3xl font-display font-bold text-hack-black">My Downloads</h2>
         {downloads.length > 0 && <span className="text-sm text-gray-500">{downloads.length} file{downloads.length !== 1 ? 's' : ''}</span>}
       </div>
 
       {downloads.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+        <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-10 text-center">
           <FileDown className="w-14 h-14 mx-auto mb-4 text-gray-200" />
-          <h3 className="font-semibold text-gray-700 mb-2">No Downloads Yet</h3>
-          <p className="text-sm text-gray-400 mb-6 max-w-xs mx-auto">
+          <h3 className="font-bold text-hack-black mb-2">No Downloads Yet</h3>
+          <p className="text-sm text-hack-black/60 mb-6 max-w-xs mx-auto">
             After completing a purchase, your files appear here. You can re-download for up to 30 days.
           </p>
-          <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-white rounded-full text-sm font-medium hover:bg-hack-black/80 transition-colors">
+          <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-hack-yellow rounded-full text-sm font-bold border-2 border-hack-black shadow-[3px_3px_0_#000] hover:shadow-[1px_1px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
             <ShoppingBag className="w-4 h-4" /> Browse Products
           </Link>
         </div>
@@ -118,10 +118,10 @@ const RenderDownloads = () => {
             const expired  = expires ? expires < new Date() : false;
             const daysLeft = expires ? Math.ceil((expires.getTime() - Date.now()) / 86400000) : null;
             return (
-              <div key={dl.download_id} className={`bg-white rounded-xl border p-6 transition-all ${expired ? 'border-red-200 opacity-70' : 'border-gray-200 hover:shadow-md'}`}>
+              <div key={dl.download_id} className={`bg-white rounded-xl border p-6 transition-all ${expired ? 'border-red-200 opacity-70' : 'border-[3px] border-hack-black shadow-[4px_4px_0_#000] hover:shadow-[6px_6px_0_#000] hover:-translate-x-[2px] hover:-translate-y-[2px] transition-all'}`}>
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-gradient-to-br from-hack-yellow/20 to-hack-orange/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <div className="w-14 h-14 bg-hack-yellow border-2 border-hack-black rounded-xl border-2 border-hack-black flex items-center justify-center flex-shrink-0">
                       <Download className="w-7 h-7 text-hack-black" />
                     </div>
                     <div>
@@ -144,7 +144,7 @@ const RenderDownloads = () => {
                   </div>
                   {!expired ? (
                     <a href={dl.download_url} download target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-white rounded-full hover:bg-hack-black/80 transition-colors text-sm font-medium whitespace-nowrap flex-shrink-0">
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-hack-yellow rounded-full text-sm font-bold border-2 border-hack-black shadow-[3px_3px_0_#000] hover:shadow-[1px_1px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all whitespace-nowrap flex-shrink-0">
                       <Download className="w-4 h-4" />Download Now
                     </a>
                   ) : (
@@ -179,18 +179,18 @@ const RenderOrders = () => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">My Orders</h2>
+      <h2 className="text-2xl lg:text-3xl font-display font-bold text-hack-black">My Orders</h2>
       {orders.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+        <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-10 text-center">
           <ShoppingBag className="w-14 h-14 mx-auto mb-4 text-gray-200" />
-          <h3 className="font-semibold text-gray-700 mb-2">No Orders Yet</h3>
+          <h3 className="font-bold text-hack-black mb-2">No Orders Yet</h3>
           <p className="text-sm text-gray-400 mb-6">Completed purchases will appear here.</p>
-          <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-white rounded-full text-sm font-medium hover:bg-hack-black/80 transition-colors">
+          <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-hack-yellow rounded-full text-sm font-bold border-2 border-hack-black shadow-[3px_3px_0_#000] hover:shadow-[1px_1px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
             Start Shopping
           </Link>
         </div>
       ) : orders.map(order => (
-        <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-6">
+        <div key={order.id} className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 pb-4 border-b">
             <div>
               <p className="font-semibold">Order #{order.number}</p>
@@ -198,7 +198,7 @@ const RenderOrders = () => {
             </div>
             <div className="flex items-center gap-3">
               <p className="font-bold text-lg">₹{parseFloat(order.total).toLocaleString('en-IN')}</p>
-              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${order.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${order.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-700' : 'bg-blue-100 text-blue-700 border border-blue-700'}`}>
                 <CheckCircle className="w-3.5 h-3.5" />
                 {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
               </span>
@@ -206,7 +206,7 @@ const RenderOrders = () => {
           </div>
           {order.line_items.map((item, idx) => (
             <div key={idx} className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-hack-yellow/40 rounded-lg border border-hack-black flex items-center justify-center flex-shrink-0">
                 <ShoppingBag className="w-5 h-5 text-gray-400" />
               </div>
               <div className="flex-1 min-w-0">
@@ -249,22 +249,22 @@ const RenderAddresses = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Manage Addresses</h2>
+        <h2 className="text-2xl lg:text-3xl font-display font-bold text-hack-black">Manage Addresses</h2>
         {!adding && (
-          <Button size="sm" onClick={() => setAdding(true)} className="gap-2 bg-hack-black text-white hover:bg-hack-black/80">
+          <Button size="sm" onClick={() => setAdding(true)} className="gap-2 bg-hack-black text-hack-yellow border-2 border-hack-black hover:shadow-[3px_3px_0_#000] hover:-translate-x-[1px] hover:-translate-y-[1px] transition-all font-bold">
             <Plus className="w-4 h-4" />Add Address
           </Button>
         )}
       </div>
 
       {adding && (
-        <div className="bg-white rounded-xl border border-hack-yellow/40 p-6 space-y-4">
+        <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-6 space-y-4">
           <h3 className="font-semibold text-gray-800">New Address</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Label</label>
               <select value={form.label} onChange={e => setForm({ ...form, label: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-hack-yellow bg-white">
+                className="w-full px-3 py-2 border-2 border-hack-black rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-hack-yellow bg-white">
                 <option>Home</option><option>Office</option><option>Other</option>
               </select>
             </div>
@@ -296,25 +296,25 @@ const RenderAddresses = () => {
             <Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+91 XXXXX XXXXX" type="tel" className="text-sm" />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button onClick={save} className="gap-2 bg-hack-black text-white hover:bg-hack-black/80 flex-1"><Save className="w-4 h-4" />Save Address</Button>
+            <Button onClick={save} className="gap-2 bg-hack-black text-hack-yellow border-2 border-hack-black hover:shadow-[3px_3px_0_#000] hover:-translate-x-[1px] hover:-translate-y-[1px] transition-all font-bold flex-1"><Save className="w-4 h-4" />Save Address</Button>
             <Button variant="outline" onClick={() => setAdding(false)}>Cancel</Button>
           </div>
         </div>
       )}
 
       {addresses.length === 0 && !adding ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+        <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-10 text-center">
           <MapPin className="w-14 h-14 mx-auto mb-4 text-gray-200" />
-          <h3 className="font-semibold text-gray-700 mb-2">No Addresses Saved</h3>
+          <h3 className="font-bold text-hack-black mb-2">No Addresses Saved</h3>
           <p className="text-sm text-gray-400 mb-6">Save your address for faster checkout.</p>
-          <Button onClick={() => setAdding(true)} className="gap-2 bg-hack-black text-white hover:bg-hack-black/80">
+          <Button onClick={() => setAdding(true)} className="gap-2 bg-hack-black text-hack-yellow border-2 border-hack-black hover:shadow-[3px_3px_0_#000] hover:-translate-x-[1px] hover:-translate-y-[1px] transition-all font-bold">
             <Plus className="w-4 h-4" />Add Address
           </Button>
         </div>
       ) : (
         <div className="grid gap-3">
           {addresses.map(addr => (
-            <div key={addr.id} className="bg-white rounded-xl border border-gray-200 p-5 flex items-start justify-between gap-4">
+            <div key={addr.id} className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-5 flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-hack-yellow/10 flex items-center justify-center flex-shrink-0">
                   <MapPin className="w-5 h-5 text-hack-black" />
@@ -356,8 +356,8 @@ const RenderPaymentMethods = () => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Payment Methods</h2>
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 className="text-2xl lg:text-3xl font-display font-bold text-hack-black">Payment Methods</h2>
+      <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
             <h3 className="font-semibold text-gray-800">Saved Payment Info</h3>
@@ -385,7 +385,7 @@ const RenderPaymentMethods = () => {
               🔒 Card numbers are never saved here. All payments go through Razorpay's secure gateway.
             </p>
             <div className="flex gap-3">
-              <Button onClick={savePayment} className="gap-2 bg-hack-black text-white hover:bg-hack-black/80">
+              <Button onClick={savePayment} className="gap-2 bg-hack-black text-hack-yellow border-2 border-hack-black hover:shadow-[3px_3px_0_#000] hover:-translate-x-[1px] hover:-translate-y-[1px] transition-all font-bold">
                 <Save className="w-4 h-4" />Save
               </Button>
               {(saved.upi || saved.cardName) && (
@@ -396,13 +396,13 @@ const RenderPaymentMethods = () => {
         ) : (
           <div className="space-y-3">
             {saved.upi && (
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center gap-3 p-4 bg-[#fffbea] border-2 border-hack-black rounded-xl">
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-lg font-bold text-purple-600">₹</div>
                 <div><p className="text-xs text-gray-500 font-medium uppercase tracking-wide">UPI ID</p><p className="font-medium">{saved.upi}</p></div>
               </div>
             )}
             {saved.cardName && (
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center gap-3 p-4 bg-[#fffbea] border-2 border-hack-black rounded-xl">
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                   <CreditCard className="w-5 h-5 text-blue-600" />
                 </div>
@@ -419,7 +419,7 @@ const RenderPaymentMethods = () => {
         )}
       </div>
 
-      <div className="bg-gray-50 rounded-xl p-4 flex items-start gap-3">
+      <div className="bg-[#fffbea] border-2 border-hack-black rounded-xl p-4 flex items-start gap-3">
         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
         <div>
           <p className="text-sm font-medium text-gray-700">Payments powered by Razorpay</p>
@@ -477,16 +477,16 @@ export default function UserProfilePage() {
 
   const renderProfile = () => (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
           <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-hack-yellow to-hack-orange flex items-center justify-center overflow-hidden">
+            <div className="w-24 h-24 rounded-full bg-hack-yellow border-[3px] border-hack-black shadow-[3px_3px_0_#000] flex items-center justify-center overflow-hidden">
               {avatarSrc
                 ? <img src={avatarSrc} alt="Profile" className="w-full h-full object-cover" />
                 : <span className="text-3xl font-bold text-hack-black select-none">{(userData.name || 'H').charAt(0).toUpperCase()}</span>}
             </div>
             <button onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 w-8 h-8 bg-white border border-gray-200 rounded-full shadow-md flex items-center justify-center hover:bg-hack-yellow/10 transition-colors"
+              className="absolute bottom-0 right-0 w-9 h-9 bg-hack-yellow border-2 border-hack-black rounded-full shadow-[2px_2px_0_#000] flex items-center justify-center hover:shadow-[1px_1px_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
               title="Upload photo">
               <Camera className="w-4 h-4 text-gray-600" />
             </button>
@@ -519,7 +519,7 @@ export default function UserProfilePage() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-6">
         <h3 className="text-lg font-bold mb-4">Personal Information</h3>
         {isEditing ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -536,7 +536,7 @@ export default function UserProfilePage() {
               <Input type="tel" value={userData.phone || ''} onChange={e => setUserData({ ...userData, phone: e.target.value })} placeholder="+91 XXXXX XXXXX" />
             </div>
             <div className="flex items-end">
-              <Button onClick={handleSaveProfile} className="w-full bg-hack-black text-white hover:bg-hack-black/80">Save Changes</Button>
+              <Button onClick={handleSaveProfile} className="w-full bg-hack-black text-hack-yellow border-2 border-hack-black hover:shadow-[3px_3px_0_#000] hover:-translate-x-[1px] hover:-translate-y-[1px] transition-all font-bold">Save Changes</Button>
             </div>
           </div>
         ) : (
@@ -559,13 +559,13 @@ export default function UserProfilePage() {
         const wishlistProducts = state.products.filter(p => state.wishlist.includes(p.id));
         return (
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">My Wishlist</h2>
+            <h2 className="text-2xl lg:text-3xl font-display font-bold text-hack-black">My Wishlist</h2>
             {wishlistProducts.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+              <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-10 text-center">
                 <Heart className="w-14 h-14 mx-auto mb-4 text-gray-200" />
-                <h3 className="font-semibold text-gray-700 mb-2">Wishlist is Empty</h3>
+                <h3 className="font-bold text-hack-black mb-2">Wishlist is Empty</h3>
                 <p className="text-sm text-gray-400 mb-6">Save products you love and find them here later.</p>
-                <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-white rounded-full text-sm font-medium hover:bg-hack-black/80 transition-colors">
+                <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-hack-yellow rounded-full text-sm font-bold border-2 border-hack-black shadow-[3px_3px_0_#000] hover:shadow-[1px_1px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
                   <ShoppingBag className="w-4 h-4" />Browse Products
                 </Link>
               </div>
@@ -596,10 +596,10 @@ export default function UserProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b">
+    <div className="min-h-screen bg-[#fffbea]">
+      <div className="bg-hack-yellow border-b-[3px] border-hack-black">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-hack-black/70 font-medium">
             <Link to="/" className="hover:text-hack-black">Home</Link>
             <ChevronRight className="w-4 h-4" />
             <span className="text-hack-black font-medium">My Account</span>
@@ -612,10 +612,10 @@ export default function UserProfilePage() {
 
           {/* Sidebar */}
           <div className="lg:w-64 flex-shrink-0">
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden sticky top-4">
-              <div className="p-4 bg-hack-black text-white">
+            <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] overflow-hidden sticky top-4">
+              <div className="p-4 bg-hack-black text-hack-yellow border-b-[3px] border-hack-black">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-hack-yellow border-2 border-hack-yellow flex items-center justify-center overflow-hidden flex-shrink-0 text-hack-black">
                     {avatarSrc
                       ? <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
                       : <span className="font-bold text-sm">{(userData.name || 'H').charAt(0).toUpperCase()}</span>}
@@ -634,32 +634,32 @@ export default function UserProfilePage() {
                     <button key={item.id}
                       onClick={() => navigate(item.id === 'profile' ? '/account' : `/account/${item.id}`)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
-                        activeTab === item.id ? 'bg-hack-yellow/10 text-hack-black font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === item.id ? 'bg-hack-yellow text-hack-black font-bold border-2 border-hack-black shadow-[3px_3px_0_#000]' : 'text-hack-black/70 hover:bg-hack-yellow/30 border-2 border-transparent'
                       }`}>
                       <Icon className="w-4 h-4 flex-shrink-0" />{item.label}
                     </button>
                   );
                 })}
 
-                <div className="border-t my-2" />
+                <div className="border-t-2 border-hack-black/15 my-2" />
 
                 {/* Support */}
                 <Link to="/support"
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-hack-black/70 hover:bg-hack-yellow/30 border-2 border-transparent transition-colors">
                   <HeadphonesIcon className="w-4 h-4 flex-shrink-0" />Support
                 </Link>
 
                 {/* My Orders — bottom */}
                 <button onClick={() => navigate('/account/orders')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
-                    activeTab === 'orders' ? 'bg-hack-yellow/10 text-hack-black font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                    activeTab === 'orders' ? 'bg-hack-yellow text-hack-black font-bold border-2 border-hack-black shadow-[3px_3px_0_#000]' : 'text-hack-black/70 hover:bg-hack-yellow/30 border-2 border-transparent'
                   }`}>
                   <Package className="w-4 h-4 flex-shrink-0" />My Orders
                 </button>
 
-                <div className="border-t mt-2 pt-2">
+                <div className="border-t-2 border-hack-black/15 mt-2 pt-2">
                   <button onClick={() => { logout(); navigate('/login'); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors">
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-red-600 font-bold hover:bg-red-50 border-2 border-transparent hover:border-red-300 transition-colors">
                     <LogOut className="w-4 h-4 flex-shrink-0" />Logout
                   </button>
                 </div>
