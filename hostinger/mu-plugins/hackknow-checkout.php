@@ -17,7 +17,7 @@
  *  ─────────────────────────────────────────────────────────────────────────
  *  The /chat endpoint (function hackknow_chat) tries three back-ends in order
  *  and falls back to deterministic rule-based replies if none are configured.
- *  To turn ON real AI on shop.hackknow.com, define ONE of these in wp-config.php:
+ *  To turn ON real AI on hackknow.com, define ONE of these in wp-config.php:
  *
  *    1) HACKKNOW_AI_RELAY_URL  (recommended — free, no API key on Hostinger)
  *       Points at the Replit-hosted Yahavi API (Gemini-powered). Example:
@@ -36,6 +36,32 @@
  *
  *  If none are defined the chat silently falls back to canned, rule-based
  *  replies (still functional, just not LLM-powered).
+ *
+ *  ─────────────────────────────────────────────────────────────────────────
+ *  Outbound mail (password-reset, order-confirmation, welcome) — SMTP setup
+ *  ─────────────────────────────────────────────────────────────────────────
+ *  Without authenticated SMTP, WordPress falls back to PHP mail() which goes
+ *  out via Hostinger's generic relay. Gmail rejects/spams those because they
+ *  have no DKIM signature for hackknow.com and the envelope sender doesn't
+ *  match the From: header. To make password-reset emails actually land in
+ *  Gmail inboxes, define these in wp-config.php (chmod 600, OUTSIDE the
+ *  public_html web root — never commit them to the repo):
+ *
+ *      define('HACKKNOW_SMTP_HOST', 'smtp.hostinger.com');
+ *      define('HACKKNOW_SMTP_PORT', 465);
+ *      define('HACKKNOW_SMTP_USER', 'support@hackknow.com');
+ *      define('HACKKNOW_SMTP_PASS', '<mailbox password>');
+ *      // Optional — defaults below
+ *      // define('HACKKNOW_SMTP_SECURE', 'ssl'); // 'ssl' for 465, 'tls' for 587
+ *      // define('HACKKNOW_MAIL_FROM',  'support@hackknow.com');
+ *      // define('HACKKNOW_MAIL_FROM_NAME', 'HackKnow');
+ *
+ *  The mailbox password lives in Hostinger panel → Emails →
+ *  support@hackknow.com (Reset password). Once set, every wp_mail() call
+ *  goes through Hostinger's authenticated SMTP relay, which DKIM-signs the
+ *  message for hackknow.com and passes SPF — Gmail then accepts it inbox.
+ *  Verify on /home/u828497513/.logs/mail.log: outbound entries should show
+ *  the SMTP handoff instead of a local pickup.
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -159,6 +185,7 @@ add_action('rest_api_init', function () {
     register_rest_route('hackknow/v1', '/admin/reviews/(?P<id>\d+)',    array_merge($open, ['methods' => 'DELETE', 'callback' => 'hackknow_admin_review_delete']));
     register_rest_route('hackknow/v1', '/admin/reviews/(?P<id>\d+)/approve', array_merge($open, ['methods' => 'POST', 'callback' => 'hackknow_admin_review_approve']));
     register_rest_route('hackknow/v1', '/admin/reviews',                array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_admin_reviews_list']));
+    register_rest_route('hackknow/v1', '/admin/yahavi/feedback',        array_merge($open, ['methods' => 'GET',    'callback' => 'hackknow_admin_yahavi_feedback']));
     register_rest_route('hackknow/v1', '/chat',                         array_merge($open, ['methods' => 'POST',   'callback' => 'hackknow_chat']));
 
     /* ── Yahavi AI: per-user history, owner-state, coupons, upsell ── */
@@ -299,16 +326,21 @@ if (!defined('HACKKNOW_FRONTEND_URL')) {
     define('HACKKNOW_FRONTEND_URL', 'https://www.hackknow.com');
 }
 /* From-address used for ALL outbound HackKnow mail. Must be a real mailbox on
- * the same domain as the site so SPF/DKIM/DMARC accept it. Override in
- * wp-config.php via define('HACKKNOW_MAIL_FROM', 'team@hackknow.com'). */
-if (!defined('HACKKNOW_MAIL_FROM'))      { define('HACKKNOW_MAIL_FROM',      'team@hackknow.com'); }
+ * the same domain as the site so SPF/DKIM/DMARC accept it. To stay aligned
+ * with the SMTP-authenticated mailbox (see HACKKNOW_SMTP_USER below) the
+ * default is support@hackknow.com — Hostinger DKIM-signs anything authenticated
+ * as that user, and SPF passes because the message is being relayed by
+ * smtp.hostinger.com. Override in wp-config.php with
+ *   define('HACKKNOW_MAIL_FROM', 'team@hackknow.com');
+ * if you switch the SMTP user to a different mailbox. */
+if (!defined('HACKKNOW_MAIL_FROM'))      { define('HACKKNOW_MAIL_FROM',      'support@hackknow.com'); }
 if (!defined('HACKKNOW_MAIL_FROM_NAME')) { define('HACKKNOW_MAIL_FROM_NAME', 'HackKnow'); }
 
 /* ─── Site-wide mail headers ───────────────────────────────────────────────
  * The default wp_mail From is `wordpress@<sitehost>`, which does NOT exist as
  * a real mailbox on Hostinger and almost always fails SPF/DMARC checks → mail
  * silently drops or lands in spam. We force every outbound email to come from
- * team@hackknow.com (a real mailbox the owner controls) so the password-
+ * support@hackknow.com (a real mailbox the owner controls) so the password-
  * reset, order-confirmation, and contact-form emails actually reach inboxes.
  *
  * IMPORTANT: WooCommerce (and some other plugins) set an explicit `From:`
@@ -351,9 +383,18 @@ add_filter('wp_mail', function ($args) {
  * switch PHPMailer from local PHP mail() to authenticated SMTP. This is what
  * makes Gmail accept the message into the inbox: the outbound mail is now
  * relayed by Hostinger\'s smtp.hostinger.com on behalf of a real mailbox
- * (team@hackknow.com), so it gets DKIM-signed for hackknow.com and SPF
+ * (support@hackknow.com), so it gets DKIM-signed for hackknow.com and SPF
  * passes. Without it, mail() messages are rejected/spammed because they
- * lack DKIM and the envelope sender doesn\'t match the From: header. */
+ * lack DKIM and the envelope sender doesn\'t match the From: header.
+ *
+ * Required wp-config.php constants (chmod 600, OUTSIDE public_html):
+ *   define('HACKKNOW_SMTP_HOST', 'smtp.hostinger.com');
+ *   define('HACKKNOW_SMTP_PORT', 465);
+ *   define('HACKKNOW_SMTP_USER', 'support@hackknow.com');
+ *   define('HACKKNOW_SMTP_PASS', '<mailbox password from Hostinger panel>');
+ * Optional:
+ *   define('HACKKNOW_SMTP_SECURE', 'ssl'); // or 'tls' if using port 587
+ */
 add_action('phpmailer_init', function ($phpmailer) {
     try {
         $phpmailer->From     = HACKKNOW_MAIL_FROM;
@@ -449,7 +490,7 @@ add_filter('wp_mail', function ($args) {
     $args['message'] = $html;
     $headers = isset($args['headers']) ? (array) $args['headers'] : [];
     $headers[] = 'Content-Type: text/html; charset=UTF-8';
-    $headers[] = 'Reply-To: team@hackknow.com';
+    $headers[] = 'Reply-To: ' . HACKKNOW_MAIL_FROM;
     $args['headers'] = $headers;
     return $args;
 }, 99);
@@ -983,6 +1024,120 @@ function hackknow_admin_review_approve(WP_REST_Request $req) {
     if (!$comment) return new WP_Error('not_found', 'Review not found', ['status' => 404]);
     wp_set_comment_status($cid, $action === 'hide' ? 'hold' : 'approve');
     return new WP_REST_Response(['ok' => true, 'id' => $cid, 'status' => $action], 200);
+}
+
+/**
+ * GET /admin/yahavi/feedback
+ *   Owner-only. Returns paginated Yahavi answer turns so the site owner can
+ *   read which replies customers loved (👍) or hated (👎) and tune the bot.
+ *
+ *   Query params:
+ *     - filter: all | up | down | none      (default: all)
+ *     - page:   1-based page number          (default: 1)
+ *     - per_page: 1..200                     (default: 50)
+ *
+ *   A "turn" pairs each bot reply row with the most recent prior user message
+ *   from the same conversation (matched by user_id when logged in, else by
+ *   session_id). The user message itself may be missing — old data, or
+ *   greetings the bot opened — so `question` can be null.
+ */
+function hackknow_admin_yahavi_feedback(WP_REST_Request $req) {
+    $check = hackknow_admin_check($req);
+    if (is_wp_error($check)) return $check;
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'hk_chat_messages';
+
+    $filter   = sanitize_text_field((string) ($req->get_param('filter') ?: 'all'));
+    $page     = max(1, (int) ($req->get_param('page') ?: 1));
+    $per_page = (int) ($req->get_param('per_page') ?: 50);
+    if ($per_page < 1)   $per_page = 50;
+    if ($per_page > 200) $per_page = 200;
+    $offset = ($page - 1) * $per_page;
+
+    // Map the filter chip onto a feedback() WHERE clause. The DB stores
+    // -1/0/+1; "none" is the no-rating case.
+    $allowed = ['all', 'up', 'down', 'none'];
+    if (!in_array($filter, $allowed, true)) $filter = 'all';
+    $where = "role = 'bot'";
+    if     ($filter === 'up')   $where .= " AND feedback = 1";
+    elseif ($filter === 'down') $where .= " AND feedback = -1";
+    elseif ($filter === 'none') $where .= " AND feedback = 0";
+
+    $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE {$where}");
+
+    $bot_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT id, user_id, user_email, session_id, message, feedback, created_at
+         FROM {$table}
+         WHERE {$where}
+         ORDER BY id DESC
+         LIMIT %d OFFSET %d",
+        $per_page, $offset
+    ), ARRAY_A);
+
+    $turns = [];
+    foreach ((array) $bot_rows as $r) {
+        // Find the most recent user message that came BEFORE this bot reply
+        // in the same conversation. Logged-in users own their thread by
+        // user_id; anonymous threads are scoped by session_id.
+        $bot_id  = (int) $r['id'];
+        $uid     = (int) $r['user_id'];
+        $sess    = (string) $r['session_id'];
+        $question = null;
+        if ($uid > 0 && $sess !== '') {
+            // Prefer matching on BOTH user_id and session_id so a user with
+            // several interleaved tabs/sessions doesn't pull a question from
+            // an unrelated thread. Fall back to user_id-only for legacy rows
+            // that pre-date session tracking.
+            $question = $wpdb->get_var($wpdb->prepare(
+                "SELECT message FROM {$table}
+                 WHERE role = 'user' AND user_id = %d AND session_id = %s AND id < %d
+                 ORDER BY id DESC LIMIT 1",
+                $uid, $sess, $bot_id
+            ));
+            if ($question === null) {
+                $question = $wpdb->get_var($wpdb->prepare(
+                    "SELECT message FROM {$table}
+                     WHERE role = 'user' AND user_id = %d AND id < %d
+                     ORDER BY id DESC LIMIT 1",
+                    $uid, $bot_id
+                ));
+            }
+        } elseif ($uid > 0) {
+            $question = $wpdb->get_var($wpdb->prepare(
+                "SELECT message FROM {$table}
+                 WHERE role = 'user' AND user_id = %d AND id < %d
+                 ORDER BY id DESC LIMIT 1",
+                $uid, $bot_id
+            ));
+        } elseif ($sess !== '') {
+            $question = $wpdb->get_var($wpdb->prepare(
+                "SELECT message FROM {$table}
+                 WHERE role = 'user' AND session_id = %s AND id < %d
+                 ORDER BY id DESC LIMIT 1",
+                $sess, $bot_id
+            ));
+        }
+
+        $turns[] = [
+            'id'         => $bot_id,
+            'user_id'    => $uid,
+            'user_email' => (string) $r['user_email'],
+            'session_id' => $sess,
+            'question'   => $question !== null ? (string) $question : null,
+            'reply'      => (string) $r['message'],
+            'rating'     => (int) $r['feedback'],
+            'created_at' => (string) $r['created_at'],
+        ];
+    }
+
+    return new WP_REST_Response([
+        'turns'    => $turns,
+        'page'     => $page,
+        'per_page' => $per_page,
+        'total'    => $total,
+        'filter'   => $filter,
+    ], 200);
 }
 
 /* ── Yahavi AI Chat — context helpers ──────────────────────────────────── */
@@ -2176,7 +2331,7 @@ function hackknow_newsletter_send_welcome($email) {
         $args['message'] = $cached['html'];
         $headers = isset($args['headers']) ? (array) $args['headers'] : [];
         $headers[] = 'Content-Type: text/html; charset=UTF-8';
-        $headers[] = 'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'team@hackknow.com');
+        $headers[] = 'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'support@hackknow.com');
         $args['headers'] = $headers;
         delete_transient($key);
         return $args;
@@ -2191,3 +2346,407 @@ function hackknow_newsletter_send_welcome($email) {
     }
     return $sent;
 }
+
+/* ============================================================
+ * HACKKNOW × DOKAN — flat 12% platform commission
+ * ============================================================
+ * Goal: every sale on the multi-vendor marketplace pays the
+ * vendor 88% and keeps 12% as the HackKnow platform fee, no
+ * matter what is set in Dokan admin.  Acts as a hard floor /
+ * ceiling so an admin mis-click can never bleed margin or
+ * over-charge a vendor.
+ *
+ * Activates ONLY when Dokan is active — completely inert on
+ * stores that have not enabled the plugin yet.
+ * ============================================================ */
+
+if (!function_exists('hackknow_dokan_is_active')) {
+    function hackknow_dokan_is_active() {
+        if (defined('DOKAN_PLUGIN_VERSION')) return true;
+        if (function_exists('dokan')) return true;
+        if (!function_exists('is_plugin_active')) {
+            include_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        return function_exists('is_plugin_active') && is_plugin_active('dokan-lite/dokan.php');
+    }
+}
+
+if (!defined('HACKKNOW_DOKAN_VENDOR_PCT')) {
+    /** Vendor keeps this percentage; platform keeps 100 - this. */
+    define('HACKKNOW_DOKAN_VENDOR_PCT', 88);
+}
+
+/**
+ * Dokan ≥ 3.x — primary commission filter.
+ * Returns the % the *vendor* keeps. We always return 88.
+ */
+add_filter('dokan_get_seller_percentage', function ($percentage, $product_id = null, $category_id = null) {
+    if (!hackknow_dokan_is_active()) return $percentage;
+    return (float) HACKKNOW_DOKAN_VENDOR_PCT;
+}, 999, 3);
+
+/**
+ * Dokan ≥ 3.7 — newer commission-engine filter.
+ * Forces commission type to "percentage" and rate to 12%
+ * (i.e. vendor keeps 88%) regardless of per-product, per-vendor
+ * or per-category overrides set in the dashboard.
+ */
+add_filter('dokan_get_commission_settings', function ($settings, $product_id = 0, $category_id = 'all') {
+    if (!hackknow_dokan_is_active()) return $settings;
+    if (!is_array($settings)) $settings = array();
+    $settings['type']    = 'percentage';
+    $settings['flat']    = 0;
+    $settings['percentage'] = (float) (100 - HACKKNOW_DOKAN_VENDOR_PCT); // 12
+    return $settings;
+}, 999, 3);
+
+/**
+ * Belt-and-braces: also override the default commission-rate option
+ * served from wp_options.  Read at runtime so changing the constant
+ * above is the only edit needed to bump the platform fee later.
+ */
+add_filter('option_dokan_selling', function ($value) {
+    if (!hackknow_dokan_is_active()) return $value;
+    if (!is_array($value)) $value = array();
+    $value['admin_percentage_type'] = 'percentage';
+    $value['admin_percentage']      = (float) (100 - HACKKNOW_DOKAN_VENDOR_PCT); // 12
+    $value['additional_fee']        = 0;
+    return $value;
+}, 999);
+
+/**
+ * Surface the policy on the vendor dashboard so a new vendor
+ * never has to wonder where the missing 12% went.
+ */
+add_action('dokan_dashboard_content_inside_before', function () {
+    if (!hackknow_dokan_is_active()) return;
+    $vendor = (int) HACKKNOW_DOKAN_VENDOR_PCT;
+    $fee    = 100 - $vendor;
+    echo '<div style="margin:0 0 16px;padding:12px 16px;background:#FFF055;border:2.5px solid #0A0A0A;border-radius:10px;box-shadow:4px 4px 0 0 #0A0A0A;font-family:system-ui,-apple-system,sans-serif;color:#0A0A0A;">';
+    echo '<strong>HackKnow vendor terms:</strong> you keep <strong>' . esc_html($vendor) . '%</strong> of every sale, the platform fee is a flat <strong>' . esc_html($fee) . '%</strong>. ';
+    echo 'See <a href="https://www.hackknow.com/terms" target="_blank" style="color:#E91E63;font-weight:700;">Terms § 12</a> for full details.';
+    echo '</div>';
+}, 5);
+
+/* ============================================================
+ * HACKKNOW WELCOME — social-follow + honest-review nudge
+ * ============================================================
+ * Fires once per new user (vendor or customer alike) and
+ * sends a friendly HTML email asking them to:
+ *   1. Follow HackKnow on Instagram / YouTube / LinkedIn / X
+ *   2. Drop an honest review on hackknow.com
+ * In return:
+ *   - Vendors      → +2% rebate on first month's payout (so 90/10)
+ *   - Customers    → 15% off coupon on the next download
+ * Fulfilment is manual on team@hackknow.com so we can verify
+ * the proof screenshots before issuing the perk.
+ *
+ * Idempotent: writes user_meta `_hackknow_welcomed=1` after send,
+ * so re-saves of the user profile never re-trigger the email.
+ * Inert if the recipient has no email or has already been welcomed.
+ * ============================================================ */
+
+add_action('user_register', 'hackknow_send_welcome_rebate_email', 20, 1);
+
+if (!function_exists('hackknow_send_welcome_rebate_email')) {
+    function hackknow_send_welcome_rebate_email($user_id) {
+        $user = get_user_by('id', (int) $user_id);
+        if (!$user || empty($user->user_email) || !is_email($user->user_email)) return;
+        if (get_user_meta($user_id, '_hackknow_welcomed', true)) return;
+
+        $email = $user->user_email;
+        $first = $user->first_name ?: $user->display_name ?: explode('@', $email)[0];
+        $first = ucfirst(strtolower($first));
+
+        // Detect vendor (Dokan seller role, or future custom roles)
+        $is_vendor = false;
+        if (function_exists('dokan_is_user_seller')) {
+            $is_vendor = dokan_is_user_seller($user_id);
+        }
+        if (!$is_vendor) {
+            $roles = (array) ($user->roles ?? []);
+            if (in_array('seller', $roles, true) || in_array('vendor', $roles, true)) {
+                $is_vendor = true;
+            }
+        }
+
+        $subject = $is_vendor
+            ? '🎁 Quick favour for an extra payout boost, ' . $first
+            : '🎁 ' . $first . ', want a free coupon on your next download?';
+
+        $perk_line = $is_vendor
+            ? 'we will add a <strong>+2% rebate to your first month\'s payout</strong> — so for the first 30 days you keep <strong>90%</strong>, not 88%.'
+            : 'we will email you a <strong>15% off coupon</strong> for your next download on HackKnow.';
+
+        $perk_short = $is_vendor ? '+2% payout rebate' : '15% off coupon';
+        $audience    = $is_vendor ? 'vendor' : 'customer';
+
+        // Brand colours – kept inline because most inboxes strip <style>
+        $yellow  = '#FFF055';
+        $black   = '#0A0A0A';
+        $magenta = '#E91E63';
+        $white   = '#FFFFFF';
+
+        $shop_url    = 'https://www.hackknow.com/';
+        $review_url  = 'https://www.hackknow.com/my-account/reviews/';
+        $sell_url    = 'https://www.hackknow.com/sell';
+        $contact_url = 'mailto:team@hackknow.com?subject=' . rawurlencode('My follows + review — ' . $perk_short);
+
+        $socials = array(
+            array('Instagram', 'https://instagram.com/hackknow'),
+            array('YouTube',   'https://youtube.com/hackknow'),
+            array('LinkedIn',  'https://linkedin.com/company/hackknow'),
+            array('X / Twitter','https://twitter.com/hackknow'),
+        );
+
+        ob_start(); ?>
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:<?php echo $yellow; ?>;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:<?php echo $black; ?>;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:<?php echo $yellow; ?>;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:<?php echo $white; ?>;border:3px solid <?php echo $black; ?>;border-radius:14px;box-shadow:8px 8px 0 0 <?php echo $black; ?>;">
+        <tr><td style="padding:28px 28px 8px;">
+          <div style="display:inline-block;background:<?php echo $magenta; ?>;color:#fff;font-weight:900;font-size:11px;letter-spacing:2px;text-transform:uppercase;padding:5px 10px;border:2px solid <?php echo $black; ?>;border-radius:6px;box-shadow:3px 3px 0 0 <?php echo $black; ?>;transform:rotate(-3deg);">
+            🎁 <?php echo esc_html($perk_short); ?>
+          </div>
+          <h1 style="font-size:30px;line-height:1.1;font-weight:900;margin:18px 0 6px;color:<?php echo $black; ?>;">
+            Welcome aboard,<br><span style="background:<?php echo $yellow; ?>;padding:0 6px;border:2px solid <?php echo $black; ?>;border-radius:4px;"><?php echo esc_html($first); ?></span>.
+          </h1>
+          <p style="font-size:15px;line-height:1.55;color:#555;margin:14px 0 0;">
+            Thanks for joining HackKnow. We are a tiny team building this in Delhi, and word-of-mouth is genuinely how we grow. Here is the deal:
+          </p>
+        </td></tr>
+
+        <tr><td style="padding:8px 28px 4px;">
+          <div style="background:<?php echo $yellow; ?>;border:2.5px solid <?php echo $black; ?>;border-radius:10px;padding:18px 18px 14px;">
+            <p style="margin:0 0 10px;font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:1.5px;">Do these 3 small things in 7 days:</p>
+            <ol style="margin:0;padding-left:22px;font-size:15px;line-height:1.7;color:<?php echo $black; ?>;">
+              <li><strong>Follow us</strong> on all four — Instagram, YouTube, LinkedIn and X.</li>
+              <li><strong>Drop one honest review</strong> on any HackKnow product page (1 line is enough — good or bad, we want the truth).</li>
+              <li><strong>Reply to this email</strong> with screenshots so we can verify.</li>
+            </ol>
+          </div>
+
+          <p style="margin:18px 0 6px;font-size:15px;line-height:1.55;">
+            In return, <?php echo $perk_line; ?>
+          </p>
+        </td></tr>
+
+        <tr><td style="padding:6px 28px 14px;">
+          <p style="margin:14px 0 8px;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:#555;">Follow links</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <?php foreach ($socials as $s): ?>
+              <td style="padding-right:8px;">
+                <a href="<?php echo esc_url($s[1]); ?>" target="_blank" style="display:inline-block;padding:10px 14px;background:<?php echo $black; ?>;color:<?php echo $yellow; ?>;text-decoration:none;font-weight:800;font-size:13px;border-radius:8px;border:2px solid <?php echo $black; ?>;">
+                  <?php echo esc_html($s[0]); ?>
+                </a>
+              </td>
+              <?php endforeach; ?>
+            </tr>
+          </table>
+        </td></tr>
+
+        <tr><td style="padding:6px 28px 22px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td>
+                <a href="<?php echo esc_url($review_url); ?>" target="_blank" style="display:inline-block;padding:14px 22px;background:<?php echo $magenta; ?>;color:<?php echo $white; ?>;text-decoration:none;font-weight:900;font-size:15px;border-radius:10px;border:3px solid <?php echo $black; ?>;box-shadow:5px 5px 0 0 <?php echo $black; ?>;text-transform:uppercase;letter-spacing:1px;">
+                  Leave a review →
+                </a>
+              </td>
+              <td align="right">
+                <a href="<?php echo esc_url($contact_url); ?>" target="_blank" style="display:inline-block;padding:14px 18px;background:<?php echo $white; ?>;color:<?php echo $black; ?>;text-decoration:none;font-weight:800;font-size:13px;border-radius:10px;border:3px solid <?php echo $black; ?>;box-shadow:4px 4px 0 0 <?php echo $black; ?>;text-transform:uppercase;letter-spacing:1px;">
+                  Send proof
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <?php if (!$is_vendor): ?>
+        <tr><td style="padding:0 28px 22px;">
+          <div style="border:2px dashed <?php echo $black; ?>;border-radius:10px;padding:14px 16px;background:#FAFAFA;">
+            <p style="margin:0;font-size:13px;line-height:1.55;color:#444;">
+              <strong style="color:<?php echo $black; ?>;">P.S.</strong> Have you built a template, dashboard or course of your own? You can list it on HackKnow and keep <strong>88% of every sale</strong> →
+              <a href="<?php echo esc_url($sell_url); ?>" target="_blank" style="color:<?php echo $magenta; ?>;font-weight:800;">Become a vendor</a>
+            </p>
+          </div>
+        </td></tr>
+        <?php endif; ?>
+
+        <tr><td style="padding:0 28px 26px;">
+          <p style="margin:0;font-size:12px;line-height:1.6;color:#888;">
+            You are getting this once because you just created a HackKnow <?php echo esc_html($audience); ?> account at <?php echo esc_html($email); ?>. Reply STOP and we will not bug you again.
+          </p>
+        </td></tr>
+
+        <tr><td style="background:<?php echo $black; ?>;color:<?php echo $yellow; ?>;padding:18px 28px;border-radius:0 0 11px 11px;text-align:center;">
+          <p style="margin:0;font-weight:900;font-size:13px;letter-spacing:2px;text-transform:uppercase;">HackKnow · Delhi · India</p>
+          <p style="margin:6px 0 0;font-size:11px;color:#bbb;">
+            <a href="https://www.hackknow.com/" style="color:#bbb;text-decoration:underline;">hackknow.com</a> ·
+            <a href="<?php echo esc_url($shop_url); ?>" style="color:#bbb;text-decoration:underline;">shop</a> ·
+            <a href="https://www.hackknow.com/terms" style="color:#bbb;text-decoration:underline;">terms</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+        <?php
+        $html = ob_get_clean();
+
+        $headers = array(
+            'Content-Type: text/html; charset=UTF-8',
+            'From: HackKnow <' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'support@hackknow.com') . '>',
+            'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'support@hackknow.com'),
+        );
+
+        $sent = wp_mail($email, $subject, $html, $headers);
+
+        if ($sent) {
+            update_user_meta($user_id, '_hackknow_welcomed', 1);
+            update_user_meta($user_id, '_hackknow_welcomed_at', current_time('mysql'));
+        } else {
+            error_log('[hackknow] welcome rebate email FAILED for ' . $email);
+        }
+        return $sent;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   VENDOR ONBOARDING — KYC fields + manual admin approval
+   ────────────────────────────────────────────────────────────────────
+   Adds Aadhaar (mandatory), PAN (mandatory), GSTIN (optional) to
+   Dokan vendor registration. Forces every new vendor into pending
+   approval — they cannot list/sell until an admin manually clicks
+   "Enable Selling" in WP Admin → Users → (vendor profile).
+   ──────────────────────────────────────────────────────────────────── */
+
+// 1. Force every new vendor into PENDING-APPROVAL state.
+//    Override Dokan setting "new_seller_enable_selling" to 'off'.
+add_filter('dokan_get_option', function ($value, $key, $section = '') {
+    if ($key === 'new_seller_enable_selling') {
+        return 'off';
+    }
+    return $value;
+}, 9999, 3);
+
+// 2. Render KYC fields inside Dokan vendor registration form
+//    (works for the WooCommerce/Dokan combined registration screen).
+add_action('dokan_seller_registration_field_after', function () {
+    $aadhaar = isset($_POST['hk_aadhaar']) ? sanitize_text_field(wp_unslash($_POST['hk_aadhaar'])) : '';
+    $pan     = isset($_POST['hk_pan'])     ? sanitize_text_field(wp_unslash($_POST['hk_pan']))     : '';
+    $gst     = isset($_POST['hk_gst'])     ? sanitize_text_field(wp_unslash($_POST['hk_gst']))     : '';
+    ?>
+    <p class="form-row form-group form-row-wide">
+        <label for="hk_aadhaar"><?php esc_html_e('Aadhaar Number', 'hackknow'); ?> <span class="required" style="color:#c00">*</span></label>
+        <input type="text" class="input-text form-control" name="hk_aadhaar" id="hk_aadhaar"
+               pattern="\d{12}" maxlength="12" inputmode="numeric"
+               placeholder="12-digit Aadhaar (no spaces)"
+               value="<?php echo esc_attr($aadhaar); ?>" required />
+    </p>
+    <p class="form-row form-group form-row-wide">
+        <label for="hk_pan"><?php esc_html_e('PAN Number', 'hackknow'); ?> <span class="required" style="color:#c00">*</span></label>
+        <input type="text" class="input-text form-control" name="hk_pan" id="hk_pan"
+               pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}" maxlength="10"
+               placeholder="Format: ABCDE1234F" style="text-transform: uppercase;"
+               value="<?php echo esc_attr($pan); ?>" required />
+    </p>
+    <p class="form-row form-group form-row-wide">
+        <label for="hk_gst"><?php esc_html_e('GSTIN (optional)', 'hackknow'); ?></label>
+        <input type="text" class="input-text form-control" name="hk_gst" id="hk_gst"
+               maxlength="15"
+               placeholder="22AAAAA0000A1Z5 — only if GST registered"
+               style="text-transform: uppercase;"
+               value="<?php echo esc_attr($gst); ?>" />
+        <small style="color:#666;display:block;margin-top:4px;font-size:12px">Skip if your turnover is below ₹20 lakh / year.</small>
+    </p>
+    <p class="form-row form-row-wide" style="background:#FFFBE6;border:2px solid #0A0A0A;border-radius:8px;padding:12px;margin:14px 0;">
+        <strong>⏳ Manual Approval:</strong> Submit ke baad aapka account
+        <em>"selling disabled"</em> mode mein rahega. Founder review karega
+        aur 1–3 working days mein approve karega.
+    </p>
+    <?php
+});
+
+// 3. Validate KYC fields server-side before account creation.
+add_action('dokan_seller_registration_field_required', function ($required_fields) {
+    if (empty($_POST['hk_aadhaar'])) {
+        wc_add_notice(__('Aadhaar Number is required for vendor registration.', 'hackknow'), 'error');
+    } elseif (!preg_match('/^\d{12}$/', $_POST['hk_aadhaar'])) {
+        wc_add_notice(__('Aadhaar must be exactly 12 digits.', 'hackknow'), 'error');
+    }
+    if (empty($_POST['hk_pan'])) {
+        wc_add_notice(__('PAN Number is required for vendor registration.', 'hackknow'), 'error');
+    } elseif (!preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/', strtoupper($_POST['hk_pan']))) {
+        wc_add_notice(__('PAN must be in the format ABCDE1234F.', 'hackknow'), 'error');
+    }
+    if (!empty($_POST['hk_gst']) && !preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/', strtoupper($_POST['hk_gst']))) {
+        wc_add_notice(__('GSTIN format invalid (e.g. 22AAAAA0000A1Z5).', 'hackknow'), 'error');
+    }
+    return $required_fields;
+});
+
+// 4. Save KYC + force pending after account creation.
+add_action('dokan_new_seller_created', function ($user_id, $dokan_settings = array()) {
+    if (!empty($_POST['hk_aadhaar'])) {
+        update_user_meta($user_id, '_hk_aadhaar', sanitize_text_field(wp_unslash($_POST['hk_aadhaar'])));
+    }
+    if (!empty($_POST['hk_pan'])) {
+        update_user_meta($user_id, '_hk_pan', strtoupper(sanitize_text_field(wp_unslash($_POST['hk_pan']))));
+    }
+    if (!empty($_POST['hk_gst'])) {
+        update_user_meta($user_id, '_hk_gst', strtoupper(sanitize_text_field(wp_unslash($_POST['hk_gst']))));
+    }
+    // Force pending approval (selling disabled) regardless of any other plugin defaults.
+    update_user_meta($user_id, 'dokan_enable_selling', 'no');
+}, 10, 2);
+
+// 5. Show KYC + approval status on admin user-profile screen.
+add_action('show_user_profile', 'hackknow_show_vendor_kyc');
+add_action('edit_user_profile', 'hackknow_show_vendor_kyc');
+function hackknow_show_vendor_kyc($user) {
+    if (!user_can($user, 'dokandar') && !user_can($user, 'seller')) return;
+    $aadhaar = get_user_meta($user->ID, '_hk_aadhaar', true);
+    $pan     = get_user_meta($user->ID, '_hk_pan', true);
+    $gst     = get_user_meta($user->ID, '_hk_gst', true);
+    $selling = get_user_meta($user->ID, 'dokan_enable_selling', true);
+    $is_approved = ($selling === 'yes');
+    ?>
+    <h3>HackKnow Vendor — KYC & Approval</h3>
+    <table class="form-table">
+        <tr><th>Aadhaar</th><td><strong><?php echo esc_html($aadhaar ?: '— not provided —'); ?></strong></td></tr>
+        <tr><th>PAN</th><td><strong><?php echo esc_html($pan ?: '— not provided —'); ?></strong></td></tr>
+        <tr><th>GST</th><td><strong><?php echo esc_html($gst ?: 'Not provided (optional)'); ?></strong></td></tr>
+        <tr>
+            <th>Selling status</th>
+            <td>
+                <?php if ($is_approved): ?>
+                    <span style="background:#10B981;color:#fff;padding:4px 10px;border:2px solid #0A0A0A;border-radius:6px;font-weight:bold;">APPROVED — selling enabled</span>
+                <?php else: ?>
+                    <span style="background:#E11D48;color:#fff;padding:4px 10px;border:2px solid #0A0A0A;border-radius:6px;font-weight:bold;">PENDING APPROVAL</span>
+                    <p style="margin-top:8px;color:#444">To approve this vendor, go to <strong>WP Admin → Users → Edit user → Vendor section</strong> and toggle <em>"Enable Selling"</em> to YES. Or run this in browser console of any admin page: <code>wp.ajax.post('hk_approve_vendor', { user_id: <?php echo (int)$user->ID; ?>, _wpnonce: '<?php echo wp_create_nonce('hk_approve_vendor_'.$user->ID); ?>' })</code></p>
+                <?php endif; ?>
+            </td>
+        </tr>
+    </table>
+    <?php
+}
+
+// 6. AJAX shortcut for the founder to flip a vendor to APPROVED.
+add_action('wp_ajax_hk_approve_vendor', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    $user_id = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
+    if (!$user_id || !wp_verify_nonce($_POST['_wpnonce'] ?? '', 'hk_approve_vendor_' . $user_id)) {
+        wp_send_json_error('bad_nonce', 400);
+    }
+    update_user_meta($user_id, 'dokan_enable_selling', 'yes');
+    update_user_meta($user_id, '_hk_approved_at', current_time('mysql'));
+    wp_send_json_success(array('user_id' => $user_id, 'status' => 'approved'));
+});
+
+

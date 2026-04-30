@@ -1,0 +1,498 @@
+/* ============================================================
+   HackKnow Admin Panel — wp-admin neobrutal makeover
+   ============================================================
+   Loaded on every wp-admin screen via admin_enqueue_scripts.
+   Uses high-specificity + !important on a handful of WP nodes
+   that hard-code their own colour to win predictably.
+   ============================================================ */
+
+:root {
+    --hk-yellow: #FFD60A;
+    --hk-ink:    #1a1a1a;
+    --hk-rule:   rgba(58, 58, 58, 0.18);
+    --hk-yellow-soft: #FFF055;
+    --hk-magenta: #E11D48;
+    --hk-orange: #FB923C;
+    --hk-emerald: #10B981;
+    --hk-black: #3a3a3a;
+    --hk-cream: #FFF8E7;
+    --hk-white: #FFFFFF;
+    --hk-shadow: 2px 2px 0 0 var(--hk-rule);
+    --hk-shadow-sm: 1px 1px 0 0 var(--hk-rule);
+    --hk-shadow-lg: 3px 3px 0 0 var(--hk-rule);
+}
+
+/* ── Page chrome ─────────────────────────────────────────── */
+html.wp-toolbar { background: var(--hk-cream); }
+body, body.wp-admin {
+    background: var(--hk-cream) !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    color: var(--hk-black);
+}
+#wpcontent, #wpbody-content { background: transparent !important; }
+
+/* Headings */
+.wp-admin h1, .wp-admin h2, .wp-admin h3, .wp-admin h4,
+.wp-heading-inline, .wrap h1, .wrap h2 {
+    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-weight: 800 !important;
+    color: var(--hk-black) !important;
+    letter-spacing: -0.01em;
+}
+
+/* ── Top admin bar ───────────────────────────────────────── */
+#wpadminbar {
+    background: var(--hk-yellow) !important;
+    border-bottom: 2px solid var(--hk-black) !important;
+    box-shadow: 0 4px 0 0 rgba(58,58,58,.15);
+    height: 38px !important;
+    color: var(--hk-black);
+}
+#wpadminbar * {
+    color: var(--hk-black) !important;
+    text-shadow: none !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 600 !important;
+}
+#wpadminbar .ab-empty-item,
+#wpadminbar a.ab-item,
+#wpadminbar > #wp-toolbar span.ab-label,
+#wpadminbar > #wp-toolbar span.noticon {
+    color: var(--hk-black) !important;
+    height: 38px !important;
+    line-height: 38px !important;
+}
+#wpadminbar .ab-top-menu > li:hover > .ab-item,
+#wpadminbar .ab-top-menu > li.hover > .ab-item,
+#wpadminbar .ab-top-menu > li > .ab-item:focus {
+    background: var(--hk-black) !important;
+    color: var(--hk-yellow) !important;
+}
+#wpadminbar .ab-top-menu > li:hover > .ab-item *,
+#wpadminbar .ab-top-menu > li.hover > .ab-item * { color: var(--hk-yellow) !important; }
+#wpadminbar #wp-admin-bar-hk-admin > .ab-item {
+    font-weight: 800 !important;
+    letter-spacing: 0.02em;
+}
+#wpadminbar .ab-submenu .ab-item { font-weight: 500 !important; font-size: 13px !important; }
+#wpadminbar .quicklinks .menupop ul li a:hover { background: var(--hk-yellow-soft) !important; }
+#wpadminbar .quicklinks .menupop ul {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--hk-shadow) !important;
+    padding: 6px !important;
+    overflow: hidden;
+}
+#wpadminbar .quicklinks .menupop ul li a {
+    color: var(--hk-black) !important;
+    border-radius: 6px !important;
+}
+
+/* Push body down to clear the taller bar */
+html.wp-toolbar { padding-top: 38px !important; }
+
+/* ── Left admin menu ─────────────────────────────────────── */
+#adminmenuback, #adminmenuwrap, #adminmenu {
+    background: var(--hk-black) !important;
+    border-right: 2px solid var(--hk-black) !important;
+    width: 200px !important;
+}
+#adminmenu { padding-top: 14px; }
+#adminmenu li.menu-top {
+    background: transparent !important;
+    border: none !important;
+    margin: 2px 8px !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+    transition: transform .12s ease;
+}
+#adminmenu li.menu-top > a.menu-top {
+    background: transparent !important;
+    color: var(--hk-white) !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 9px 12px !important;
+    border-radius: 10px !important;
+    transition: background .12s ease, color .12s ease;
+}
+#adminmenu li.menu-top:hover > a.menu-top,
+#adminmenu li.menu-top.opensub > a.menu-top {
+    background: var(--hk-yellow) !important;
+    color: var(--hk-black) !important;
+}
+#adminmenu li.menu-top.current > a.menu-top,
+#adminmenu li.menu-top.wp-has-current-submenu > a.menu-top,
+#adminmenu li.current a.menu-top,
+.folded #adminmenu li.menu-top.current > a.menu-top {
+    background: var(--hk-yellow) !important;
+    color: var(--hk-black) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    box-shadow: var(--hk-shadow-sm) !important;
+    border-radius: 10px !important;
+    font-weight: 800 !important;
+}
+#adminmenu div.wp-menu-image::before,
+#adminmenu .wp-menu-image::before {
+    color: inherit !important;
+    opacity: 1 !important;
+}
+#adminmenu .wp-submenu {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    border-radius: 10px !important;
+    box-shadow: var(--hk-shadow-sm) !important;
+    padding: 6px !important;
+    margin-top: 4px;
+}
+#adminmenu .wp-submenu a {
+    color: var(--hk-black) !important;
+    font-size: 12.5px !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    margin: 1px 0 !important;
+}
+#adminmenu .wp-submenu a:hover,
+#adminmenu .wp-submenu li.current a {
+    background: var(--hk-yellow) !important;
+    color: var(--hk-black) !important;
+    font-weight: 700 !important;
+}
+#adminmenu .awaiting-mod, #adminmenu .update-plugins {
+    background: var(--hk-magenta) !important;
+    color: var(--hk-white) !important;
+    border: 2px solid var(--hk-black) !important;
+    box-shadow: 1.5px 1.5px 0 0 var(--hk-black) !important;
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+}
+#wpcontent, .auto-fold #wpcontent { margin-left: 200px !important; }
+#wpfooter { margin-left: 200px !important; }
+
+/* Collapse button */
+#collapse-menu {
+    color: var(--hk-yellow) !important;
+    background: transparent !important;
+    border-top: 1px dashed rgba(255,214,10,.3) !important;
+}
+#collapse-menu:hover { color: var(--hk-white) !important; }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.wp-core-ui .button,
+.wp-core-ui .button-secondary,
+.wp-core-ui input[type=submit].button,
+.wp-core-ui .button.button-large {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    color: var(--hk-black) !important;
+    box-shadow: var(--hk-shadow-sm) !important;
+    border-radius: 10px !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-shadow: none !important;
+    transition: all .12s ease !important;
+    height: auto !important;
+    padding: 6px 14px !important;
+}
+.wp-core-ui .button:hover,
+.wp-core-ui .button-secondary:hover {
+    background: var(--hk-yellow) !important;
+    color: var(--hk-black) !important;
+    transform: translate(1.5px, 1.5px);
+    box-shadow: 1px 1px 0 0 var(--hk-black) !important;
+}
+.wp-core-ui .button-primary,
+.wp-core-ui input[type=submit].button-primary {
+    background: var(--hk-yellow) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    color: var(--hk-black) !important;
+    box-shadow: var(--hk-shadow) !important;
+    border-radius: 10px !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 800 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-shadow: none !important;
+    transition: all .12s ease !important;
+    padding: 7px 18px !important;
+    height: auto !important;
+    line-height: 1.4 !important;
+}
+.wp-core-ui .button-primary:hover,
+.wp-core-ui .button-primary:focus,
+.wp-core-ui .button-primary:active {
+    background: var(--hk-yellow) !important;
+    color: var(--hk-black) !important;
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 0 var(--hk-black) !important;
+}
+.wp-core-ui .button.button-link-delete,
+.wp-core-ui .button-link.button-link-delete,
+.submitdelete {
+    background: var(--hk-magenta) !important;
+    color: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    box-shadow: var(--hk-shadow-sm) !important;
+    border-radius: 8px !important;
+    padding: 4px 10px !important;
+    text-decoration: none !important;
+    font-weight: 700 !important;
+}
+
+/* ── Form fields ─────────────────────────────────────────── */
+input[type=text], input[type=password], input[type=email], input[type=url],
+input[type=tel], input[type=number], input[type=search], input[type=date],
+textarea, select {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--hk-shadow-sm) !important;
+    font-family: 'Inter', sans-serif !important;
+    color: var(--hk-black) !important;
+    padding: 7px 10px !important;
+    transition: box-shadow .12s ease, transform .12s ease !important;
+}
+input[type=text]:focus, input[type=password]:focus, input[type=email]:focus,
+input[type=url]:focus, input[type=tel]:focus, input[type=number]:focus,
+input[type=search]:focus, input[type=date]:focus, textarea:focus, select:focus {
+    border-color: var(--hk-magenta) !important;
+    box-shadow: 3px 3px 0 0 var(--hk-magenta) !important;
+    outline: none !important;
+}
+
+/* ── Postboxes (cards) ───────────────────────────────────── */
+.postbox, .stuffbox, .meta-box-sortables .postbox {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    border-radius: 14px !important;
+    box-shadow: var(--hk-shadow) !important;
+    overflow: hidden;
+    margin-bottom: 18px !important;
+}
+.postbox > .postbox-header,
+.postbox > .hndle,
+.postbox h2.hndle, .postbox h3.hndle {
+    background: var(--hk-yellow) !important;
+    border-bottom: 3px solid var(--hk-black) !important;
+    color: var(--hk-black) !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 800 !important;
+    font-size: 14px !important;
+    padding: 10px 14px !important;
+    margin: 0 !important;
+}
+.postbox .inside { padding: 14px !important; }
+.postbox .handle-actions button { color: var(--hk-black) !important; }
+
+/* ── Notices ─────────────────────────────────────────────── */
+.notice, div.updated, div.error, .form-invalid .form-required {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    border-left-width: 6px !important;
+    border-radius: 10px !important;
+    box-shadow: var(--hk-shadow-sm) !important;
+    padding: 11px 14px !important;
+    margin: 12px 0 !important;
+}
+.notice-success, div.updated { border-left-color: var(--hk-emerald) !important; }
+.notice-error, div.error    { border-left-color: var(--hk-magenta) !important; }
+.notice-warning             { border-left-color: var(--hk-orange)  !important; }
+.notice-info                { border-left-color: var(--hk-yellow)  !important; }
+
+/* ── Tables ──────────────────────────────────────────────── */
+.wp-list-table {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--hk-shadow) !important;
+    border-collapse: separate !important;
+    overflow: hidden;
+}
+.wp-list-table thead th, .wp-list-table tfoot th {
+    background: var(--hk-yellow) !important;
+    color: var(--hk-black) !important;
+    border-bottom: 3px solid var(--hk-black) !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 800 !important;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+}
+.wp-list-table tbody tr:hover td { background: var(--hk-cream) !important; }
+
+/* ── Tabs / nav-tabs ─────────────────────────────────────── */
+.nav-tab-wrapper { border-bottom: 3px solid var(--hk-black) !important; padding-left: 0 !important; }
+.nav-tab {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    border-bottom: none !important;
+    border-radius: 10px 10px 0 0 !important;
+    color: var(--hk-black) !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 700 !important;
+    margin: 0 4px -2px 0 !important;
+    padding: 8px 14px !important;
+    box-shadow: var(--hk-shadow-sm) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 12px;
+}
+.nav-tab.nav-tab-active, .nav-tab:hover {
+    background: var(--hk-yellow) !important;
+    color: var(--hk-black) !important;
+}
+
+/* ── Page title row ──────────────────────────────────────── */
+.wp-heading-inline + .page-title-action {
+    background: var(--hk-magenta) !important;
+    color: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    box-shadow: var(--hk-shadow-sm) !important;
+    border-radius: 10px !important;
+    padding: 5px 14px !important;
+    text-transform: uppercase;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 700 !important;
+    text-decoration: none !important;
+    margin-left: 10px;
+}
+.wp-heading-inline + .page-title-action:hover {
+    background: var(--hk-magenta) !important;
+    color: var(--hk-white) !important;
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 0 var(--hk-black) !important;
+}
+
+/* ── Custom dashboard widget ─────────────────────────────── */
+.hk-dash { padding: 4px 0 8px 0; }
+.hk-dash__hi {
+    margin: 0 0 14px 0 !important;
+    font-size: 14px;
+    color: rgba(58,58,58,.78);
+    line-height: 1.5;
+}
+.hk-dash__hi a {
+    color: var(--hk-black);
+    font-weight: 700;
+    border-bottom: 2px solid var(--hk-yellow);
+    text-decoration: none !important;
+}
+.hk-dash__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.hk-stat {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    border: 1.5px solid var(--hk-black);
+    border-radius: 12px;
+    box-shadow: var(--hk-shadow-sm);
+}
+.hk-stat__num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 900;
+    font-size: 26px;
+    line-height: 1.1;
+    color: var(--hk-black);
+}
+.hk-stat__label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+    color: rgba(58,58,58,.65);
+}
+.hk-stat--yellow  { background: var(--hk-yellow); }
+.hk-stat--magenta { background: var(--hk-magenta); }
+.hk-stat--magenta .hk-stat__num   { color: var(--hk-white); }
+.hk-stat--magenta .hk-stat__label { color: rgba(255,255,255,.85); }
+.hk-stat--orange  { background: var(--hk-orange); }
+.hk-stat--orange  .hk-stat__num   { color: var(--hk-black); }
+.hk-stat--white   { background: var(--hk-white); }
+
+.hk-dash__quick {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.hk-quick {
+    display: flex;
+    flex-direction: column;
+    background: var(--hk-cream);
+    padding: 12px;
+    border: 1.5px solid var(--hk-black);
+    border-radius: 12px;
+    box-shadow: var(--hk-shadow-sm);
+    text-decoration: none !important;
+    color: var(--hk-black);
+    transition: all .12s ease;
+}
+.hk-quick:hover {
+    background: var(--hk-yellow);
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 0 var(--hk-black);
+    color: var(--hk-black);
+}
+.hk-quick__icon { font-size: 22px; line-height: 1; margin-bottom: 6px; }
+.hk-quick__title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: -0.005em;
+}
+.hk-quick__sub {
+    font-size: 11.5px;
+    color: rgba(58,58,58,.65);
+    margin-top: 2px;
+    line-height: 1.35;
+}
+.hk-dash__hint {
+    background: var(--hk-cream);
+    border: 2px dashed var(--hk-black);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 12px;
+    margin: 12px 0 0 0 !important;
+    color: rgba(58,58,58,.78);
+    line-height: 1.5;
+}
+
+/* ── Footer ──────────────────────────────────────────────── */
+#wpfooter {
+    background: transparent !important;
+    color: rgba(58,58,58,.55) !important;
+    font-family: 'Inter', sans-serif !important;
+    border-top: 1px dashed rgba(58,58,58,.20);
+    padding-top: 10px;
+}
+#wpfooter a { color: var(--hk-black) !important; font-weight: 600; border-bottom: 1.5px solid var(--hk-yellow); text-decoration: none !important; }
+
+/* ── WooCommerce + Dokan tweaks ──────────────────────────── */
+.woocommerce_options_panel, #woocommerce-product-data {
+    background: var(--hk-white) !important;
+    border: 1.5px solid var(--hk-black) !important;
+    border-radius: 14px !important;
+    box-shadow: var(--hk-shadow) !important;
+}
+#woocommerce-product-data ul.wc-tabs li.active a,
+#woocommerce-product-data ul.wc-tabs li a:hover {
+    background: var(--hk-yellow) !important;
+    color: var(--hk-black) !important;
+}
+
+/* ── Mobile shrink ───────────────────────────────────────── */
+@media (max-width: 782px) {
+    #wpcontent, .auto-fold #wpcontent { margin-left: 0 !important; }
+    #adminmenuback, #adminmenuwrap, #adminmenu { width: 100% !important; }
+    .auto-fold #adminmenuback, .auto-fold #adminmenuwrap, .auto-fold #adminmenu { margin-left: -240px !important; }
+}

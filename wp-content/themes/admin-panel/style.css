@@ -1,0 +1,152 @@
+/*
+Theme Name: Admin Panel
+Theme URI: https://www.hackknow.com
+Author: HackKnow / Yahavi AI
+Author URI: https://www.hackknow.com
+Description: Internal admin theme for shop.hackknow.com. Neobrutal styling for wp-admin, Yahavi AI chat widget built-in, and a hard public lockdown so the storefront stays invisible to anyone who is not logged in. Everything created here (products, pages, categories) appears automatically on www.hackknow.com via the existing REST proxy.
+Version: 1.0.0
+Requires at least: 6.0
+Tested up to: 6.7
+Requires PHP: 7.4
+License: Proprietary
+License URI: https://www.hackknow.com
+Text Domain: admin-panel
+Tags: neobrutalism, admin, woocommerce, dokan, hackknow, yahavi
+*/
+
+/* ── Public-facing lockdown page (only seen by logged-out users / non-admins) ── */
+
+:root {
+  --hk-yellow: #FFD60A;
+  --hk-magenta: #E11D48;
+  --hk-black: #3a3a3a;        /* "light black" — softer dark grey for borders/shadows */
+  --hk-ink:   #1a1a1a;        /* near-black, for body text only */
+  --hk-white: #FFFFFF;
+  --hk-cream: #FFFBEA;
+  --hk-rule:  rgba(58, 58, 58, 0.18);  /* hairline outlines */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--hk-cream);
+  color: var(--hk-ink);
+  min-height: 100vh;
+}
+
+body { line-height: 1.5; }
+
+.hk-lockdown {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--hk-cream);
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(255, 214, 10, 0.18) 0%, transparent 28%),
+    radial-gradient(circle at 88% 82%, rgba(225, 29, 72, 0.10) 0%, transparent 32%);
+}
+
+.hk-lockdown__card {
+  background: var(--hk-white);
+  border: 2px solid var(--hk-black);
+  border-radius: 22px;
+  padding: 40px 32px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 6px 6px 0 0 var(--hk-rule);
+  text-align: center;
+}
+
+.hk-lockdown__badge {
+  display: inline-block;
+  background: var(--hk-yellow);
+  color: var(--hk-ink);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  padding: 6px 14px;
+  border: 1.5px solid var(--hk-black);
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 0 var(--hk-rule);
+  margin-bottom: 20px;
+}
+
+.hk-lockdown__logo {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 900;
+  font-size: 38px;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px 0;
+  color: var(--hk-ink);
+}
+
+.hk-lockdown__logo span {
+  background: var(--hk-yellow);
+  padding: 0 8px;
+  border: 1.5px solid var(--hk-black);
+  display: inline-block;
+  transform: rotate(-2deg);
+  box-shadow: 2px 2px 0 0 var(--hk-rule);
+}
+
+.hk-lockdown__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  margin: 18px 0 10px 0;
+  color: var(--hk-ink);
+}
+
+.hk-lockdown__msg {
+  color: rgba(58, 58, 58, 0.78);
+  font-size: 15px;
+  margin: 0 0 26px 0;
+}
+
+.hk-lockdown__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: var(--hk-yellow);
+  color: var(--hk-ink);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1.5px solid var(--hk-black);
+  border-radius: 12px;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 0 var(--hk-rule);
+  transition: all 0.12s ease;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hk-lockdown__btn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 0 var(--hk-rule);
+  color: var(--hk-ink);
+}
+
+.hk-lockdown__foot {
+  margin-top: 28px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(58, 58, 58, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.hk-lockdown__foot a {
+  color: rgba(58, 58, 58, 0.78);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(58, 58, 58, 0.35);
+}
