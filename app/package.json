@@ -51,7 +51,6 @@
     "lucide-react": "^0.562.0",
     "next-themes": "^0.4.6",
     "react": "^19.2.0",
-    "x-data-spreadsheet": "^1.1.9",
     "react-day-picker": "^9.13.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.70.0",
@@ -61,6 +60,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "vaul": "^1.1.2",
+    "x-data-spreadsheet": "^1.1.9",
     "zod": "^4.3.5"
   },
   "devDependencies": {
@@ -74,6 +74,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "less": "^4.6.4",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",

@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -7,6 +8,7 @@ import {
   Heart,
   Instagram,
   Linkedin,
+  Loader2,
   MessageCircle,
   Sparkles,
   Star,
@@ -17,6 +19,9 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { hkBadges } from '@/lib/hk-badges';
+import { isAuthenticated } from '@/lib/auth';
+import { toast } from 'sonner';
 
 /* ────────────────────────────────────────────────────────────
    CommunityPage — neobrutal redesign
@@ -83,6 +88,40 @@ const dontsForReviews = [
 ];
 
 const CommunityPage = () => {
+  const navigate = useNavigate();
+  const [joined, setJoined] = useState(false);
+  const [memberCount, setMemberCount] = useState(0);
+  const [joining, setJoining] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    hkBadges.communityMe().then((s) => {
+      if (!alive) return;
+      setJoined(s.joined);
+      setMemberCount(s.member_count);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const handleJoin = async () => {
+    if (!isAuthenticated()) {
+      toast.error('Pehle login karein');
+      navigate('/login?next=/community');
+      return;
+    }
+    setJoining(true);
+    try {
+      await hkBadges.communityJoin();
+      setJoined(true);
+      setMemberCount((c) => c + 1);
+      toast.success('Welcome to the community! +50 HackCoins added to your wallet.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setJoining(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#fffbea]">
 
@@ -119,21 +158,30 @@ const CommunityPage = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
+              <Button
+                onClick={handleJoin}
+                disabled={joined || joining}
+                className="h-14 px-8 bg-hack-yellow hover:bg-hack-yellow text-hack-black font-bold rounded-full text-lg shadow-[6px_6px_0_#fff] hover:shadow-[3px_3px_0_#fff] hover:translate-x-[3px] hover:translate-y-[3px] transition w-full sm:w-auto disabled:opacity-80"
+              >
+                {joining ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Users className="w-5 h-5 mr-2" />}
+                {joined ? 'Member ✓' : 'Join Community (+50 coins)'}
+              </Button>
               <Link to="/shop?filter=free">
-                <Button className="h-14 px-8 bg-hack-yellow hover:bg-hack-yellow text-hack-black font-bold rounded-full text-lg shadow-[6px_6px_0_#fff] hover:shadow-[3px_3px_0_#fff] hover:translate-x-[3px] hover:translate-y-[3px] transition w-full sm:w-auto">
-                  <Gift className="w-5 h-5 mr-2" />
-                  Browse Freebies
-                </Button>
-              </Link>
-              <a href="#how-it-works">
                 <Button
                   variant="outline"
                   className="h-14 px-8 border-2 border-white/30 text-white hover:bg-white/10 rounded-full font-bold text-lg w-full sm:w-auto"
                 >
-                  How it works
+                  <Gift className="w-5 h-5 mr-2" />
+                  Browse Freebies
                 </Button>
-              </a>
+              </Link>
             </div>
+            {memberCount > 0 && (
+              <p className="text-white/60 text-sm mt-6">
+                <Users className="w-4 h-4 inline mr-1" />
+                {memberCount.toLocaleString()} community {memberCount === 1 ? 'member' : 'members'} so far
+              </p>
+            )}
           </div>
         </div>
       </section>

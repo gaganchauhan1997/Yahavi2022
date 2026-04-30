@@ -47,6 +47,7 @@ const VerifyPage          = lazy(() => import('./pages/VerifyPage'));
 const TestimonialsPage    = lazy(() => import('./pages/TestimonialsPage'));
 const SSOBridgePage       = lazy(() => import('./pages/SSOBridgePage'));
 const BrainxercisePage    = lazy(() => import('./pages/BrainxercisePage'));
+const SponsorPage         = lazy(() => import('./pages/SponsorPage'));
 const BrainxerciseDetailPage = lazy(() => import('./pages/BrainxerciseDetailPage'));
 
 function PageLoader() {
@@ -143,6 +144,8 @@ function App() {
                 <Route path="/verify"               element={<VerifyPage />} />
                 <Route path="/brainxercise"         element={<BrainxercisePage />} />
                 <Route path="/brainxercise/:slug"   element={<BrainxerciseDetailPage />} />
+                <Route path="/sponsor"              element={<SponsorPage />} />
+                <Route path="/sponsors"             element={<Navigate to="/sponsor" replace />} />
                 <Route path="/testimonials"         element={<TestimonialsPage />} />
                 <Route path="/reviews"              element={<Navigate to="/testimonials" replace />} />
 

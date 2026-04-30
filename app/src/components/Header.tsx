@@ -7,6 +7,7 @@ import { isAuthenticated, logout } from "@/lib/auth";
 import InstallButton from "@/components/InstallButton";
 import MobileSidebar from "@/components/MobileSidebar";
 import TdmSigil from "@/components/TdmSigil";
+import WalletBadge from "@/components/WalletBadge";
 
 const TDM_URL = "https://tdm.hackknow.com/";
 
@@ -113,6 +114,10 @@ export default function Header() {
                 className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
                 Reviews
               </Link>
+              <Link to="/sponsor" onClick={closeMobileMenu}
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
+                Sponsor
+              </Link>
               <Link to="/about" onClick={closeMobileMenu}
                 className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
                 About
@@ -144,6 +149,7 @@ export default function Header() {
                   </span>
                 )}
               </Link>
+              <WalletBadge />
               <Link
                 to="/account"
                 onClick={closeMobileMenu}
