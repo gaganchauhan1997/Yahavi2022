@@ -1,31 +1,21 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { Send, StopCircle, Copy, Check, Skull, User as UserIcon, Sparkles, Wand2 } from 'lucide-react';
+import { Send, StopCircle, Copy, Check, Skull, User as UserIcon, Download } from 'lucide-react';
+import Logo from './Logo';
 import { loadKeys, hasMinimumKeys } from '@/lib/keys';
 import { chatStream } from '@/lib/llm';
 import {
-  appendMsg, buildContext, loadHistory, saveHistory, totalMemoryTokens,
+  appendMsg, buildContext, loadHistory, saveHistory,
   type ChatMsg,
 } from '@/lib/chat';
 
 interface Props {
   onAskKeys: () => void;
-  onTaleCommand: (title: string) => void;
-  onMemoryChange: (tokens: number) => void;
   resetSignal: number;
 }
 
-const SUGGESTIONS = [
-  { label: 'Tell me a tale on…', prompt: '/tale ' },
-  { label: 'Explain like I\'m five:', prompt: 'Explain like I am 5: ' },
-  { label: 'Code review this:', prompt: '```\n\n```\nReview this code, find bugs and suggest improvements.' },
-  { label: 'SEO audit my page:', prompt: 'Do a 5-point SEO audit of this URL: https://' },
-  { label: 'Summarise:', prompt: 'Summarise this in 5 bullet points:\n\n' },
-  { label: 'Roast my idea:', prompt: 'Honestly critique this business idea:\n\n' },
-];
-
-export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, resetSignal }: Props) {
+export default function ChatPanel({ onAskKeys, resetSignal }: Props) {
   const [history, setHistory] = useState<ChatMsg[]>(() => loadHistory());
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -36,21 +26,14 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Reset on signal
+  // Reset
   useEffect(() => {
     if (resetSignal > 0) {
-      setHistory([]);
-      saveHistory([]);
-      setStreamBuf('');
-      setError(null);
-      setInput('');
-      onMemoryChange(0);
+      setHistory([]); saveHistory([]);
+      setStreamBuf(''); setError(''); setInput('');
       inputRef.current?.focus();
     }
-  }, [resetSignal, onMemoryChange]);
-
-  // Token tracker → header
-  useEffect(() => { onMemoryChange(totalMemoryTokens(history)); }, [history, onMemoryChange]);
+  }, [resetSignal]);
 
   // Auto-scroll on new content
   useEffect(() => {
@@ -72,25 +55,6 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
     if (!trimmed || streaming) return;
     if (!hasMinimumKeys()) { onAskKeys(); return; }
 
-    // Slash command: /tale <title>
-    if (trimmed.toLowerCase().startsWith('/tale ')) {
-      const title = trimmed.slice(6).trim();
-      if (!title) {
-        setError('Tale needs a title — try "/tale The 10 Best AI Tools for Indie Devs 2026"');
-        return;
-      }
-      // Echo as user message in chat (so memory shows it) but trigger pipeline
-      const next = appendMsg(history, 'user', trimmed);
-      setHistory(next);
-      const reply = `Aight stranger. Settling in to spin a long-form tale titled **"${title}"**. Stay close — opening the writer in a moment…`;
-      const next2 = appendMsg(next, 'assistant', reply);
-      setHistory(next2);
-      setInput('');
-      setTimeout(() => onTaleCommand(title), 600);
-      return;
-    }
-
-    // Normal chat turn
     setError(null);
     const next = appendMsg(history, 'user', trimmed);
     setHistory(next);
@@ -101,14 +65,11 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      const messages = buildContext(next, ''); // userTurn already in next
-      // buildContext appends a trailing user — we already have the user appended
-      // so drop the duplicate trailing user injected by buildContext:
-      messages.pop();
+      const messages = buildContext(next, '');
+      messages.pop(); // remove trailing dup user injected by buildContext
       let acc = '';
       await chatStream(
-        messages,
-        loadKeys(),
+        messages, loadKeys(),
         { temperature: 0.78, maxTokens: 2048 },
         (chunk, done) => {
           if (chunk) { acc += chunk; setStreamBuf(acc); }
@@ -126,7 +87,6 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
       const msg = e instanceof Error ? e.message : String(e);
       if (!ctrl.signal.aborted) {
         setError(msg);
-        // persist what we got so far so user keeps it
         if (streamBuf) {
           const final = appendMsg(next, 'assistant', streamBuf);
           setHistory(final);
@@ -136,7 +96,7 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
       setStreamBuf('');
       abortRef.current = null;
     }
-  }, [history, onAskKeys, onTaleCommand, streaming, streamBuf]);
+  }, [history, onAskKeys, streaming, streamBuf]);
 
   const stop = () => abortRef.current?.abort();
 
@@ -144,6 +104,18 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
     await navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1200);
+  };
+
+  const exportMsg = (text: string, idx: number) => {
+    // Try to derive a filename from the first line / heading
+    const firstLine = (text.split('\n').find(l => l.trim().length > 0) || `tale-${idx + 1}`)
+      .replace(/^#+\s*/, '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'tale';
+    const blob = new Blob([text], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${firstLine}.md`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -159,12 +131,12 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)]">
-      {/* Messages */}
+      {/* Messages / empty hero */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-          {empty && <EmptyState onPick={s => { setInput(s); inputRef.current?.focus(); }} />}
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6">
+          {empty && <Hero />}
 
-          {history.map(m => (
+          {history.map((m, i) => (
             <MessageBubble
               key={m.id}
               role={m.role}
@@ -172,6 +144,7 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
               raw={m.content}
               copied={copiedId === m.id}
               onCopy={() => copyMsg(m.id, m.content)}
+              onExport={m.role === 'assistant' ? () => exportMsg(m.content, i) : undefined}
             />
           ))}
 
@@ -188,7 +161,7 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
             <div className="bx-card border-bx-red/60 bg-bx-red/10 p-4 text-sm text-bx-text">
               <div className="font-semibold text-bx-red mb-1">The bullet jammed</div>
               <div className="font-mono text-xs text-bx-text/85 break-all">{error}</div>
-              <div className="text-xs text-bx-dim mt-2">Check API key (Settings) or switch preferred provider.</div>
+              <div className="text-xs text-bx-dim mt-2">Check API key (settings) or switch provider.</div>
             </div>
           )}
         </div>
@@ -203,7 +176,7 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={onKey}
-              placeholder='Ask what you want the most… (Shift+Enter for new line, /tale <title> for SEO content)'
+              placeholder="Ask what you want the most…"
               rows={1}
               className="flex-1 bg-transparent text-bx-text placeholder:text-bx-mute resize-none px-2 py-2 outline-none text-[15px] font-sans max-h-[200px]"
               disabled={streaming}
@@ -223,22 +196,38 @@ export default function ChatPanel({ onAskKeys, onTaleCommand, onMemoryChange, re
               </button>
             )}
           </div>
-          <div className="flex items-center justify-between mt-2 px-1 text-[10px] font-mono text-bx-mute">
-            <span>The Dead Man remembers up to 10,000 tokens · Markdown supported · /tale for SEO</span>
-            <span>{loadKeys().preferredLLM === 'gemini' ? 'gemini-2.0-flash' : 'llama-3.3-70b'}</span>
-          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function MessageBubble({ role, html, raw, copied, onCopy, streaming }: {
+function Hero() {
+  return (
+    <div className="text-center py-8 sm:py-14">
+      <div className="inline-block">
+        <Logo size={120} withGlow animated />
+      </div>
+      <h1 className="mt-6 text-3xl sm:text-4xl font-semibold text-bx-white tracking-tight">
+        The Dead <span className="text-bx-orange">Man</span>
+      </h1>
+      <p className="mt-3 font-mono text-[11px] sm:text-xs uppercase tracking-[0.32em] text-bx-orange">
+        Few words&nbsp;·&nbsp;Last word&nbsp;·&nbsp;Best word
+      </p>
+      <p className="mt-6 text-bx-dim text-sm sm:text-[15px] max-w-md mx-auto">
+        Ask what you want the most.
+      </p>
+    </div>
+  );
+}
+
+function MessageBubble({ role, html, raw, copied, onCopy, onExport, streaming }: {
   role: ChatMsg['role'];
   html: string;
   raw: string;
   copied?: boolean;
   onCopy?: () => void;
+  onExport?: () => void;
   streaming?: boolean;
 }) {
   const isUser = role === 'user';
@@ -257,52 +246,23 @@ function MessageBubble({ role, html, raw, copied, onCopy, streaming }: {
         }>
           <div className="bx-prose break-words" dangerouslySetInnerHTML={{ __html: html }} />
           {streaming && raw && <span className="inline-block w-2 h-4 bg-bx-orange align-text-bottom ml-1 animate-pulse" />}
-          {!streaming && raw && onCopy && (
-            <button
-              onClick={onCopy}
-              className="absolute -top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bx-btn-ghost py-1"
-              title="Copy"
-            >
-              {copied ? <Check className="w-3 h-3 text-bx-orange" /> : <Copy className="w-3 h-3" />}
-            </button>
+          {!streaming && raw && (onCopy || onExport) && (
+            <div className="absolute -top-3 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onCopy && (
+                <button onClick={onCopy} className="bx-btn-ghost py-1 flex items-center gap-1" title="Copy">
+                  {copied ? <Check className="w-3 h-3 text-bx-orange" /> : <Copy className="w-3 h-3" />}
+                  <span className="text-[9px]">{copied ? 'Copied' : 'Copy'}</span>
+                </button>
+              )}
+              {onExport && (
+                <button onClick={onExport} className="bx-btn-ghost py-1 flex items-center gap-1" title="Export as Markdown">
+                  <Download className="w-3 h-3" />
+                  <span className="text-[9px]">.md</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
-  return (
-    <div className="text-center py-10 sm:py-16 space-y-6">
-      <div className="inline-flex w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-bx-orange/60 bg-bx-orangeDim items-center justify-center mx-auto" style={{ filter: 'drop-shadow(0 0 18px rgba(255,107,0,0.4))' }}>
-        <Skull className="w-9 h-9 sm:w-10 sm:h-10 text-bx-orange animate-flicker" />
-      </div>
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-semibold text-bx-white">
-          Ask what you want <span className="text-bx-orange">the most</span>.
-        </h1>
-        <p className="text-bx-dim mt-2 text-sm sm:text-base">
-          The Dead Man speaks. Code, marketing, finance, philosophy, hacks — name it.
-          <br className="hidden sm:block" />
-          For long-form SEO content with citations, type <code className="text-bx-orange">/tale &lt;title&gt;</code>.
-        </p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl mx-auto">
-        {SUGGESTIONS.map(s => (
-          <button
-            key={s.label}
-            onClick={() => onPick(s.prompt)}
-            className="bx-card-flat hover:border-bx-orange transition-colors text-left px-4 py-3 group"
-          >
-            <div className="flex items-center gap-2">
-              {s.prompt.startsWith('/tale')
-                ? <Wand2 className="w-3.5 h-3.5 text-bx-orange" />
-                : <Sparkles className="w-3.5 h-3.5 text-bx-mute group-hover:text-bx-orange" />}
-              <span className="text-sm text-bx-text">{s.label}</span>
-            </div>
-          </button>
-        ))}
       </div>
     </div>
   );
