@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Crown, Heart, Star, Check, Loader2 } from "lucide-react";
@@ -6,7 +7,7 @@ import { hkBadges, type SponsorTier } from "@/lib/hk-badges";
 import { isAuthenticated } from "@/lib/auth";
 import { toast } from "sonner";
 
-const tierIcon: Record<string, JSX.Element> = {
+const tierIcon: Record<string, React.ReactNode> = {
   bronze: <Heart className="w-7 h-7" />,
   silver: <Star className="w-7 h-7" />,
   gold: <Crown className="w-7 h-7" />,

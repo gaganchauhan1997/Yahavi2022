@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   X, ChevronRight, ChevronDown, Layout, FileSpreadsheet, Presentation,
-  Megaphone, BarChart3, Share2, Gift, Brain, GraduationCap, Map, ShieldCheck,
+  Megaphone, BarChart3, Share2, Gift, Brain, GraduationCap, Map as MapIcon, ShieldCheck,
   Folder, FolderOpen, Loader2,
 } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { categories } from "@/data/products";
 import { API_BASE } from "@/lib/api-base";
+import { HIDDEN_CAT_SLUGS } from "@/lib/hidden-cats";
 
 type WPCat = {
   id: number;
@@ -281,7 +282,7 @@ export default function CategorySidebar() {
               </Link>
               <Link to="/roadmaps" onClick={closeSidebar}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-hack-black/5 text-hack-black text-xs font-bold border border-hack-black/20">
-                <Map className="w-4 h-4" /> Roadmaps
+                <MapIcon className="w-4 h-4" /> Roadmaps
               </Link>
               <Link to="/verify" onClick={closeSidebar}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-hack-black/5 text-hack-black text-xs font-bold border border-hack-black/20">
