@@ -1924,6 +1924,27 @@ function hackknow_chat_history_save(WP_REST_Request $req) {
     if (is_array($suggestions)) $meta['suggestions'] = array_slice($suggestions, 0, 8);
     if (is_array($products))    $meta['products']    = array_slice($products, 0, 8);
 
+    // Idempotency at the DB layer: if the exact same (session_id, role, text)
+    // was already saved in the last 5 seconds, return that row instead of
+    // creating a duplicate. The frontend used to post the same user/bot turn
+    // to BOTH /chat and /chat/history, which (combined with React strict-mode
+    // double-fires and an old retry-on-success path) caused 4× duplicate rows
+    // per real message — that single bug is what filled wp_hk_chat_messages
+    // with 14M rows. We keep the upstream zz-hk-chat-guard.php as defence in
+    // depth, but this in-handler check makes the endpoint safe by itself.
+    global $wpdb;
+    $table   = $wpdb->prefix . 'hk_chat_messages';
+    $existing = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM {$table}
+          WHERE session_id = %s AND role = %s AND message = %s
+            AND created_at >= (NOW() - INTERVAL 5 SECOND)
+          ORDER BY id DESC LIMIT 1",
+        $session_id, $role, $text
+    ));
+    if ($existing > 0) {
+        return new WP_REST_Response(['ok' => true, 'id' => $existing, 'deduped' => true], 200);
+    }
+
     $id = hackknow_chat_insert_row($uid, $email, $session_id, $role, $text, $meta ?: null);
     if (!$id) return new WP_Error('db_error', 'Failed to save message', ['status' => 500]);
 
