@@ -115,6 +115,6 @@ export const submitVerify = (body: {
   type: 'mis' | 'student';
   proof_type: 'linkedin' | 'id' | 'email' | 'other';
   proof_url?: string;
-  proof_image?: string;
+  proof_image_base64?: string;
   notes?: string;
 }) => authPost<{ ok: boolean; status: string }>('/verify', body);

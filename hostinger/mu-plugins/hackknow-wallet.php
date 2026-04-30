@@ -177,10 +177,15 @@ add_action( 'rest_api_init', function() {
         },
     ] ) );
 
-    register_rest_route( 'hackknow/v1', '/sponsor/me', array_merge( $auth, [
+    /* /sponsor/me is intentionally public — returns {tier:none, since:0} when
+       the caller is not logged in (or token invalid). This prevents 401 from
+       triggering the frontend session-expired interceptor on the public
+       /sponsor page. */
+    register_rest_route( 'hackknow/v1', '/sponsor/me', array_merge( $pub, [
         'methods' => 'GET',
         'callback' => function() {
             $uid = get_current_user_id();
+            if ( ! $uid ) return [ 'tier' => 'none', 'since' => 0 ];
             return [
                 'tier'  => (string) ( get_user_meta( $uid, '_hk_sponsor_tier', true ) ?: 'none' ),
                 'since' => (int)    get_user_meta( $uid, '_hk_sponsor_since', true ),

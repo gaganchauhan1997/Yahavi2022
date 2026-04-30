@@ -50,7 +50,7 @@ export default function VerifyPage() {
     if (!proofUrl && !proofImage) { setErrMsg('Add either a profile/proof URL or upload an image.'); return; }
     setSubmitting(true);
     try {
-      const r = await submitVerify({ type, proof_type: proofType, proof_url: proofUrl || undefined, proof_image: proofImage || undefined, notes: notes || undefined });
+      const r = await submitVerify({ type, proof_type: proofType, proof_url: proofUrl || undefined, proof_image_base64: proofImage || undefined, notes: notes || undefined });
       setOkMsg('Submitted. We usually review within a few hours — you\'ll be notified by email.');
       setMe(prev => ({ ...(prev || { status: 'none' }), status: r.status as HKVerifyMe['status'], type, proof_type: proofType, submitted_at: new Date().toISOString() }));
     } catch (e) {

@@ -3,7 +3,9 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ChevronLeft, ChevronRight, Loader2, Search, SlidersHorizontal } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import { useStore } from "@/context/StoreContext";
-import { categories } from "@/data/products";
+import { categories as _allCategories } from "@/data/products";
+import { isHiddenCat } from "@/lib/hidden-cats";
+const categories = _allCategories.filter((c) => !isHiddenCat(c.slug));
 
 import { useDocumentMeta } from '@/lib/useDocumentMeta';
 const PRODUCTS_PER_PAGE = 12;
