@@ -313,14 +313,6 @@ export default function Footer() {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToTop('/contact')}
-                  className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
-                >
-                  Contact
-                </button>
-              </li>
-              <li>
-                <button
                   onClick={() => scrollToTop('/testimonials')}
                   className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
@@ -353,8 +345,8 @@ export default function Footer() {
       {/* Bottom Bar */}
       <div className="border-t border-hack-white/10">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-4 border-b border-hack-white/10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
-          <a href="mailto:support@hackknow.com" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">
-            <span>✉</span> support@hackknow.com
+          <a href="mailto:team@hackknow.com" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">
+            <span>✉</span> team@hackknow.com
           </a>
           <span className="hidden sm:block text-hack-white/20">|</span>
           <a href="tel:+918796018700" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">

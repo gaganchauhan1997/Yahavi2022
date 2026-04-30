@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Globe,
@@ -65,192 +65,100 @@ const stats = [
   { Icon: Globe, value: "120+", label: "Countries served" },
   { Icon: Sparkles, value: "10K+", label: "Premium assets" },
   { Icon: Award, value: "99%", label: "Satisfaction rate" },
-  { Icon: GraduationCap, value: "50K+", label: "Creators empowered" },
+  { Icon: GraduationCap, value: "963+", label: "Creators empowered" },
 ];
 
-/* ---------------------- Yahavi Voice Reader (Web Speech API) ---------------------- */
+/* ---------------------- Mentor Voice Reader (pre-rendered MP3, studio quality) ---------------------- */
 
 type VoiceState = "idle" | "playing" | "paused";
 
-function pickYahaviVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
-  if (!voices.length) return undefined;
-  const score = (v: SpeechSynthesisVoice) => {
-    let s = 0;
-    const name = v.name.toLowerCase();
-    const lang = v.lang.toLowerCase();
-    // English-only, professional storyteller tone — prefer warm en-US/en-GB
-    // female voices that vendors ship as their flagship "narrator" voices.
-    if (lang.startsWith("en-us")) s += 40;
-    if (lang.startsWith("en-gb")) s += 35;
-    if (lang.startsWith("en-au") || lang.startsWith("en-ca")) s += 20;
-    if (lang.startsWith("en")) s += 15;
-    // High-quality / neural / premium voices score highest
-    if (/neural|premium|enhanced|natural|wavenet|studio/.test(name)) s += 35;
-    if (/microsoft.*(aria|jenny|sonia|libby|emma|ava|nova)/.test(name)) s += 40;
-    if (/google.*us.*english.*female|google.*uk.*english.*female/.test(name)) s += 30;
-    if (/(samantha|allison|ava|joanna|karen|serena|victoria|tessa|moira|fiona|kate|stephanie)/.test(name)) s += 25;
-    if (/female|woman/.test(name)) s += 15;
-    // Penalise obviously low-quality / novelty voices
-    if (/espeak|festival|robot|whisper/.test(name)) s -= 30;
-    return s;
-  };
-  return [...voices].sort((a, b) => score(b) - score(a))[0];
-}
-
-function buildPageScript(): string {
-  // Strictly the mentor's description — exactly as written in the bio block.
-  // Delivered as a tight professional motivational read; no extra framing.
-  const mentor = founders[0];
-  return `${mentor.tagline} ${mentor.bio}`;
-}
+const MENTOR_AUDIO_SRC = "/manish-mentor.mp3";
 
 /* ----------------------------------- Page ----------------------------------- */
 
 export default function AboutPage() {
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const startedOnceRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const supported =
-    typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined";
+    typeof window !== "undefined" && typeof window.Audio !== "undefined";
+  // Audio plays only on user tap, so browser autoplay policies never apply.
+  const autoplayBlocked = false;
 
-  const script = useMemo(buildPageScript, []);
+  const ensureAudio = useCallback((): HTMLAudioElement | null => {
+    if (!supported) return null;
+    if (audioRef.current) return audioRef.current;
+    const a = new Audio(MENTOR_AUDIO_SRC);
+    a.preload = "auto";
+    a.addEventListener("play", () => setVoiceState("playing"));
+    a.addEventListener("pause", () => {
+      if (a.ended || a.currentTime === 0) {
+        setVoiceState("idle");
+      } else {
+        setVoiceState("paused");
+      }
+    });
+    a.addEventListener("ended", () => setVoiceState("idle"));
+    a.addEventListener("error", () => setVoiceState("idle"));
+    audioRef.current = a;
+    return a;
+  }, [supported]);
 
   const stopSpeech = useCallback(() => {
-    if (!supported) return;
+    const a = audioRef.current;
+    if (!a) return;
     try {
-      window.speechSynthesis.cancel();
+      a.pause();
+      a.currentTime = 0;
     } catch {
       /* noop */
     }
-    utteranceRef.current = null;
     setVoiceState("idle");
-  }, [supported]);
+  }, []);
 
   const startSpeech = useCallback(() => {
-    if (!supported) return;
+    const a = ensureAudio();
+    if (!a) return;
     try {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(script);
-      const voices = window.speechSynthesis.getVoices();
-      const voice = pickYahaviVoice(voices);
-      if (voice) {
-        utter.voice = voice;
-        utter.lang = voice.lang;
-      } else {
-        utter.lang = "en-US";
+      a.currentTime = 0;
+      const p = a.play();
+      if (p && typeof p.catch === "function") {
+        p.catch(() => setVoiceState("idle"));
       }
-      // Professional motivational storyteller cadence: slightly slow,
-      // natural pitch, full volume.
-      utter.rate = 0.9;
-      utter.pitch = 1.02;
-      utter.volume = 1;
-      utter.onstart = () => setVoiceState("playing");
-      utter.onend = () => {
-        utteranceRef.current = null;
-        setVoiceState("idle");
-      };
-      utter.onerror = () => {
-        utteranceRef.current = null;
-        setVoiceState("idle");
-      };
-      utteranceRef.current = utter;
-      window.speechSynthesis.speak(utter);
     } catch {
       setVoiceState("idle");
     }
-  }, [script, supported]);
+  }, [ensureAudio]);
 
   const togglePause = useCallback(() => {
-    if (!supported) return;
-    const ss = window.speechSynthesis;
-    if (ss.speaking && !ss.paused) {
-      ss.pause();
+    const a = audioRef.current;
+    if (!a) return;
+    if (!a.paused) {
+      a.pause();
       setVoiceState("paused");
-    } else if (ss.paused) {
-      ss.resume();
-      setVoiceState("playing");
+    } else {
+      const p = a.play();
+      if (p && typeof p.catch === "function") {
+        p.catch(() => setVoiceState("idle"));
+      }
     }
-  }, [supported]);
+  }, []);
 
+  // Per request: every tap on the photo (re)starts the story from the beginning.
   const handleSpeakerTap = useCallback(() => {
     if (!supported) return;
-    if (voiceState === "idle") {
-      setAutoplayBlocked(false);
-      startSpeech();
-    } else if (voiceState === "playing") {
-      stopSpeech();
-    } else if (voiceState === "paused") {
-      stopSpeech();
-    }
-  }, [voiceState, startSpeech, stopSpeech, supported]);
+    startSpeech();
+  }, [startSpeech, supported]);
 
-  // Voice list loads asynchronously in some browsers
-  useEffect(() => {
-    if (!supported) return;
-    const handler = () => {
-      // No-op; just ensures voices populate. We pick voice at startSpeech() time.
-    };
-    window.speechSynthesis.addEventListener?.("voiceschanged", handler);
-    return () => {
-      window.speechSynthesis.removeEventListener?.("voiceschanged", handler);
-    };
-  }, [supported]);
-
-  // Best-effort autoplay on mount; most browsers block until first user gesture.
-  useEffect(() => {
-    if (!supported || startedOnceRef.current) return;
-    startedOnceRef.current = true;
-
-    let cancelled = false;
-    const tryAutoplay = () => {
-      if (cancelled) return;
-      try {
-        startSpeech();
-      } catch {
-        setAutoplayBlocked(true);
-      }
-      // After a brief moment, check whether speech actually started.
-      window.setTimeout(() => {
-        if (cancelled) return;
-        if (!window.speechSynthesis.speaking) {
-          setAutoplayBlocked(true);
-        }
-      }, 400);
-    };
-
-    // Wait for voices to be ready, then attempt.
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) {
-      const onVoices = () => {
-        window.speechSynthesis.removeEventListener?.("voiceschanged", onVoices);
-        tryAutoplay();
-      };
-      window.speechSynthesis.addEventListener?.("voiceschanged", onVoices);
-      // Safety: try anyway after a short delay.
-      window.setTimeout(tryAutoplay, 600);
-    } else {
-      tryAutoplay();
-    }
-
-    // Stop speech if the user navigates away.
-    return () => {
-      cancelled = true;
-      try {
-        window.speechSynthesis.cancel();
-      } catch {
-        /* noop */
-      }
-    };
-  }, [supported, startSpeech]);
-
-  // Stop speech when the tab is hidden, resume nothing automatically.
+  // Stop audio when the tab becomes hidden so it doesn't keep playing in background.
   useEffect(() => {
     if (!supported) return;
     const onVis = () => {
-      if (document.hidden && window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
+      const a = audioRef.current;
+      if (!a) return;
+      if (document.hidden && !a.paused) {
+        a.pause();
+        a.currentTime = 0;
         setVoiceState("idle");
       }
     };
@@ -258,11 +166,25 @@ export default function AboutPage() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [supported]);
 
+  // Cleanup audio on unmount.
+  useEffect(() => {
+    return () => {
+      const a = audioRef.current;
+      if (a) {
+        try {
+          a.pause();
+        } catch {
+          /* noop */
+        }
+      }
+    };
+  }, []);
+
   const speakerLabel =
     voiceState === "playing"
-      ? "Now playing — tap to stop"
+      ? "Now playing — tap to restart"
       : voiceState === "paused"
-        ? "Paused — tap to stop"
+        ? "Paused — tap to restart"
         : "Tap to hear the mentor's story";
 
   const mentor = founders[0];

@@ -56,10 +56,11 @@
 
 @layer utilities {
   .text-gradient {
-    background: linear-gradient(135deg, #FF56F0, #FF7A56);
+    background: linear-gradient(135deg, #B81E9C, #C2410C);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
   }
   .bg-gradient-brand {
     background: linear-gradient(135deg, #FF56F0 0%, #FF7A56 50%, #FFF055 100%);

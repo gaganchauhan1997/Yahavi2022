@@ -204,7 +204,7 @@ export default function TestimonialsPage() {
               <h1 className="font-display font-bold text-4xl lg:text-5xl">Testimonials</h1>
             </div>
             <p className="text-hack-white/70 text-lg max-w-2xl">
-              50,000+ creators across 120+ countries trust HackKnow. Tap any card to read the
+              963+ creators across 120+ countries trust HackKnow. Tap any card to read the
               original review on Trustpilot, Google, G2 or Product Hunt.
             </p>
           </div>
@@ -308,6 +308,40 @@ export default function TestimonialsPage() {
             Hover to pause • Tap any card to open the original review
           </p>
         )}
+
+        {/* Comic: "Read the reviews next time" — fun PSA */}
+        <div className="mt-14 bg-gradient-to-br from-hack-yellow/20 via-white to-hack-orange/10 rounded-2xl border-2 border-hack-black shadow-[6px_6px_0_0_#0A0A0A] p-5 lg:p-8">
+          <div className="grid lg:grid-cols-5 gap-6 items-center">
+            <div className="lg:col-span-2 order-2 lg:order-1">
+              <span className="inline-block bg-hack-black text-hack-yellow font-mono text-xs uppercase tracking-wider px-3 py-1 rounded-full mb-3">
+                A True Story (sort of)
+              </span>
+              <h2 className="font-display font-bold text-2xl lg:text-3xl text-hack-black leading-tight mb-3">
+                Don&rsquo;t be <span className="bg-hack-yellow px-2">that guy</span> &mdash;
+                <br />read the reviews <span className="text-hack-magenta">first</span>.
+              </h2>
+              <p className="text-hack-black/70 text-sm lg:text-base leading-relaxed mb-4">
+                Manish learned the hard way at Tiger Kingdom. You don&rsquo;t have to.
+                Every HackKnow template has real reviews from real buyers &mdash; scroll up,
+                read them, then download with zero regret.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs font-mono">
+                <span className="bg-white border border-hack-black/20 rounded-full px-3 py-1">⭐ 963+ creators</span>
+                <span className="bg-white border border-hack-black/20 rounded-full px-3 py-1">🌍 120+ countries</span>
+                <span className="bg-white border border-hack-black/20 rounded-full px-3 py-1">🐅 0 tigers</span>
+              </div>
+            </div>
+            <div className="lg:col-span-3 order-1 lg:order-2">
+              <img
+                src="/images/comic-read-the-reviews.jpg"
+                alt="Comic strip: Manish visits Tiger Kingdom, doesn't read reviews, becomes lunch's new best friend. Note to self: read the reviews next time."
+                loading="lazy"
+                decoding="async"
+                className="w-full h-auto rounded-xl border-2 border-hack-black shadow-[4px_4px_0_0_#0A0A0A]"
+              />
+            </div>
+          </div>
+        </div>
 
         {/* CTA */}
         <div className="mt-14 bg-hack-black rounded-2xl p-6 lg:p-8 text-white text-center">

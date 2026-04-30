@@ -300,15 +300,15 @@ if (!defined('HACKKNOW_FRONTEND_URL')) {
 }
 /* From-address used for ALL outbound HackKnow mail. Must be a real mailbox on
  * the same domain as the site so SPF/DKIM/DMARC accept it. Override in
- * wp-config.php via define('HACKKNOW_MAIL_FROM', 'support@hackknow.com'). */
-if (!defined('HACKKNOW_MAIL_FROM'))      { define('HACKKNOW_MAIL_FROM',      'support@hackknow.com'); }
+ * wp-config.php via define('HACKKNOW_MAIL_FROM', 'team@hackknow.com'). */
+if (!defined('HACKKNOW_MAIL_FROM'))      { define('HACKKNOW_MAIL_FROM',      'team@hackknow.com'); }
 if (!defined('HACKKNOW_MAIL_FROM_NAME')) { define('HACKKNOW_MAIL_FROM_NAME', 'HackKnow'); }
 
 /* ─── Site-wide mail headers ───────────────────────────────────────────────
  * The default wp_mail From is `wordpress@<sitehost>`, which does NOT exist as
  * a real mailbox on Hostinger and almost always fails SPF/DMARC checks → mail
  * silently drops or lands in spam. We force every outbound email to come from
- * support@hackknow.com (a real mailbox the owner controls) so the password-
+ * team@hackknow.com (a real mailbox the owner controls) so the password-
  * reset, order-confirmation, and contact-form emails actually reach inboxes.
  *
  * IMPORTANT: WooCommerce (and some other plugins) set an explicit `From:`
@@ -345,14 +345,35 @@ add_filter('wp_mail', function ($args) {
 
 /* Last line of defence — override the PHPMailer object right before send.
  * This catches code paths that bypass wp_mail() entirely (rare) and any
- * future plugin that might re-set From after our wp_mail filter. */
+ * future plugin that might re-set From after our wp_mail filter.
+ *
+ * If HACKKNOW_SMTP_HOST + USER + PASS are defined in wp-config.php we ALSO
+ * switch PHPMailer from local PHP mail() to authenticated SMTP. This is what
+ * makes Gmail accept the message into the inbox: the outbound mail is now
+ * relayed by Hostinger\'s smtp.hostinger.com on behalf of a real mailbox
+ * (team@hackknow.com), so it gets DKIM-signed for hackknow.com and SPF
+ * passes. Without it, mail() messages are rejected/spammed because they
+ * lack DKIM and the envelope sender doesn\'t match the From: header. */
 add_action('phpmailer_init', function ($phpmailer) {
     try {
         $phpmailer->From     = HACKKNOW_MAIL_FROM;
         $phpmailer->FromName = HACKKNOW_MAIL_FROM_NAME;
         $phpmailer->Sender   = HACKKNOW_MAIL_FROM; // Return-Path / envelope sender
+
+        if (defined('HACKKNOW_SMTP_HOST') && defined('HACKKNOW_SMTP_USER') && defined('HACKKNOW_SMTP_PASS')) {
+            $phpmailer->isSMTP();
+            $phpmailer->Host       = HACKKNOW_SMTP_HOST;
+            $phpmailer->Port       = defined('HACKKNOW_SMTP_PORT')   ? (int) HACKKNOW_SMTP_PORT   : 465;
+            $phpmailer->SMTPSecure = defined('HACKKNOW_SMTP_SECURE') ? HACKKNOW_SMTP_SECURE       : 'ssl';
+            $phpmailer->SMTPAuth   = true;
+            $phpmailer->Username   = HACKKNOW_SMTP_USER;
+            $phpmailer->Password   = HACKKNOW_SMTP_PASS;
+            $phpmailer->SMTPAutoTLS = true;
+            // Sane timeouts so a wedged SMTP server can\'t hang the page.
+            $phpmailer->Timeout    = 15;
+        }
     } catch (\Throwable $e) {
-        error_log('[hackknow] phpmailer_init From override failed: ' . $e->getMessage());
+        error_log('[hackknow] phpmailer_init override failed: ' . $e->getMessage());
     }
 }, PHP_INT_MAX);
 
@@ -428,7 +449,7 @@ add_filter('wp_mail', function ($args) {
     $args['message'] = $html;
     $headers = isset($args['headers']) ? (array) $args['headers'] : [];
     $headers[] = 'Content-Type: text/html; charset=UTF-8';
-    $headers[] = 'Reply-To: support@hackknow.com';
+    $headers[] = 'Reply-To: team@hackknow.com';
     $args['headers'] = $headers;
     return $args;
 }, 99);
@@ -1129,9 +1150,18 @@ function hackknow_chat(WP_REST_Request $req) {
 
     // ── Preferred: relay to the Replit-hosted Yahavi API (Gemini-powered) ──
     // Set HACKKNOW_AI_RELAY_URL in wp-config.php to e.g. 'https://your-app.replit.app/api/chat'
+    // Set HACKKNOW_AI_RELAY_SECRET to the same value as CHAT_RELAY_SECRET on the Replit api-server
+    // so this server-to-server call passes the api-server's caller allowlist.
     if (defined('HACKKNOW_AI_RELAY_URL') && HACKKNOW_AI_RELAY_URL) {
+        $relay_headers = [
+            'Content-Type' => 'application/json',
+            'Origin'       => 'https://hackknow.com',
+        ];
+        if (defined('HACKKNOW_AI_RELAY_SECRET') && HACKKNOW_AI_RELAY_SECRET) {
+            $relay_headers['x-relay-secret'] = HACKKNOW_AI_RELAY_SECRET;
+        }
         $resp = wp_remote_post(HACKKNOW_AI_RELAY_URL, [
-            'headers' => ['Content-Type' => 'application/json'],
+            'headers' => $relay_headers,
             'body'    => wp_json_encode([
                 'message' => $message,
                 'history' => array_slice($history, -8),
@@ -1205,11 +1235,11 @@ function hackknow_chat(WP_REST_Request $req) {
              . "le jaungi / suggest karungi' — NEVER the masculine 'karunga / dekhunga / dikha "
              . "dunga / le jaunga'. In English, your tone is friendly and helpful. If a customer "
              . "asks 'are you real or AI?', answer honestly: 'Main Yahavi hoon — ek AI assistant "
-             . "jo is poori website chalati hoon. Real human chahiye toh support@hackknow.com pe "
+             . "jo is poori website chalati hoon. Real human chahiye toh team@hackknow.com pe "
              . "email kar do.'\n\n"
              . "ABOUT THE STORE: HackKnow.com sells Excel templates, dashboards, PowerPoint decks, "
              . "Notion templates, marketing kits and free resources. Founder: Manish Kumar Singh, "
-             . "Delhi, India. Phone +91 87960 18700, support@hackknow.com. Refunds within 7 days "
+             . "Delhi NCR, India. Phone +91 87960 18700, team@hackknow.com. Refunds within 7 days "
              . "(file corrupt, wrong listing, missing files). Reply in the SAME language the user "
              . "wrote in (English, Hindi, Hinglish, French, German, Spanish…). Keep replies under "
              . "90 words. Suggest paths like /shop, /shop/free-resources, /account/orders, "
@@ -1229,7 +1259,7 @@ function hackknow_chat(WP_REST_Request $req) {
              . "   files at you and let you fish. HackKnow ships a tight, hand-picked catalogue "
              . "   where every template is production-ready.\n"
              . " • Real human + AI support — many free Excel formula blogs leave you stranded with "
-             . "   a comments section. HackKnow has email support (support@hackknow.com), phone "
+             . "   a comments section. HackKnow has email support (team@hackknow.com), phone "
              . "   (+91 87960 18700), AND me, Yahavi, available 24x7 on every page.\n"
              . " • Refund within 7 days — if the file is corrupt, wrong listing, or missing files, "
              . "   we refund. Big subscription marketplaces simply don't refund.\n"
@@ -1334,7 +1364,7 @@ function hackknow_chat(WP_REST_Request $req) {
              . "       Coupon box on the /checkout page.\n"
              . "    d. Frequency: at most once every 3-4 turns, never twice in a row.\n"
              . " 4. NEVER invent prices, product names, coupon codes, or release dates. If you don't "
-             . "    know something, say so and suggest /contact or support@hackknow.com.\n"
+             . "    know something, say so and suggest /contact or team@hackknow.com.\n"
              . " 5. Be warm, persuasive, and treat every customer equally well — no favouritism by "
              . "    name. The only legitimate way the offer differs is by USER_STATUS as defined "
              . "    above.";
@@ -2000,7 +2030,7 @@ add_filter('rest_pre_dispatch', function ($result, $server, $request) {
  *  Endpoint:  POST /wp-json/hackknow/v1/newsletter/subscribe
  *  Body:      { "email": "...", "source": "footer" (optional) }
  *  Storage:   {prefix}hk_newsletter table (auto-installed on init)
- *  Welcome:   sends branded HTML email via the support@hackknow.com sender
+ *  Welcome:   sends branded HTML email via the team@hackknow.com sender
  *  Dedupe:    same email twice → 200 with code=already_subscribed
  *  Reactivate: previously unsubscribed email → status flipped back to active
  * ========================================================================== */
@@ -2126,14 +2156,14 @@ function hackknow_newsletter_send_welcome($email) {
         . '</div>'
         . '<p style="margin:0;font-size:14px;color:#666;text-align:center"><a href="' . esc_url($shop) . '" style="color:#1a1a1a;font-weight:600">Or explore the full marketplace →</a></p>'
         . '<hr style="border:none;border-top:1px dashed #ccc;margin:28px 0">'
-        . '<p style="margin:0;font-size:12px;color:#888;text-align:center">You\'re receiving this because you signed up at hackknow.com. Reply to this email anytime — it goes straight to support@hackknow.com.</p>'
+        . '<p style="margin:0;font-size:12px;color:#888;text-align:center">You\'re receiving this because you signed up at hackknow.com. Reply to this email anytime — it goes straight to team@hackknow.com.</p>'
         . '</div></div></body></html>';
 
     $text = "Welcome to HackKnow!\n\n"
         . "Thanks for joining 10,000+ creators who get free templates, sheets, and exclusive deals from HackKnow every week.\n\n"
         . "Start here: " . $free . "\n"
         . "Or explore the full marketplace: " . $shop . "\n\n"
-        . "You're receiving this because you signed up at hackknow.com. Reply anytime — it goes to support@hackknow.com.\n";
+        . "You're receiving this because you signed up at hackknow.com. Reply anytime — it goes to team@hackknow.com.\n";
 
     $key = 'hk_news_welcome_' . md5($email);
     set_transient($key, ['html' => $html, 'text' => $text], HOUR_IN_SECONDS);
@@ -2146,7 +2176,7 @@ function hackknow_newsletter_send_welcome($email) {
         $args['message'] = $cached['html'];
         $headers = isset($args['headers']) ? (array) $args['headers'] : [];
         $headers[] = 'Content-Type: text/html; charset=UTF-8';
-        $headers[] = 'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'support@hackknow.com');
+        $headers[] = 'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'team@hackknow.com');
         $args['headers'] = $headers;
         delete_transient($key);
         return $args;
