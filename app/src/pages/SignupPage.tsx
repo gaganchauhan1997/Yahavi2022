@@ -39,6 +39,8 @@ const signupSteps = [
 
 const SignupPage: FC = () => {
   const navigate = useNavigate();
+  const next =
+    new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('next') || '/account';
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -72,7 +74,7 @@ const SignupPage: FC = () => {
         setError('');
         try {
           await loginWithGoogleToken(resp.access_token);
-          navigate('/account');
+          navigate(next);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Google sign-in failed');
         } finally {
@@ -91,7 +93,7 @@ const SignupPage: FC = () => {
     setError('');
     try {
       await registerWithWordPress(formData.fullName, formData.email, formData.password, formData.phone);
-      navigate('/account');
+      navigate(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
     } finally {

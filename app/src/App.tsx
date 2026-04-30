@@ -24,7 +24,8 @@ const AboutPage           = lazy(() => import('./pages/AboutPage'));
 const CommunityPage       = lazy(() => import('./pages/CommunityPage'));
 const SupportPage         = lazy(() => import('./pages/SupportPage'));
 const ContactPage         = lazy(() => import('./pages/ContactPage'));
-const AffiliatePage       = lazy(() => import('./pages/AffiliatePage'));
+const AffiliatePage           = lazy(() => import('./pages/AffiliatePage'));
+const AffiliateLearnMorePage  = lazy(() => import('./pages/AffiliateLearnMorePage'));
 const BlogPage            = lazy(() => import('./pages/BlogPage'));
 const FAQPage             = lazy(() => import('./pages/FAQPage'));
 const PrivacyPolicyPage   = lazy(() => import('./pages/PrivacyPolicyPage'));
@@ -103,7 +104,8 @@ function App() {
                 <Route path="/community"           element={<CommunityPage />} />
                 <Route path="/support"             element={<SupportPage />} />
                 <Route path="/contact"             element={<ContactPage />} />
-                <Route path="/affiliate"           element={<AffiliatePage />} />
+                <Route path="/affiliate"              element={<AffiliatePage />} />
+                <Route path="/affiliate/learn-more"   element={<AffiliateLearnMorePage />} />
                 <Route path="/blog"                element={<BlogPage />} />
                 <Route path="/faq"                 element={<FAQPage />} />
                 <Route path="/privacy"             element={<PrivacyPolicyPage />} />

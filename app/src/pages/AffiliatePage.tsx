@@ -88,15 +88,19 @@ const AffiliatePage = () => {
               Get 12% commission on every sale through your referral link.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button className="h-14 px-8 bg-gradient-to-r from-hack-yellow to-hack-orange text-hack-black font-bold rounded-full text-lg">
-                Apply Now - It is Free
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-14 px-8 border-white/20 text-white hover:bg-white/10 rounded-full"
-              >
-                Learn More
-              </Button>
+              <Link to="/signup?next=/affiliate">
+                <Button className="h-14 px-8 bg-gradient-to-r from-hack-yellow to-hack-orange text-hack-black font-bold rounded-full text-lg w-full sm:w-auto">
+                  Apply Now - It is Free
+                </Button>
+              </Link>
+              <Link to="/affiliate/learn-more">
+                <Button 
+                  variant="outline" 
+                  className="h-14 px-8 border-white/20 text-white hover:bg-white/10 rounded-full w-full sm:w-auto"
+                >
+                  Learn More
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

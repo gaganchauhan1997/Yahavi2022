@@ -30,6 +30,8 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const next =
+    new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('next') || '/account';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +39,7 @@ const LoginPage = () => {
     setError('');
     try {
       await loginWithWordPress(email, password);
-      navigate('/account');
+      navigate(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -62,7 +64,7 @@ const LoginPage = () => {
         setError('');
         try {
           await loginWithGoogleToken(resp.access_token);
-          navigate('/account');
+          navigate(next);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Google sign-in failed');
         } finally {
