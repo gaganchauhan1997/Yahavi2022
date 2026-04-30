@@ -636,14 +636,70 @@ function hk_content_rest_release_types() {
    ════════════════════════════════════════════════════════════════════ */
 
 function hk_content_rss_sources() {
+    /* `pure` = trusted 100% tech/AI feed (skip keyword filter).
+       Everything else passes through hk_content_is_tech_item(). */
     return [
-        'techcrunch' => ['name' => 'TechCrunch',  'url' => 'https://techcrunch.com/feed/',                   'color' => '#0f9d58'],
-        'verge'      => ['name' => 'The Verge',   'url' => 'https://www.theverge.com/rss/tech/index.xml',    'color' => '#5200ff'],
-        'devto'      => ['name' => 'DEV.to',      'url' => 'https://dev.to/feed',                            'color' => '#000000'],
-        'hn'         => ['name' => 'Hacker News', 'url' => 'https://hnrss.org/frontpage',                    'color' => '#ff6600'],
-        'hnbest'     => ['name' => 'HN Best',     'url' => 'https://hnrss.org/best',                         'color' => '#ff6600'],
-        'github'     => ['name' => 'GitHub Blog', 'url' => 'https://github.blog/feed/',                      'color' => '#24292f'],
+        'techcrunch' => ['name' => 'TechCrunch',     'url' => 'https://techcrunch.com/feed/',                                                  'color' => '#0f9d58', 'pure' => true],
+        'verge'      => ['name' => 'The Verge',      'url' => 'https://www.theverge.com/rss/tech/index.xml',                                   'color' => '#5200ff', 'pure' => true],
+        'devto'      => ['name' => 'DEV.to',         'url' => 'https://dev.to/feed',                                                           'color' => '#000000', 'pure' => true],
+        'github'     => ['name' => 'GitHub Blog',    'url' => 'https://github.blog/feed/',                                                     'color' => '#24292f', 'pure' => true],
+        'arstech'    => ['name' => 'Ars Technica',   'url' => 'https://feeds.arstechnica.com/arstechnica/technology-lab',                       'color' => '#ff4e00', 'pure' => true],
+        'hf'         => ['name' => 'HuggingFace',    'url' => 'https://huggingface.co/blog/feed.xml',                                          'color' => '#FFD21E', 'pure' => true],
+        'mittech'    => ['name' => 'MIT Tech Review','url' => 'https://www.technologyreview.com/topic/artificial-intelligence/feed',           'color' => '#a90017', 'pure' => true],
+        'vbai'       => ['name' => 'VentureBeat AI', 'url' => 'https://venturebeat.com/category/ai/feed/',                                     'color' => '#e63946', 'pure' => true],
+        'decoder'    => ['name' => 'The Decoder',    'url' => 'https://the-decoder.com/feed/',                                                 'color' => '#1a1a1a', 'pure' => true],
+        'wired'      => ['name' => 'WIRED',          'url' => 'https://www.wired.com/feed/category/business/artificial-intelligence/latest/rss','color' => '#000000', 'pure' => true],
+        'hnshow'     => ['name' => 'HN Show',        'url' => 'https://hnrss.org/show?points=15',                                              'color' => '#ff6600', 'pure' => false],
+        'hnai'       => ['name' => 'HN AI',          'url' => 'https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+ML+OR+software+OR+startup&points=20', 'color' => '#ff6600', 'pure' => false],
     ];
+}
+
+/**
+ * Returns true if the title/summary clearly relates to tech, AI, software,
+ * gadgets, startups, infosec, or developer tooling. Used as safety filter
+ * for general-purpose feeds (Hacker News etc) so politics/recipes/books
+ * don't slip into the news page.
+ */
+function hk_content_is_tech_item($text) {
+    $t = ' ' . strtolower($text) . ' ';
+    static $kw = null;
+    if ($kw === null) {
+        $kw = [
+            // AI / ML
+            ' ai ', ' ai,', ' ai.', ' ai:', ' ai-', 'a.i.', ' ml ', ' llm', ' gpt', 'chatgpt', 'claude', 'openai', 'anthropic',
+            'gemini', 'copilot', 'midjourney', 'dall-e', 'sora ', 'agent', 'machine learn', 'deep learn', 'neural', 'transformer',
+            'diffusion', 'stable diff', 'huggingface', 'hugging face', 'mistral', 'llama', 'fine-tun', 'embedding', 'inference',
+            ' agi ', 'reasoning model', 'foundation model', 'multimodal',
+            // Big Tech & startups
+            'google', 'microsoft', 'apple', ' meta ', 'meta\'s', 'nvidia', 'amazon', 'aws', 'gcp', 'azure', 'tesla', 'spacex',
+            'startup', 'series a', 'series b', 'series c', 'unicorn', 'y combinator', ' yc ', 'fundraise', 'raised $', 'valuation',
+            'acqui', 'ipo', 'tech giant', 'big tech',
+            // Software / dev / programming
+            'tech', 'software', 'code', 'coding', 'program', 'developer', 'engineer', 'app ', 'apps ', 'mobile', 'web ', 'website',
+            'cloud', 'kubernet', 'docker', 'react', 'vue', 'svelte', 'next.js', 'nextjs', 'python', 'javascript', 'typescript',
+            'rust', 'golang', 'kotlin', 'swift', ' java ', ' php', ' node', 'vercel', 'netlify', 'github', 'gitlab', 'open source',
+            'opensource', 'sdk', ' api ', ' apis', 'framework', 'library', 'compiler', 'runtime', 'deploy',
+            // Hardware / chips / gadgets
+            'chip', 'processor', ' gpu', ' cpu', 'datacenter', 'data center', 'silicon', 'arm ', 'risc-v', 'iphone', 'ipad',
+            'macbook', 'pixel', 'galaxy', 'oneplus', 'laptop', 'console', ' ipo ', 'gadget', 'wearable', 'smartphone', 'smart home',
+            'vision pro', ' vr ', ' ar ', 'metaverse', 'drone', ' ev ', 'electric car', 'autonomous', 'self-driv', 'satellite',
+            'rocket', 'launch', 'quantum',
+            // Browsers / OS / platforms
+            'browser', 'chrome', 'firefox', 'safari', 'edge ', ' ios ', 'android', 'windows', 'linux', 'macos', ' mac os',
+            'figma', 'canva', 'notion', 'slack', 'discord', 'twitter', ' x ', 'instagram', 'whatsapp', 'youtube', 'tiktok',
+            'reddit', 'spotify', 'netflix',
+            // Security / crypto / data
+            'security', 'cybersec', 'hack', 'hacker', 'vulnerab', 'breach', 'malware', 'phishing', 'ransomware', 'encryption',
+            'privacy', 'gdpr', 'data leak', 'zero-day', 'exploit', 'cve-', 'patch', 'crypto', 'bitcoin', 'ethereum', ' web3',
+            'blockchain', 'nft ', 'defi',
+            // Verticals
+            'fintech', 'edtech', 'healthtech', 'biotech', 'cleantech', 'climate tech', ' iot', 'robot', 'gaming', 'esport',
+            'video game', 'devops', 'serverless', 'edge comput', 'mlops', 'database', ' sql', ' nosql', 'redis', 'postgres',
+            'mongo', 'kafka', 'algorithm', 'plugin', 'extension', 'release', 'launches', 'launched', 'unveil',
+        ];
+    }
+    foreach ($kw as $k) if (strpos($t, $k) !== false) return true;
+    return false;
 }
 
 /**
@@ -653,7 +709,7 @@ function hk_content_rss_sources() {
 function hk_content_fetch_rss_source($key) {
     $sources = hk_content_rss_sources();
     if (!isset($sources[$key])) return [];
-    $cache_key = 'hk_rss_' . $key;
+    $cache_key = 'hk_rss_v3_' . $key;  // v3 = tech/AI-only filter
     $cached = get_transient($cache_key);
     if ($cached !== false && is_array($cached)) return $cached;
 
@@ -667,9 +723,16 @@ function hk_content_fetch_rss_source($key) {
         set_transient($cache_key, [], 600);  // negative cache 10m
         return [];
     }
-    $max = $feed->get_item_quantity(15);
+    $is_pure = !empty($sources[$key]['pure']);
+    $max = $feed->get_item_quantity(20);
     $items = [];
     foreach ($feed->get_items(0, $max) as $item) {
+        $title = html_entity_decode((string) $item->get_title(), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $desc = wp_strip_all_tags((string) $item->get_description());
+
+        /* Safety net for non-pure sources: drop anything that doesn't look tech/AI. */
+        if (!$is_pure && !hk_content_is_tech_item($title . ' ' . $desc)) continue;
+
         $img = '';
         $enclosure = $item->get_enclosure();
         if ($enclosure) $img = (string) $enclosure->get_link();
@@ -678,7 +741,6 @@ function hk_content_fetch_rss_source($key) {
             $content = (string) $item->get_content();
             if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $m)) $img = $m[1];
         }
-        $desc = wp_strip_all_tags((string) $item->get_description());
         if (mb_strlen($desc) > 240) $desc = mb_substr($desc, 0, 240) . '…';
 
         $items[] = [
