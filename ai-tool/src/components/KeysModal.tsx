@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, KeyRound, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { X, KeyRound, ExternalLink, Eye, EyeOff, Trash2, ShieldCheck } from 'lucide-react';
 import { loadKeys, saveKeys, hasMinimumKeys, type Keys } from '@/lib/keys';
 
 interface Props {
@@ -35,6 +35,22 @@ export default function KeysModal({ open, onClose, onFirstKeySaved, mandatory = 
 
   const update = (k: keyof Keys, v: string) => setKeys(p => ({ ...p, [k]: v }));
   const canSave = !!(keys.groq || keys.gemini);
+
+  /** Wipe a single provider key from form state + persisted storage immediately. */
+  const deleteOne = (k: keyof Keys) => {
+    const next = { ...keys };
+    delete next[k];
+    setKeys(next);
+    saveKeys(next);
+  };
+
+  /** Wipe ALL keys + preferences from form state + persisted storage. */
+  const deleteAll = () => {
+    if (!confirm('Delete all keys from this browser? This cannot be undone.')) return;
+    setKeys({});
+    saveKeys({});
+    setHadKeys(false);
+  };
 
   const save = () => {
     if (!canSave) return;
@@ -90,13 +106,25 @@ export default function KeysModal({ open, onClose, onFirstKeySaved, mandatory = 
                   value={(keys[p.key] as string) || ''}
                   onChange={e => update(p.key, e.target.value)}
                   placeholder={`${p.label} API key…`}
-                  className="bx-input pr-10 font-mono text-sm"
+                  className="bx-input pr-20 font-mono text-sm"
                   autoComplete="off"
                 />
+                {(keys[p.key] as string) && (
+                  <button
+                    type="button"
+                    onClick={() => deleteOne(p.key)}
+                    className="absolute right-9 top-1/2 -translate-y-1/2 text-bx-mute hover:text-red-500 p-1"
+                    aria-label={`Delete ${p.label} key`}
+                    title="Delete this key from your browser"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShow(s => ({ ...s, [p.key]: !s[p.key] }))}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-bx-mute hover:text-bx-orange p-1"
+                  aria-label={show[p.key] ? 'Hide key' : 'Show key'}
                 >
                   {show[p.key] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -136,12 +164,34 @@ export default function KeysModal({ open, onClose, onFirstKeySaved, mandatory = 
         </div>
 
         <div className="bx-divider" />
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-[11px] text-bx-mute max-w-md">
-            🔒 Tip: rotate keys monthly. localStorage is not encrypted at rest.
-          </p>
+
+        {/* Privacy promise — exactly what we do (and don't) with your keys */}
+        <div className="rounded-md border border-bx-orange/40 bg-bx-orange/5 px-3.5 py-3 mb-4">
+          <div className="flex items-start gap-2.5">
+            <ShieldCheck className="w-4 h-4 text-bx-orange flex-shrink-0 mt-0.5" />
+            <div className="text-[11.5px] text-bx-text leading-relaxed">
+              <span className="font-semibold text-bx-orange">We don't save your API key data.</span>{' '}
+              Keys live only in this browser's local storage — never sent to any server of ours.
+              Just enter your key, generate your content, then delete it from our platform here.
+              If you want a clean exit, also revoke it from the provider's API-key dashboard.
+              <div className="mt-1.5 text-bx-mute text-[10.5px]">
+                Press <span className="font-mono text-bx-orange">Delete All</span> below to wipe every key from this device in one click.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <button
+            onClick={deleteAll}
+            type="button"
+            className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-bx-mute hover:text-red-500 border border-bx-mute/30 hover:border-red-500/60 px-3 py-1.5 rounded-md transition-colors"
+            title="Wipe all stored keys from this browser"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete All
+          </button>
           <button onClick={save} disabled={!canSave} className="bx-btn">
-            Summon the Dead Man
+            {hadKeys ? 'Save & Close' : 'Summon the Dead Man'}
           </button>
         </div>
       </div>
