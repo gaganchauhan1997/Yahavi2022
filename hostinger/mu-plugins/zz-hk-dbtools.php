@@ -38,8 +38,31 @@ function hk_db_token() {
 }
 
 function hk_db_check_token(WP_REST_Request $r) {
-    return hash_equals(hk_db_token(), (string) $r->get_param('token'));
+    // Accept token via header (preferred) or query param for backward compat.
+    $hdr = (string) $r->get_header('x_hk_db_token');
+    $qp  = (string) $r->get_param('token');
+    $supplied = $hdr !== '' ? $hdr : $qp;
+    if ($supplied !== '' && hash_equals(hk_db_token(), $supplied)) return true;
+    // Fallback: an authenticated admin.
+    return current_user_can('manage_options');
 }
+
+// Token retrieval requires admin; never expose via public REST.
+function hk_db_check_token_read(WP_REST_Request $r) {
+    return current_user_can('manage_options');
+}
+
+// Force no-cache for the entire hackknow-db namespace so LiteSpeed/CDN never
+// serves a stale token or stale stats. Without this, /token responses got
+// cached for 16+ min by LSCache/Hostinger CDN.
+add_filter('rest_post_dispatch', function ($response, $server, $request) {
+    if (!($response instanceof WP_REST_Response)) return $response;
+    if (strpos($request->get_route(), '/hackknow-db/v1') !== 0) return $response;
+    $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    $response->header('Pragma', 'no-cache');
+    $response->header('X-LiteSpeed-Cache-Control', 'no-cache');
+    return $response;
+}, 10, 3);
 
 add_action('rest_api_init', function () {
     $ns = 'hackknow-db/v1';
@@ -55,7 +78,7 @@ add_action('rest_api_init', function () {
     register_rest_route($ns, '/comments',        array_merge(['methods'=>'GET',  'callback'=>'hk_db_comments'],        $public));
     register_rest_route($ns, '/wc-sessions',     array_merge(['methods'=>'GET',  'callback'=>'hk_db_wc_sessions'],     $public));
     register_rest_route($ns, '/orphans',         array_merge(['methods'=>'GET',  'callback'=>'hk_db_orphans'],         $public));
-    register_rest_route($ns, '/token',           array_merge(['methods'=>'GET',  'callback'=>function(){ return ['token'=>hk_db_token()]; }], $public));
+    register_rest_route($ns, '/token',           array_merge(['methods'=>'GET',  'callback'=>function(){ return ['token'=>hk_db_token()]; }], ['permission_callback'=>'hk_db_check_token_read']));
 
     register_rest_route($ns, '/clean/transients',      array_merge(['methods'=>'POST', 'callback'=>'hk_db_clean_transients'],      $auth));
     register_rest_route($ns, '/clean/revisions',       array_merge(['methods'=>'POST', 'callback'=>'hk_db_clean_revisions'],       $auth));
@@ -308,12 +331,14 @@ function hk_db_clean_optimize() {
 }
 
 function hk_db_clean_all(WP_REST_Request $r) {
+    // NOTE: OPTIMIZE TABLE intentionally NOT included. It rebuilds InnoDB tables
+    // and can lock checkout/order writes. Run /clean/optimize manually only in a
+    // maintenance window and only against an explicit table allowlist if needed.
     return [
         'transients'      => hk_db_clean_transients(),
         'revisions'       => hk_db_clean_revisions($r),
         'actionscheduler' => hk_db_clean_actionscheduler(),
         'wc_sessions'     => hk_db_clean_wc_sessions(),
         'spam_comments'   => hk_db_clean_spam(),
-        'optimize'        => hk_db_clean_optimize(),
     ];
 }
