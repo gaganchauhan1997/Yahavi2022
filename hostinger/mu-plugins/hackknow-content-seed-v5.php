@@ -16,11 +16,18 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * ============================================================ */
 add_filter( 'hk_preview_target_cat_slugs', 'hk_v5_preview_targets', 20 );
 function hk_v5_preview_targets( $slugs ) {
+    /* TIGHT ALLOWLIST (per user, 2026-04-30):
+     * Live Preview button MUST appear ONLY on code-built website templates.
+     * All other digital products (Excel, PPT, PDFs, SMM, MIS, courses, etc.)
+     * sell via static photo only — NO preview button.
+     *
+     * Removed (too broad / not code-built):
+     *   - custom-website-templates  (covers non-code custom mockups)
+     *   - hackknow-premium          (premium tier, mixed product types)
+     */
     $allowed = [
-        'website-templates',
-        'custom-website-templates',
-        'hackknow-premium',
-        /* Sub-cats of website-templates */
+        'website-templates',     /* parent cat */
+        /* Code-built sub-cats only */
         'html-templates',
         'wordpress-templates',
         'react-templates',
@@ -30,9 +37,14 @@ function hk_v5_preview_targets( $slugs ) {
         'node-js-templates',
         'vercel-templates',
         'netlify-templates',
+        'next-js-templates',
+        'astro-templates',
+        'svelte-templates',
+        'vue-templates',
+        'tailwind-templates',
+        'bootstrap-templates',
     ];
-    /* Reject MIS cats explicitly */
-    return array_values( array_diff( $allowed, [ 'mis-dashboards-templates', 'mis-custom-dashboards' ] ) );
+    return $allowed;
 }
 
 /* ============================================================
