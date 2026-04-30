@@ -1,7 +1,7 @@
 # HackKnow.com
 
 Premium digital products marketplace, headless e-commerce, India.
-Live at **[https://www.hackknow.com](https://www.hackknow.com)**.
+Live at **[https://www.hackknow.com](https://www.hackknow.com)** (main shop) and **[https://tdm.hackknow.com](https://tdm.hackknow.com)** ("The Dead Man" AI tool, source in [`ai-tool/`](ai-tool/)).
 
 > **Looking for a repo map?** See [ARCHITECTURE.md](ARCHITECTURE.md) for the
 > full visual layout, build flow, and runtime flow.

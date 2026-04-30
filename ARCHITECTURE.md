@@ -26,7 +26,8 @@ Yahavi2022/
 │   ├── public/               splash icons, fonts, OG image, sitemap
 │   └── (built artefact deployed to GCE → www.hackknow.com)
 │
-├── ai-tool/                  ★ SECONDARY FRONTEND (hackknow-ai-tool, port 5174)
+├── ai-tool/                  ★ SECONDARY FRONTEND ("The Dead Man")
+│                              dev port 5174 → deployed to tdm.hackknow.com
 │
 ├── gce/                      ★ SERVER (deploy + nginx for www.hackknow.com)
 │   ├── nginx/                production nginx site files
@@ -186,6 +187,11 @@ locally. To preview locally, the dev server proxies API calls to
 For a fresh GCE node, follow `HANDOVER/GCE_DEPLOYMENT_STEPS.md`
 and `gce/complete-setup.sh`.
 
+**Two production sites on the same GCE box:**
+- `www.hackknow.com` → built from `app/` → served from `/var/www/hackknow/dist/`
+- `tdm.hackknow.com` → built from `ai-tool/` → served from `/var/www/hackknow-tdm/current/`
+Both share `shop.hackknow.com` as the WordPress backend.
+
 ---
 
 ## 6. Entry Points (where to start reading)
@@ -199,4 +205,5 @@ and `gce/complete-setup.sh`.
 | Add a new page | [app/src/pages/](app/src/pages/) |
 | Bulk-update product content | [hostinger/seed/README.md](hostinger/seed/README.md) |
 | Fix a deploy issue | [gce/auto-deploy.sh](gce/auto-deploy.sh) |
+| Work on "The Dead Man" (tdm.hackknow.com) | [ai-tool/](ai-tool/) + [gce/nginx/tdm.hackknow.conf](gce/nginx/tdm.hackknow.conf) |
 | See what's been retired | [_archive/README.md](_archive/README.md) |
