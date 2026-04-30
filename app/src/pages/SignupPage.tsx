@@ -39,8 +39,15 @@ const signupSteps = [
 
 const SignupPage: FC = () => {
   const navigate = useNavigate();
-  const next =
-    new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('next') || '/account';
+  // Safe redirect: only same-origin internal paths (must start with '/' but not '//')
+  const next = (() => {
+    const raw = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : ''
+    ).get('next') || '';
+    return raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/\\')
+      ? raw
+      : '/account';
+  })();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',

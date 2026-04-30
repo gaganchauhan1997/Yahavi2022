@@ -30,8 +30,15 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const next =
-    new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('next') || '/account';
+  // Safe redirect: only same-origin internal paths (must start with '/' but not '//')
+  const next = (() => {
+    const raw = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : ''
+    ).get('next') || '';
+    return raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/\\')
+      ? raw
+      : '/account';
+  })();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
