@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { X, ChevronRight, Layout, FileSpreadsheet, Presentation, Megaphone, BarChart3, Share2, Gift } from "lucide-react";
+import { X, ChevronRight, Layout, FileSpreadsheet, Presentation, Megaphone, BarChart3, Share2, Gift, Brain, GraduationCap, Map, ShieldCheck } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { categories } from "@/data/products";
 
@@ -87,6 +87,47 @@ export default function CategorySidebar() {
                 </div>
               ))}
             </nav>
+          </div>
+
+          {/* Quick Links — HackKnow Learning */}
+          <div className="px-5 py-3 border-t border-hack-black/10">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-hack-black/45 mb-2">
+              Learn & Practice
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                to="/brainxercise"
+                onClick={closeSidebar}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-hack-yellow/40 hover:bg-hack-yellow text-hack-black text-xs font-bold border border-hack-black/20"
+              >
+                <Brain className="w-4 h-4" />
+                Brainxercise
+              </Link>
+              <Link
+                to="/courses"
+                onClick={closeSidebar}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-hack-black/5 text-hack-black text-xs font-bold border border-hack-black/20"
+              >
+                <GraduationCap className="w-4 h-4" />
+                Courses
+              </Link>
+              <Link
+                to="/roadmaps"
+                onClick={closeSidebar}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-hack-black/5 text-hack-black text-xs font-bold border border-hack-black/20"
+              >
+                <Map className="w-4 h-4" />
+                Roadmaps
+              </Link>
+              <Link
+                to="/verify"
+                onClick={closeSidebar}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-hack-black/5 text-hack-black text-xs font-bold border border-hack-black/20"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                Verify
+              </Link>
+            </div>
           </div>
 
           {/* Footer */}

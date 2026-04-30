@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import DOMPurify from 'dompurify';
-import { Heart, ShoppingCart, Star, Download, Check, Shield, ArrowRight } from "lucide-react";
+import { Heart, ShoppingCart, Star, Download, Check, Shield, ArrowRight, Eye, X } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { getProductBySlug, getRelatedProducts } from "@/data/products";
 import ProductCard from "@/components/ProductCard";
@@ -8,6 +9,9 @@ import ReviewsBlock from "@/components/ReviewsBlock";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WP_REST_BASE } from "@/lib/api-base";
+
+interface HKPreview { url: string; open_in: 'newtab' | 'iframe'; }
 
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -17,6 +21,37 @@ export default function ProductPage() {
   const relatedProducts = product ? getRelatedProducts(state.products, product) : [];
   const isInWishlist = product ? state.wishlist.includes(product.id) : false;
   const productImage = product?.image?.sourceUrl?.trim();
+
+  /* Preview URL fetched from custom endpoint; null = none / not fetched yet */
+  const [preview, setPreview] = useState<HKPreview | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    if (!product?.id) { setPreview(null); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch(`${WP_REST_BASE}/product/${encodeURIComponent(String(product.id))}/preview`, {
+          headers: { Accept: 'application/json' },
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!alive) return;
+        if (data && data.preview_url) {
+          setPreview({ url: data.preview_url, open_in: data.open_in === 'iframe' ? 'iframe' : 'newtab' });
+        } else {
+          setPreview(null);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { alive = false; };
+  }, [product?.id]);
+
+  const handlePreviewClick = () => {
+    if (!preview) return;
+    if (preview.open_in === 'iframe') setPreviewOpen(true);
+    else window.open(preview.url, '_blank', 'noopener,noreferrer');
+  };
 
   if (state.loading) {
     return (
@@ -182,7 +217,7 @@ export default function ProductPage() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-3 mb-8">
+              <div className="flex gap-3 mb-3">
                 <Button
                   onClick={handleAddToCart}
                   className="flex-1 h-14 bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full font-bold text-base gap-2"
@@ -204,6 +239,20 @@ export default function ProductPage() {
                   />
                 </Button>
               </div>
+
+              {/* Live Preview button (shown only if admin set a preview URL) */}
+              {preview && (
+                <div className="mb-8">
+                  <Button
+                    onClick={handlePreviewClick}
+                    variant="outline"
+                    className="w-full h-12 rounded-full border-2 border-hack-black hover:bg-hack-yellow/30 font-bold gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Live Preview {preview.open_in === 'iframe' ? '(In-Page)' : '↗'}
+                  </Button>
+                </div>
+              )}
 
               {/* Trust Badges */}
               <div className="grid grid-cols-2 gap-3">
@@ -314,6 +363,47 @@ export default function ProductPage() {
           )}
         </div>
       </div>
+
+      {/* In-page iframe preview modal */}
+      {preview && previewOpen && preview.open_in === 'iframe' && (
+        <div
+          className="fixed inset-0 z-[60] bg-hack-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setPreviewOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-6xl h-[88vh] bg-white rounded-2xl border-[3px] border-hack-black shadow-[8px_8px_0_#000] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-2 border-b-2 border-hack-black bg-hack-yellow">
+              <p className="text-xs font-mono uppercase tracking-widest truncate">Live Preview · {preview.url}</p>
+              <div className="flex items-center gap-2">
+                <a
+                  href={preview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-mono px-2 py-1 bg-hack-black text-hack-white rounded hover:bg-hack-black/80"
+                >
+                  Open in new tab ↗
+                </a>
+                <button
+                  onClick={() => setPreviewOpen(false)}
+                  className="p-1.5 rounded-full hover:bg-hack-black/10"
+                  aria-label="Close preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <iframe
+              src={preview.url}
+              title="Product live preview"
+              className="w-full h-[calc(100%-40px)] border-0"
+              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

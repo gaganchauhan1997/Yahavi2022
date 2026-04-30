@@ -46,6 +46,8 @@ const HackedNewsPage      = lazy(() => import('./pages/HackedNewsPage'));
 const VerifyPage          = lazy(() => import('./pages/VerifyPage'));
 const TestimonialsPage    = lazy(() => import('./pages/TestimonialsPage'));
 const SSOBridgePage       = lazy(() => import('./pages/SSOBridgePage'));
+const BrainxercisePage    = lazy(() => import('./pages/BrainxercisePage'));
+const BrainxerciseDetailPage = lazy(() => import('./pages/BrainxerciseDetailPage'));
 
 function PageLoader() {
   return (
@@ -139,6 +141,8 @@ function App() {
                 <Route path="/hacked-news"          element={<HackedNewsPage />} />
                 <Route path="/news"                 element={<Navigate to="/hacked-news" replace />} />
                 <Route path="/verify"               element={<VerifyPage />} />
+                <Route path="/brainxercise"         element={<BrainxercisePage />} />
+                <Route path="/brainxercise/:slug"   element={<BrainxerciseDetailPage />} />
                 <Route path="/testimonials"         element={<TestimonialsPage />} />
                 <Route path="/reviews"              element={<Navigate to="/testimonials" replace />} />
 
