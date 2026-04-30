@@ -809,13 +809,26 @@ function hackknow_verify_payment(WP_REST_Request $req) {
         $order->update_status('completed', 'Auto-completed: digital download order.');
     }
 
-    // Explicitly trigger the customer completed order email (contains download links)
-    if ($order->get_customer_email() && function_exists('WC')) {
-        $mailer = WC()->mailer();
-        $emails = $mailer->get_emails();
-        if (!empty($emails['WC_Email_Customer_Completed_Order'])) {
-            $emails['WC_Email_Customer_Completed_Order']->trigger($order->get_id(), $order);
+    // Explicitly trigger the customer completed order email (contains download links).
+    // Wrapped in try/catch so a mailer hiccup never blocks the verify response —
+    // the order has already been marked paid + completed; email is best-effort.
+    // Use get_billing_email() (the canonical WC_Order API), not get_customer_email()
+    // which does not exist on Automattic\WooCommerce\Admin\Overrides\Order and
+    // raised a fatal in production (caused "Order Sync Pending" UX fallback).
+    try {
+        $billing_email = method_exists($order, 'get_billing_email') ? (string) $order->get_billing_email() : '';
+        if ($billing_email && function_exists('WC')) {
+            $mailer = WC()->mailer();
+            $emails = $mailer ? $mailer->get_emails() : [];
+            if (!empty($emails['WC_Email_Customer_Completed_Order'])) {
+                $emails['WC_Email_Customer_Completed_Order']->trigger($order->get_id(), $order);
+            }
         }
+    } catch (\Throwable $e) {
+        if (function_exists('error_log')) {
+            error_log('[hackknow] post-verify email trigger failed for order ' . $wc_order_id . ': ' . $e->getMessage());
+        }
+        $order->add_order_note('Post-verify email trigger error: ' . $e->getMessage());
     }
 
     return ['success' => true, 'wc_order_id' => $wc_order_id];
