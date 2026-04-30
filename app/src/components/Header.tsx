@@ -5,6 +5,7 @@ import { useStore } from "@/context/StoreContext";
 import { categories } from "@/data/products";
 import { isAuthenticated, logout } from "@/lib/auth";
 import InstallButton from "@/components/InstallButton";
+import MobileSidebar from "@/components/MobileSidebar";
 
 export default function Header() {
   const { state, dispatch, cartCount } = useStore();
@@ -83,40 +84,30 @@ export default function Header() {
             </div>
 
             {/* Center: Desktop Nav */}
-            <nav className="hidden lg:flex items-center gap-8">
-              <Link
-                to="/shop"
-                onClick={closeMobileMenu}
-                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
-              >
+            <nav className="hidden lg:flex items-center gap-6">
+              <Link to="/shop" onClick={closeMobileMenu}
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
                 Shop
               </Link>
-              <Link
-                to="/shop?filter=new"
-                onClick={closeMobileMenu}
-                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
-              >
-                New Arrivals
+              <Link to="/courses" onClick={closeMobileMenu}
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
+                Courses
               </Link>
-              <Link
-                to="/shop?filter=bestseller"
-                onClick={closeMobileMenu}
-                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
-              >
-                Best Sellers
+              <Link to="/roadmaps" onClick={closeMobileMenu}
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
+                Roadmaps
               </Link>
-              <Link
-                to="/shop/free-resources"
-                onClick={closeMobileMenu}
-                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
-              >
-                Freebies
+              <Link to="/hacked-news" onClick={closeMobileMenu}
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
+                News
               </Link>
-              <Link
-                to="/about"
-                onClick={closeMobileMenu}
-                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors"
-              >
+              <Link to="/mis-templates" onClick={closeMobileMenu}
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
+                MIS
+                <span className="px-1.5 py-0.5 bg-hack-yellow border border-hack-black rounded text-[10px] font-mono">90% OFF</span>
+              </Link>
+              <Link to="/about" onClick={closeMobileMenu}
+                className="text-sm font-bold text-hack-black hover:text-hack-magenta transition-colors">
                 About
               </Link>
             </nav>
@@ -193,90 +184,14 @@ export default function Header() {
         )}
       </header>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu — multi-level drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-white pt-16 overflow-y-auto">
-          <div className="px-6 py-8 space-y-6 pb-24">
-            <Link
-              to="/shop"
-              onClick={closeMobileMenu}
-              className="block text-2xl font-display font-bold text-hack-black"
-            >
-              Shop All
-            </Link>
-            <Link
-              to="/shop?filter=new"
-              onClick={closeMobileMenu}
-              className="block text-2xl font-display font-bold text-hack-black"
-            >
-              New Arrivals
-            </Link>
-            <Link
-              to="/shop?filter=bestseller"
-              onClick={closeMobileMenu}
-              className="block text-2xl font-display font-bold text-hack-black"
-            >
-              Best Sellers
-            </Link>
-            <div className="border-t border-hack-black/10 pt-6">
-              <p className="text-xs font-mono uppercase tracking-widest text-hack-black/50 mb-4">
-                Categories
-              </p>
-              <div className="space-y-3">
-                {categories.map((cat) => (
-                  <Link
-                    key={cat.id}
-                    to={`/shop/${cat.slug}`}
-                    onClick={closeMobileMenu}
-                    className="flex items-center justify-between text-lg text-hack-black"
-                  >
-                    <span>{cat.title}</span>
-                    <span className="text-sm text-hack-black/50 font-mono">
-                      {cat.itemCount.toLocaleString()}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <div className="border-t border-hack-black/10 pt-6 space-y-3">
-              <Link to="/about" onClick={closeMobileMenu} className="block text-lg text-hack-black">
-                About
-              </Link>
-              <Link to="/support" onClick={closeMobileMenu} className="block text-lg text-hack-black">
-                Support
-              </Link>
-            </div>
-            <div className="border-t border-hack-black/10 pt-6 space-y-3">
-              <p className="text-xs font-mono uppercase tracking-widest text-hack-black/50 mb-2">
-                Your account
-              </p>
-              {isAuthenticated() ? (
-                <>
-                  <Link to="/account" onClick={closeMobileMenu} className="block text-lg text-hack-black">
-                    My Account
-                  </Link>
-                  <Link to="/account/downloads" onClick={closeMobileMenu} className="block text-lg text-hack-black">
-                    Downloads
-                  </Link>
-                  <Link to="/account/wishlist" onClick={closeMobileMenu} className="block text-lg text-hack-black">
-                    Wishlist
-                  </Link>
-                  <button
-                    onClick={() => { logout(); closeMobileMenu(); navigate('/'); }}
-                    className="block text-lg text-left text-hack-magenta"
-                  >
-                    Sign out
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link to="/login" onClick={closeMobileMenu} className="block text-lg text-hack-black">Sign in</Link>
-                  <Link to="/signup" onClick={closeMobileMenu} className="block text-lg text-hack-black">Create account</Link>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        <MobileSidebar
+          onClose={closeMobileMenu}
+          shopCategories={categories}
+          onSignOut={() => { logout(); closeMobileMenu(); navigate('/'); }}
+          isAuthed={isAuthenticated()}
+        />
       )}
     </>
   );

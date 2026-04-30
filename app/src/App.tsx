@@ -37,6 +37,13 @@ const ForgotPasswordPage  = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage   = lazy(() => import('./pages/ResetPasswordPage'));
 const UserProfilePage     = lazy(() => import('./pages/UserProfilePage'));
 const OrderPendingPage    = lazy(() => import('./pages/OrderPendingPage'));
+const MISTemplatesPage    = lazy(() => import('./pages/MISTemplatesPage'));
+const CoursesPage         = lazy(() => import('./pages/CoursesPage'));
+const CourseDetailPage    = lazy(() => import('./pages/CourseDetailPage'));
+const RoadmapsPage        = lazy(() => import('./pages/RoadmapsPage'));
+const RoadmapDetailPage   = lazy(() => import('./pages/RoadmapDetailPage'));
+const HackedNewsPage      = lazy(() => import('./pages/HackedNewsPage'));
+const VerifyPage          = lazy(() => import('./pages/VerifyPage'));
 
 function PageLoader() {
   return (
@@ -119,6 +126,18 @@ function App() {
                 <Route path="/account/:section"    element={<AuthGuard><UserProfilePage /></AuthGuard>} />
                 <Route path="/profile"             element={<Navigate to="/account" replace />} />
                 <Route path="/my-account"          element={<Navigate to="/account" replace />} />
+
+                {/* HackKnow Content — MIS, Courses, Roadmaps, Hacked News, Verify */}
+                <Route path="/mis-templates"        element={<MISTemplatesPage />} />
+                <Route path="/courses"              element={<CoursesPage />} />
+                <Route path="/courses/cat/:catSlug" element={<CoursesPage />} />
+                <Route path="/courses/:slug"        element={<CourseDetailPage />} />
+                <Route path="/roadmaps"             element={<RoadmapsPage />} />
+                <Route path="/roadmaps/:slug"       element={<RoadmapDetailPage />} />
+                <Route path="/hacked-news"          element={<HackedNewsPage />} />
+                <Route path="/news"                 element={<Navigate to="/hacked-news" replace />} />
+                <Route path="/verify"               element={<VerifyPage />} />
+
                 <Route path="*"                    element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
