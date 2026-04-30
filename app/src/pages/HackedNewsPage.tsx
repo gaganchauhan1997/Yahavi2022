@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, ExternalLink, Loader2, Newspaper, Radio, RefreshCcw } from 'lucide-react';
 import { fetchAllNews, type HKRelease } from '@/lib/hk-content';
+import { fetchFrontendNews, FRONTEND_SOURCES } from '@/lib/hk-rss';
 
 import { useDocumentMeta } from '@/lib/useDocumentMeta';
 const TYPE_COLOR: Record<string, string> = {
@@ -20,7 +21,16 @@ const SOURCE_FILTERS = [
   { key: 'all',       label: 'All' },
   { key: 'curated',   label: 'HackKnow Picks' },
   { key: 'live',      label: 'Live RSS' },
+  { key: 'ai',        label: 'AI' },
+  { key: 'tech',      label: 'Tech' },
+  { key: 'dev',       label: 'Dev' },
+  { key: 'security',  label: 'Security' },
+  { key: 'startup',   label: 'Startup' },
+  { key: 'business',  label: 'Business' },
+  { key: 'design',    label: 'Design' },
 ];
+
+const FRONTEND_KEY_TO_CAT = new Map(FRONTEND_SOURCES.map(s => [s.key, s.category]));
 
 function fmt(d: string): string {
   if (!d) return '';
@@ -50,10 +60,28 @@ export default function HackedNewsPage() {
     (async () => {
       setLoading(true); setErr(null);
       try {
-        const r = await fetchAllNews(60);
+        // Fan out: backend curated + 50+ frontend RSS feeds in parallel.
+        const [backend, frontend] = await Promise.all([
+          fetchAllNews(60).catch(() => ({ items: [] as HKRelease[], total: 0, curated: 0, live: 0 })),
+          fetchFrontendNews({ perFeed: 3, limit: 200, timeoutMs: 9000 }).catch(() => [] as HKRelease[]),
+        ]);
+        // De-dupe by link/title
+        const seen = new Set<string>();
+        const merged: HKRelease[] = [];
+        for (const it of [...backend.items, ...frontend]) {
+          const k = (it.cta_url || it.title || '').toLowerCase().trim();
+          if (k && seen.has(k)) continue;
+          if (k) seen.add(k);
+          merged.push(it);
+        }
+        merged.sort((a, b) => (b.release_date || '').localeCompare(a.release_date || ''));
         if (alive) {
-          setItems(r.items);
-          setCounts({ curated: r.curated, live: r.live, total: r.total });
+          setItems(merged);
+          setCounts({
+            curated: backend.curated || backend.items.length,
+            live:    (backend.live || 0) + frontend.length,
+            total:   merged.length,
+          });
         }
       } catch (e) { if (alive) setErr((e as Error).message); }
       finally { if (alive) setLoading(false); }
@@ -65,8 +93,13 @@ export default function HackedNewsPage() {
     if (filter === 'all') return items;
     if (filter === 'curated') return items.filter(it => it.rss_source_key === 'curated' || !it.rss_source_key);
     if (filter === 'live')    return items.filter(it => it.rss_source_key && it.rss_source_key !== 'curated');
-    return items.filter(it => it.rss_source_key === filter);
-  }, [items, filter]);
+    // category-style filters (ai/tech/dev/...): match the rss_source_key against FRONTEND_SOURCES category
+    const want = filter;
+    return items.filter(it => {
+      const cat = it.rss_source_key ? FRONTEND_KEY_TO_CAT.get(it.rss_source_key) : undefined;
+      return cat === want;
+    });
+  }, [filter, items]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, HKRelease[]>();
