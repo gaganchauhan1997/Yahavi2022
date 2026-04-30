@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { font-family: theme('fontFamily.body'); -webkit-font-smoothing: antialiased; }
+  body {
+    background:
+      radial-gradient(ellipse at top, rgba(196, 30, 58, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom, rgba(212, 175, 55, 0.05) 0%, transparent 50%),
+      #0a0a0a;
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  ::selection { background: theme('colors.noir.blood'); color: theme('colors.noir.bone'); }
+}
+
+@layer components {
+  .noir-card {
+    @apply bg-noir-ash/80 backdrop-blur-sm border border-noir-fog/30 rounded-sm shadow-2xl;
+    background-image: linear-gradient(135deg, rgba(212,175,55,0.02) 0%, transparent 50%);
+  }
+  .noir-btn {
+    @apply px-6 py-3 font-display font-semibold tracking-wider uppercase text-sm
+      border-2 border-noir-bone bg-noir-bone text-noir-black
+      hover:bg-noir-blood hover:border-noir-blood hover:text-noir-bone
+      transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed
+      shadow-[3px_3px_0_0_rgba(196,30,58,0.6)] hover:shadow-[1px_1px_0_0_rgba(196,30,58,0.8)] hover:translate-x-[2px] hover:translate-y-[2px];
+  }
+  .noir-btn-ghost {
+    @apply px-4 py-2 font-mono text-xs uppercase tracking-widest border border-noir-fog text-noir-bone
+      hover:border-noir-gold hover:text-noir-gold transition-colors;
+  }
+  .noir-input {
+    @apply w-full bg-noir-black/60 border-b-2 border-noir-fog focus:border-noir-gold
+      px-3 py-3 text-noir-bone font-body placeholder:text-noir-fog focus:outline-none
+      transition-colors;
+  }
+  .noir-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.25em] text-noir-gold/80;
+  }
+  .noir-divider {
+    @apply h-px bg-gradient-to-r from-transparent via-noir-gold/40 to-transparent my-6;
+  }
+  .prose-noir {
+    @apply text-noir-bone/95 leading-relaxed;
+  }
+  .prose-noir h1 { @apply font-display text-4xl font-bold text-noir-bone mb-4 mt-8; }
+  .prose-noir h2 { @apply font-display text-2xl font-semibold text-noir-gold mb-3 mt-6 border-b border-noir-fog/30 pb-2; }
+  .prose-noir h3 { @apply font-display text-xl font-semibold text-noir-bone mb-2 mt-5; }
+  .prose-noir p { @apply mb-4; }
+  .prose-noir ul, .prose-noir ol { @apply mb-4 ml-6 space-y-2; }
+  .prose-noir ul { @apply list-disc; }
+  .prose-noir ol { @apply list-decimal; }
+  .prose-noir a { @apply text-noir-gold underline decoration-dotted hover:text-noir-blood; }
+  .prose-noir blockquote { @apply border-l-2 border-noir-blood pl-4 italic text-noir-bone/80 my-4; }
+  .prose-noir code { @apply bg-noir-black/60 px-1.5 py-0.5 rounded text-noir-gold font-mono text-sm; }
+  .prose-noir pre { @apply bg-noir-black/80 border border-noir-fog/30 rounded p-4 overflow-x-auto my-4 text-sm; }
+  .prose-noir pre code { @apply bg-transparent p-0; }
+  .prose-noir table { @apply w-full border-collapse my-4; }
+  .prose-noir th { @apply text-left font-display font-semibold text-noir-gold border-b-2 border-noir-fog px-3 py-2; }
+  .prose-noir td { @apply border-b border-noir-fog/30 px-3 py-2; }
+  .prose-noir hr { @apply border-noir-fog/30 my-8; }
+}

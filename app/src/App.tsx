@@ -45,6 +45,7 @@ const RoadmapDetailPage   = lazy(() => import('./pages/RoadmapDetailPage'));
 const HackedNewsPage      = lazy(() => import('./pages/HackedNewsPage'));
 const VerifyPage          = lazy(() => import('./pages/VerifyPage'));
 const TestimonialsPage    = lazy(() => import('./pages/TestimonialsPage'));
+const SSOBridgePage       = lazy(() => import('./pages/SSOBridgePage'));
 
 function PageLoader() {
   return (
@@ -140,6 +141,9 @@ function App() {
                 <Route path="/verify"               element={<VerifyPage />} />
                 <Route path="/testimonials"         element={<TestimonialsPage />} />
                 <Route path="/reviews"              element={<Navigate to="/testimonials" replace />} />
+
+                {/* First-party SSO bridge for ai.hackknow.com etc. */}
+                <Route path="/auth/sso-bridge"      element={<SSOBridgePage />} />
 
                 <Route path="*"                    element={<Navigate to="/" replace />} />
               </Routes>
