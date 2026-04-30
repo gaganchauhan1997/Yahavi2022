@@ -14,13 +14,12 @@
  *                tagline typewrites in blood red
  *  13.4 - 14.0s  Overlay fades to black, hands control to chat
  *
- * Background score: CosmosTheme — original Web Audio synthesis, no samples.
- *   C → Em → Am → Fmaj7 progression with pad, bell arp, drone, pulsar pings.
+ * Background score: SILENT — audio disabled per user request.
+ *   (CosmosTheme synthesis class kept in src/lib/cosmosTheme.ts for future toggle.)
  */
 import { useEffect, useRef } from 'react';
 import earthImg from '../assets/cinema/earth.webp';
 import moonImg from '../assets/cinema/moon.webp';
-import { CosmosTheme } from '../lib/cosmosTheme';
 
 const DURATION_MS = 14000;
 const HERO_IMG = `${import.meta.env.BASE_URL || '/'}dead-man-hero.png`;
@@ -32,19 +31,14 @@ interface Props {
 export default function LaunchAnimation({ onDone }: Props) {
   const doneRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const themeRef = useRef<CosmosTheme | null>(null);
 
   useEffect(() => {
-    themeRef.current = new CosmosTheme();
-    themeRef.current.start(DURATION_MS / 1000);
-
     const cleanupCanvas = canvasRef.current ? startHyperspace(canvasRef.current) : undefined;
 
     const t = setTimeout(() => finish(), DURATION_MS);
     return () => {
       clearTimeout(t);
       cleanupCanvas?.();
-      themeRef.current?.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -52,7 +46,6 @@ export default function LaunchAnimation({ onDone }: Props) {
   const finish = () => {
     if (doneRef.current) return;
     doneRef.current = true;
-    themeRef.current?.stop();
     onDone();
   };
 
