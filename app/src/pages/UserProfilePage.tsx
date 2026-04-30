@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   User, Package, Heart, Download, CreditCard, MapPin,
@@ -493,7 +494,8 @@ export default function UserProfilePage() {
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
           </div>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-1">{userData.name}</h2>
+            <h2 className="text-2xl lg:text-3xl font-display font-bold text-hack-black mb-1">{userData.name}</h2>
+            <VerifiedBadge variant="profile" />
             <p className="text-gray-500 text-sm">{userData.email}</p>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {userData.isVerified && (

@@ -8,6 +8,7 @@ import InstallButton from "@/components/InstallButton";
 import MobileSidebar from "@/components/MobileSidebar";
 import TdmSigil from "@/components/TdmSigil";
 import WalletBadge from "@/components/WalletBadge";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 const TDM_URL = "https://tdm.hackknow.com/";
 
@@ -149,6 +150,7 @@ export default function Header() {
                   </span>
                 )}
               </Link>
+              <VerifiedBadge variant="header" />
               <WalletBadge />
               <Link
                 to="/account"
