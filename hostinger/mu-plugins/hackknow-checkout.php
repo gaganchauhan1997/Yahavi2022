@@ -868,7 +868,39 @@ function hackknow_verify_payment(WP_REST_Request $req) {
         $order->add_order_note('Post-verify email trigger error: ' . $e->getMessage());
     }
 
-    return ['success' => true, 'wc_order_id' => $wc_order_id];
+    // ── Inline download links (LAYER 3 of permanent payment fix) ──
+    // Always return signed download URLs in the /verify response so the
+    // frontend success page can show a "Download" button immediately —
+    // making us fully independent of email deliverability.
+    $downloads = [];
+    try {
+        if (function_exists('wc_downloadable_product_permissions')) {
+            // Make sure WC has granted the permission rows for this order.
+            wc_downloadable_product_permissions($order->get_id(), true);
+        }
+        if (method_exists($order, 'get_downloadable_items')) {
+            foreach ($order->get_downloadable_items() as $it) {
+                $downloads[] = [
+                    'product_id'    => isset($it['product_id']) ? (int) $it['product_id'] : 0,
+                    'product_name'  => isset($it['product_name']) ? (string) $it['product_name'] : '',
+                    'download_name' => isset($it['download_name']) ? (string) $it['download_name'] : 'Download',
+                    'download_url'  => isset($it['download_url']) ? (string) $it['download_url'] : '',
+                ];
+            }
+        }
+    } catch (\Throwable $e) {
+        if (function_exists('error_log')) {
+            error_log('[hackknow] verify: download URL build failed for order ' . $wc_order_id . ': ' . $e->getMessage());
+        }
+    }
+
+    return [
+        'success'      => true,
+        'wc_order_id'  => $wc_order_id,
+        'order_number' => method_exists($order, 'get_order_number') ? (string) $order->get_order_number() : (string) $wc_order_id,
+        'email'        => method_exists($order, 'get_billing_email') ? (string) $order->get_billing_email() : '',
+        'downloads'    => $downloads,
+    ];
 }
 
 // (Removed: one-time `/admin/create-demo-product` dev shim. The original
