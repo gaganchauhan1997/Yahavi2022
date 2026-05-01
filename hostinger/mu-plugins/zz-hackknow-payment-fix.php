@@ -352,11 +352,25 @@ function hk2_razorpay_webhook(WP_REST_Request $req) {
     $lock_token = $rzp_pay_id . '|' . time();
     $got_lock = (bool) add_post_meta($order->get_id(), $lock_key, $lock_token, true);
     if (!$got_lock) {
-        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
-            'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
-            'wc_order_id' => $order->get_id(), 'sig_ok' => 1, 'action' => 'duplicate_skipped', 'body_hash' => $body_hash,
-        ]));
-        return ['ok' => true, 'duplicate' => true, 'wc_order' => $order->get_id()];
+        // Self-heal: if existing lock is older than 10 min AND order is not yet
+        // completed, the previous attempt died mid-flight (e.g. fatal in payment_complete).
+        // Steal the lock so retries can succeed.
+        $existing = (string) get_post_meta($order->get_id(), $lock_key, true);
+        $parts = explode('|', $existing);
+        $existing_ts = isset($parts[1]) ? (int) $parts[1] : 0;
+        $age = $existing_ts > 0 ? (time() - $existing_ts) : 0;
+        $can_steal = ($age > 600) && !in_array($order->get_status(), ['completed', 'refunded', 'cancelled'], true);
+        if ($can_steal) {
+            update_post_meta($order->get_id(), $lock_key, $lock_token);
+            $got_lock = true;
+        }
+        if (!$got_lock) {
+            if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
+                'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
+                'wc_order_id' => $order->get_id(), 'sig_ok' => 1, 'action' => 'duplicate_skipped', 'body_hash' => $body_hash,
+            ]));
+            return ['ok' => true, 'duplicate' => true, 'wc_order' => $order->get_id()];
+        }
     }
 
     // Idempotency v2: if already completed AND already saw THIS payment id,
@@ -1032,13 +1046,29 @@ function hk2_audit_log($row) {
 // in seconds. Includes IP throttle to prevent brute-force.
 function hk2_admin_auth_or_bearer(WP_REST_Request $req) {
     if (current_user_can('manage_woocommerce')) return true;
-    // Bearer token path
+    // Bearer token path. We support TWO secrets so the admin token is
+    // independent of the Razorpay webhook_secret (which is shared with a
+    // third party). On first install, if no dedicated admin token is set
+    // we auto-generate a 64-char one and store it in wp_options. The owner
+    // can rotate via WP CLI: wp option update hk2_admin_token <newval>
     $auth = (string) $req->get_header('authorization');
     if (stripos($auth, 'Bearer ') !== 0) return false;
     $token = trim(substr($auth, 7));
-    $rz    = get_option('woocommerce_razorpay_settings');
-    $expected = (string) ($rz['webhook_secret'] ?? '');
-    if ($expected === '' || !hash_equals($expected, $token)) return false;
+
+    $admin_token = (string) get_option('hk2_admin_token', '');
+    if ($admin_token === '') {
+        $admin_token = wp_generate_password(64, false, false);
+        update_option('hk2_admin_token', $admin_token, false);
+    }
+
+    $rz = get_option('woocommerce_razorpay_settings');
+    $legacy = (string) ($rz['webhook_secret'] ?? ''); // accepted during transition
+
+    $ok = false;
+    if (hash_equals($admin_token, $token)) $ok = true;
+    elseif ($legacy !== '' && hash_equals($legacy, $token)) $ok = true;
+    if (!$ok) return false;
+
     // Per-IP throttle: max 10 admin-bearer hits per minute
     $ip  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     $key = 'hk2_adm_thr_' . md5($ip);
@@ -1047,6 +1077,27 @@ function hk2_admin_auth_or_bearer(WP_REST_Request $req) {
     set_transient($key, $n + 1, 60);
     return true;
 }
+
+// Read-only endpoint so the owner can fetch the auto-generated admin token
+// after authenticating ONCE with manage_woocommerce caps (i.e. via wp-admin
+// session cookie). The legacy webhook_secret bearer is also accepted during
+// transition. Returns the new dedicated token so it can be saved & rotated
+// without sharing the Razorpay webhook secret.
+add_action('rest_api_init', function () {
+    register_rest_route('hackknow/v1', '/admin/token', [
+        'methods'  => 'GET',
+        'permission_callback' => 'hk2_admin_auth_or_bearer',
+        'callback' => function () {
+            $tok = (string) get_option('hk2_admin_token', '');
+            if ($tok === '') {
+                $tok = wp_generate_password(64, false, false);
+                update_option('hk2_admin_token', $tok, false);
+            }
+            return ['ok' => true, 'admin_token' => $tok,
+                    'note' => 'Use this in Authorization: Bearer <token>. Rotate via: wp option update hk2_admin_token <newval>'];
+        },
+    ]);
+}, 36);
 
 add_action('rest_api_init', function () {
     register_rest_route('hackknow/v1', '/admin/reconcile-payments', [
@@ -1390,17 +1441,24 @@ function hk2_run_auto_reconcile() {
             return;
         }
 
-        $reconciled = 0; $skipped = 0; $errors = 0;
+        $reconciled = 0; $skipped = 0; $errors = 0; $mismatched = 0;
+        // Only these statuses are eligible for cron auto-completion. We intentionally
+        // exclude refunded/cancelled/processing/completed to avoid undoing manual ops.
+        $eligible = ['pending', 'on-hold', 'failed'];
+
         foreach ($body['items'] as $p) {
             if (($p['status'] ?? '') !== 'captured') { $skipped++; continue; }
             $rpid = (string)($p['id'] ?? '');
             $oid  = (string)($p['order_id'] ?? '');
-            $email = (string)($p['email'] ?? '');
             $amt  = (int)($p['amount'] ?? 0);
-
-            // Match strategies (in order): _transaction_id → _razorpay_order_id
-            // → notes.wc_order_id → email+amount in last 24h.
-            $wc_id = hk2_find_wc_order_by_razorpay_ids($rpid, $oid, $email, $amt);
+            // SECURITY: do NOT use email+amount fallback in cron — too risky
+            // (multiple orders for same amount). Only trust hard IDs:
+            //   1) _razorpay_order_id meta  2) notes.wc_order_id from Checkout
+            $wc_id = 0;
+            if ($oid) {
+                $matches = wc_get_orders(['limit' => 1, 'meta_key' => '_razorpay_order_id', 'meta_value' => $oid]);
+                if (!empty($matches)) { $wc_id = $matches[0]->get_id(); }
+            }
             if (!$wc_id && !empty($p['notes']['wc_order_id'])) {
                 $wc_id = (int) $p['notes']['wc_order_id'];
             }
@@ -1408,12 +1466,39 @@ function hk2_run_auto_reconcile() {
 
             $order = wc_get_order($wc_id);
             if (!$order) { $errors++; continue; }
-            if ($order->is_paid()) { $skipped++; continue; }
+            if (!in_array($order->get_status(), $eligible, true)) { $skipped++; continue; }
 
-            // Idempotency lock per-order so a webhook firing simultaneously
-            // can't double-process.
-            $olock = 'hk2_recon_o_' . $wc_id;
-            if (!set_transient($olock, 1, 60)) { $skipped++; continue; }
+            // Amount sanity check: Razorpay amount is in paise; WC total is in INR.
+            $expected_paise = (int) round(((float) $order->get_total()) * 100);
+            if ($expected_paise > 0 && abs($amt - $expected_paise) > 1) {
+                $mismatched++;
+                $order->add_order_note(sprintf(
+                    'Auto-reconcile SKIPPED: amount mismatch. Razorpay captured ₹%s but WC order total is ₹%s. Manual review needed.',
+                    number_format($amt / 100, 2), number_format($expected_paise / 100, 2)
+                ));
+                hk2_audit_log([
+                    'event' => 'cron.reconcile.amount_mismatch',
+                    'razorpay_payment_id' => $rpid, 'razorpay_order_id' => $oid,
+                    'wc_order_id' => $wc_id, 'sig_ok' => 0, 'action' => 'mismatch_skipped',
+                ]);
+                continue;
+            }
+
+            // Atomic per-order lock — add_post_meta with $unique=true is INSERT IGNORE
+            // at SQL level, so two cron workers (or webhook + cron) cannot double-process.
+            $olock_key = '_hk2_recon_lock';
+            $lock_token = $rpid . '|' . time();
+            if (!add_post_meta($wc_id, $olock_key, $lock_token, true)) {
+                // Lock exists — check age, self-heal if older than 10 min.
+                $existing = (string) get_post_meta($wc_id, $olock_key, true);
+                $parts = explode('|', $existing);
+                $existing_ts = isset($parts[1]) ? (int) $parts[1] : 0;
+                if ($existing_ts > 0 && (time() - $existing_ts) > 600) {
+                    update_post_meta($wc_id, $olock_key, $lock_token);
+                } else {
+                    $skipped++; continue;
+                }
+            }
 
             try {
                 update_post_meta($wc_id, '_razorpay_payment_id', $rpid);
@@ -1442,7 +1527,8 @@ function hk2_run_auto_reconcile() {
         set_transient('hk2_recon_last', [
             'ok' => true, 'ts' => time(),
             'fetched' => count($body['items']),
-            'reconciled' => $reconciled, 'skipped' => $skipped, 'errors' => $errors,
+            'reconciled' => $reconciled, 'skipped' => $skipped,
+            'errors' => $errors, 'mismatched' => $mismatched,
         ], HOUR_IN_SECONDS);
     } finally {
         delete_transient($lock);
