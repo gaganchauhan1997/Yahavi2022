@@ -22,7 +22,7 @@ let cache: AvailabilityMap | null = null;
 let inflight: Promise<AvailabilityMap> | null = null;
 const subscribers = new Set<(m: AvailabilityMap) => void>();
 
-async function loadAvailability(): Promise<AvailabilityMap> {
+export async function loadAvailability(): Promise<AvailabilityMap> {
   if (cache) return cache;
   if (inflight) return inflight;
   inflight = (async () => {
