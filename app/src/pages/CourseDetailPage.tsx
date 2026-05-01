@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Check, CheckSquare, Clock, GraduationCap, Loader2, Wrench } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, CheckSquare, Clock, ExternalLink, GraduationCap, Loader2, Wrench } from 'lucide-react';
 import { fetchCourse, type HKCourse } from '@/lib/hk-content';
+import { getCourseEnrichment } from '@/data/courseContent';
 
 import { useDocumentMeta } from '@/lib/useDocumentMeta';
 export default function CourseDetailPage() {
@@ -27,6 +28,25 @@ export default function CourseDetailPage() {
     })();
     return () => { alive = false; };
   }, [slug]);
+
+  // Merge static enrichment (real lessons, body, resource link) over the API
+  // chapter list. Owner-uploaded chapter data always wins; enrichment fills
+  // the gaps for chapters that came back as title-only.
+  const mergedChapters = useMemo(() => {
+    if (!course) return [];
+    const enrichment = getCourseEnrichment(course.slug);
+    return course.chapters.map((ch, i) => {
+      const e = enrichment?.chapters[i];
+      return {
+        title: ch.title,
+        duration: ch.duration || e?.duration,
+        lessons: (ch.lessons && ch.lessons.length > 0) ? ch.lessons : (e?.lessons ?? []),
+        body: e?.body,
+        resourceUrl: e?.resourceUrl,
+        resourceLabel: e?.resourceLabel,
+      };
+    });
+  }, [course]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#fffbea]"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   if (err || !course) return (
@@ -62,18 +82,36 @@ export default function CourseDetailPage() {
           {/* Chapters */}
           <div className="lg:col-span-2 bg-white border-[3px] border-hack-black rounded-2xl p-6 shadow-[6px_6px_0_#000]">
             <h2 className="font-display font-bold text-2xl mb-4 flex items-center gap-2"><BookOpen className="w-5 h-5" /> Chapters</h2>
-            {course.chapters?.length ? (
-              <ol className="space-y-3 list-none">
-                {course.chapters.map((ch, i) => (
+            {mergedChapters.length ? (
+              <ol className="space-y-5 list-none">
+                {mergedChapters.map((ch, i) => (
                   <li key={i} className="border-l-[3px] border-hack-yellow pl-4 py-2">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="font-display font-bold text-lg">{i + 1}. {ch.title}</span>
-                      {ch.duration && <span className="text-xs font-mono text-hack-black/55">{ch.duration}</span>}
+                      {ch.duration && <span className="text-xs font-mono text-hack-black/55 shrink-0">{ch.duration}</span>}
                     </div>
+                    {ch.body && (
+                      <p className="mt-2 text-sm text-hack-black/75 leading-relaxed">{ch.body}</p>
+                    )}
                     {ch.lessons && ch.lessons.length > 0 && (
-                      <ul className="mt-2 space-y-1 text-sm text-hack-black/70">
-                        {ch.lessons.map((l, j) => <li key={j} className="flex gap-2"><Check className="w-3.5 h-3.5 text-hack-yellow mt-1 shrink-0" /> {l}</li>)}
+                      <ul className="mt-3 space-y-1.5 text-sm text-hack-black/80">
+                        {ch.lessons.map((l, j) => (
+                          <li key={j} className="flex gap-2">
+                            <Check className="w-3.5 h-3.5 text-hack-yellow mt-1 shrink-0" /> {l}
+                          </li>
+                        ))}
                       </ul>
+                    )}
+                    {ch.resourceUrl && (
+                      <a
+                        href={ch.resourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-hack-black bg-hack-yellow border-[2px] border-hack-black px-3 py-1.5 rounded-full hover:bg-hack-orange transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        {ch.resourceLabel ?? 'Open reference'}
+                      </a>
                     )}
                   </li>
                 ))}
