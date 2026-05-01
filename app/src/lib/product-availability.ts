@@ -55,3 +55,37 @@ export function useProductAvailability(productId: string | number | undefined): 
   if (!productId || !cache) return null;
   return cache[String(productId)] ?? null;
 }
+
+/**
+ * Whole-map hook used by storefront listing pages (ShopPage, HomePage) so they
+ * can completely HIDE products whose has_file === false instead of merely
+ * showing a red dot. Returns null until the first fetch lands; treat null as
+ * "still loading — do not filter yet".
+ */
+export function useAvailabilityMap(): AvailabilityMap | null {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const fn = () => setTick((t) => t + 1);
+    subscribers.add(fn);
+    if (!cache) void loadAvailability();
+    return () => { subscribers.delete(fn); };
+  }, []);
+  void tick;
+  return cache;
+}
+
+/**
+ * Predicate used by listing-page filters. While availability is still loading
+ * we OPTIMISTICALLY return true so cards aren't blanked out on first paint;
+ * the moment the map loads, NO-FILE products get filtered out on next render.
+ */
+export function isProductDeliverable(
+  productId: string | number | undefined,
+  map: AvailabilityMap | null,
+): boolean {
+  if (!productId) return true;
+  if (!map) return true;
+  const entry = map[String(productId)];
+  if (!entry) return true;
+  return entry.has_file === true;
+}
