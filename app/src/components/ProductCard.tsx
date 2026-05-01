@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Heart, ShoppingCart, Star, ArrowUpRight } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import type { Product } from "@/data/products";
+import { useProductAvailability } from "@/lib/product-availability";
 
 interface ProductCardProps {
   product: Product;
@@ -12,6 +13,7 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
   const { dispatch, toggleWishlist, state } = useStore();
   const isInWishlist = state.wishlist.includes(product.id);
   const productImage = product.image?.sourceUrl?.trim();
+  const availability = useProductAvailability(product.id);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -77,6 +79,29 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
             strokeWidth={2.5}
           />
         </button>
+
+        {/* Availability dot — green = file uploaded & ready to deliver,
+            red = no file attached (would orphan the order). Sits at the
+            bottom-left of the image so it does not collide with badges or
+            the wishlist heart. */}
+        {availability && (
+          <span
+            title={
+              availability.has_file
+                ? `Ready to deliver (${availability.file_count} file${availability.file_count !== 1 ? "s" : ""} attached)`
+                : "No downloadable file attached — customers will not receive anything on purchase"
+            }
+            aria-label={availability.has_file ? "Product ready" : "Product missing file"}
+            className={`absolute bottom-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A] text-[10px] font-black tracking-wide uppercase ${
+              availability.has_file ? "text-emerald-700" : "text-red-600"
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${availability.has_file ? "bg-emerald-500" : "bg-red-500"} ${availability.has_file ? "" : "animate-pulse"}`}
+            />
+            {availability.has_file ? "Ready" : "No file"}
+          </span>
+        )}
 
         {/* Quick Add Button — neo-brutal yellow chip */}
         {!product.isFree && (
