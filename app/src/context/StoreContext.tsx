@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useReducer } from
 import type { Product } from "@/data/products";
 import { fallbackProducts } from "@/data/products";
 import { fetchAllProducts } from "@/lib/graphql-client";
+import { loadAvailability } from "@/lib/product-availability";
 import { initializeRazorpayPayment } from "@/lib/razorpay";
 import { parsePriceValue, rewriteWpUrl } from "@/lib/utils";
 import type { RazorpayResponse } from "@/types/razorpay";
@@ -210,7 +211,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const loadProducts = async () => {
       try {
-        const data = await fetchAllProducts();
+        // OWNER RULE: never let NO-FILE products enter state. Fire the
+        // availability fetch in parallel with the GraphQL fetch so they
+        // arrive together; then pre-filter at the source. This eliminates
+        // the brief flash where red-dot products would appear on first paint.
+        const [data, availability] = await Promise.all([
+          fetchAllProducts(),
+          loadAvailability().catch(() => ({} as Record<string, { has_file: boolean; file_count: number }>)),
+        ]);
         if (cancelled) return;
         if (data?.nodes?.length > 0) {
           const mappedProducts: Product[] = (data.nodes as ProductNode[]).map((node: ProductNode) => {
@@ -240,7 +248,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             };
           });
 
-          dispatch({ type: "SET_PRODUCTS", payload: mappedProducts });
+          // Filter out products whose backend availability check says no file
+          // is attached. Products not present in the map are kept (defensive).
+          const deliverable = mappedProducts.filter((p) => {
+            const e = availability[String(p.id)];
+            if (!e) return true;
+            return e.has_file === true;
+          });
+          dispatch({ type: "SET_PRODUCTS", payload: deliverable });
         } else {
           throw new Error("No products returned from API");
         }
