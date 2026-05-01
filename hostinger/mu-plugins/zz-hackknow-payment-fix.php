@@ -122,9 +122,11 @@ function hk2_orders_for_email($email) {
 /* ─────────────────────── Email-on-complete delivery ─────────────────────── */
 
 /**
- * Send our own HTML email with direct download URLs whenever an order
- * reaches completed. Works for guest orders (no WP account needed).
- * Idempotent: skipped if already sent for this order.
+ * Send our own HTML email with the customer's SIGNED download URLs whenever
+ * an order reaches completed. We rely on WooCommerce's own permission
+ * system (which generates auth-keyed URLs that bypass the
+ * woocommerce_uploads/.htaccess 403). Works for guest orders (no WP
+ * account needed). Idempotent: skipped if already sent for this order.
  */
 add_action('woocommerce_order_status_completed', function ($order_id) {
     $order = wc_get_order($order_id);
@@ -134,27 +136,44 @@ add_action('woocommerce_order_status_completed', function ($order_id) {
     $email = (string) $order->get_billing_email();
     if (!$email) return;
 
+    // Make sure WC has actually granted download permissions for this order
+    // before we read them (it usually has, but be defensive on webhook path).
+    if (function_exists('wc_downloadable_product_permissions')) {
+        wc_downloadable_product_permissions($order_id, true);
+    }
+
     $first = (string) $order->get_billing_first_name();
     $hello = $first ? "Hi $first," : "Hi,";
 
     $rows = [];
     $any  = false;
-    foreach ($order->get_items() as $item) {
-        $pid   = (int) $item->get_product_id();
-        $name  = $item->get_name();
-        $files = hk2_product_files($pid);
-        if (empty($files)) {
-            $rows[] = '<li style="margin:8px 0"><strong>' . esc_html($name) . '</strong> — file not yet uploaded; we will email you shortly.</li>';
-            continue;
-        }
-        $any = true;
-        foreach ($files as $f) {
+
+    // Prefer WC's get_downloadable_items() — these come with proper signed
+    // download_url values. Fall back to raw file URL only if WC didn't grant
+    // a permission row (rare).
+    $items = method_exists($order, 'get_downloadable_items') ? $order->get_downloadable_items() : [];
+    if ($items) {
+        foreach ($items as $it) {
+            $any = true;
+            $name = isset($it['product_name']) ? $it['product_name'] : (isset($it['download_name']) ? $it['download_name'] : 'Your file');
+            $url  = isset($it['download_url']) ? $it['download_url'] : '';
+            if (!$url) continue;
             $rows[] = sprintf(
                 '<li style="margin:8px 0"><strong>%s</strong><br><a href="%s" style="color:#0a58ca">Download %s</a></li>',
                 esc_html($name),
-                esc_url($f['file']),
-                esc_html($f['name'] ?: 'file')
+                esc_url($url),
+                esc_html(isset($it['download_name']) ? $it['download_name'] : 'file')
             );
+        }
+    }
+    // Fallback: items without granted permissions (e.g. file missing in catalog)
+    if (!$rows) {
+        foreach ($order->get_items() as $item) {
+            $name  = $item->get_name();
+            $files = hk2_product_files((int) $item->get_product_id());
+            if (empty($files)) {
+                $rows[] = '<li style="margin:8px 0"><strong>' . esc_html($name) . '</strong> — file not yet uploaded; we will email you shortly.</li>';
+            }
         }
     }
 
@@ -349,26 +368,30 @@ function hk2_my_downloads_payload_for_email($email) {
     $downloads = [];
     $seen      = [];
     foreach ($orders as $order) {
-        foreach ($order->get_items() as $item) {
-            $pid = (int) $item->get_product_id();
-            if (!$pid) continue;
-            foreach (hk2_product_files($pid) as $f) {
-                $key = $pid . ':' . $f['download_id'] . ':' . $order->get_id();
-                if (isset($seen[$key])) continue;
-                $seen[$key] = true;
-                $downloads[] = [
-                    'download_id'         => $f['download_id'],
-                    'product_id'          => $pid,
-                    'product_name'        => $item->get_name(),
-                    'file'                => ['name' => $f['name'], 'file' => $f['file']],
-                    'download_url'        => $f['file'],   // direct, no expiry
-                    'order_id'            => $order->get_id(),
-                    'order_date'          => $order->get_date_created() ? $order->get_date_created()->format('c') : '',
-                    'access_expires'      => null,
-                    'downloads_remaining' => '',
-                    'download_count'      => 0,
-                ];
-            }
+        // Make sure permission rows exist so signed URLs work
+        if (function_exists('wc_downloadable_product_permissions')) {
+            wc_downloadable_product_permissions($order->get_id(), true);
+        }
+        $items = method_exists($order, 'get_downloadable_items') ? $order->get_downloadable_items() : [];
+        foreach ($items as $it) {
+            $pid  = (int) ($it['product_id'] ?? 0);
+            $did  = (string) ($it['download_id'] ?? '');
+            if (!$pid || !$did) continue;
+            $key  = $pid . ':' . $did . ':' . $order->get_id();
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $downloads[] = [
+                'download_id'         => $did,
+                'product_id'          => $pid,
+                'product_name'        => (string) ($it['product_name'] ?? ''),
+                'file'                => ['name' => (string) ($it['download_name'] ?? ''), 'file' => (string) ($it['file']['file'] ?? '')],
+                'download_url'        => (string) ($it['download_url'] ?? ''),  // SIGNED URL
+                'order_id'            => $order->get_id(),
+                'order_date'          => $order->get_date_created() ? $order->get_date_created()->format('c') : '',
+                'access_expires'      => null,
+                'downloads_remaining' => '',
+                'download_count'      => 0,
+            ];
         }
     }
     return $downloads;
