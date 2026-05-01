@@ -3,6 +3,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import { useStore } from "@/context/StoreContext";
 import { useMemo, useState } from "react";
+import { useAvailabilityMap, isProductDeliverable } from "@/lib/product-availability";
 
 type FilterType = "all" | "bestseller" | "new" | "free";
 
@@ -10,20 +11,27 @@ export default function TrendingSection() {
   const { state } = useStore();
   const allProducts = state.products;
   const loading = state.loading;
+  const availabilityMap = useAvailabilityMap();
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+
+  // OWNER RULE: only deliverable (green-dot) products on the homepage.
+  const deliverableProducts = useMemo(
+    () => allProducts.filter((p) => isProductDeliverable(p.id, availabilityMap)),
+    [allProducts, availabilityMap],
+  );
 
   const filteredProducts = useMemo(() => {
     switch (activeFilter) {
       case "bestseller":
-        return allProducts.filter((p) => p.isBestseller);
+        return deliverableProducts.filter((p) => p.isBestseller);
       case "new":
-        return allProducts.filter((p) => p.isNew);
+        return deliverableProducts.filter((p) => p.isNew);
       case "free":
-        return allProducts.filter((p) => p.isFree);
+        return deliverableProducts.filter((p) => p.isFree);
       default:
-        return allProducts;
+        return deliverableProducts;
     }
-  }, [activeFilter, allProducts]);
+  }, [activeFilter, deliverableProducts]);
 
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: "All Products" },
