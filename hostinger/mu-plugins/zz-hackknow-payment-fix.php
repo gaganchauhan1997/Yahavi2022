@@ -1061,12 +1061,19 @@ function hk2_admin_auth_or_bearer(WP_REST_Request $req) {
         update_option('hk2_admin_token', $admin_token, false);
     }
 
-    $rz = get_option('woocommerce_razorpay_settings');
-    $legacy = (string) ($rz['webhook_secret'] ?? ''); // accepted during transition
+    // Legacy bearer fallback — accept the same Razorpay webhook secret that
+    // hk2_get_webhook_secret() returns (option key `hk_rzp_webhook_secret`).
+    // That is the secret the owner already configured for webhook signature
+    // verification, so it is a known-good shared secret. We also accept the
+    // older woocommerce_razorpay_settings.webhook_secret in case it is set.
+    $legacy_a = function_exists('hk2_get_webhook_secret') ? (string) hk2_get_webhook_secret() : '';
+    $rz       = get_option('woocommerce_razorpay_settings');
+    $legacy_b = (string) ($rz['webhook_secret'] ?? '');
 
     $ok = false;
     if (hash_equals($admin_token, $token)) $ok = true;
-    elseif ($legacy !== '' && hash_equals($legacy, $token)) $ok = true;
+    elseif ($legacy_a !== '' && hash_equals($legacy_a, $token)) $ok = true;
+    elseif ($legacy_b !== '' && hash_equals($legacy_b, $token)) $ok = true;
     if (!$ok) return false;
 
     // Per-IP throttle: max 10 admin-bearer hits per minute
