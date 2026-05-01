@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import DOMPurify from 'dompurify';
 import { Heart, ShoppingCart, Star, Download, Check, Shield, ArrowRight, Eye, X } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
+import { useProductAvailability } from "@/lib/product-availability";
 import { getProductBySlug, getRelatedProducts, type Product } from "@/data/products";
 import { fetchGraphQL, GET_PRODUCT_BY_SLUG_QUERY } from "@/lib/graphql-client";
 import { rewriteWpUrl, parsePriceValue } from "@/lib/utils";
@@ -201,6 +202,7 @@ export default function ProductPage() {
 
             {/* Info */}
             <div className="flex flex-col">
+              <ProductAvailabilityPill productId={product.id} />
               <h1 className="font-display font-bold text-2xl lg:text-4xl tracking-tight mb-3">
                 {product.name}
               </h1>
@@ -462,6 +464,27 @@ export default function ProductPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ProductAvailabilityPill({ productId }: { productId: string }) {
+  const a = useProductAvailability(productId);
+  if (!a) return null;
+  const ok = a.has_file;
+  return (
+    <div
+      title={
+        ok
+          ? `Ready to deliver — ${a.file_count} file${a.file_count !== 1 ? "s" : ""} attached, customer will receive it instantly on payment.`
+          : "No downloadable file attached. Customers who pay for this product will NOT receive anything until you upload the file in WP Admin → Products."
+      }
+      className={`inline-flex items-center gap-2 self-start px-3 py-1.5 mb-3 rounded-full bg-white border-[2px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A] text-[11px] font-black tracking-wide uppercase ${
+        ok ? "text-emerald-700" : "text-red-600"
+      }`}
+    >
+      <span className={`w-2.5 h-2.5 rounded-full ${ok ? "bg-emerald-500" : "bg-red-500 animate-pulse"}`} />
+      {ok ? `Ready · ${a.file_count} file${a.file_count !== 1 ? "s" : ""}` : "Missing file — fix in WP Admin"}
     </div>
   );
 }
