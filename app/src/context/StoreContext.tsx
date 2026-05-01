@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 import type { Product } from "@/data/products";
 import { fallbackProducts } from "@/data/products";
-import { fetchGraphQL, GET_PRODUCTS_QUERY } from "@/lib/graphql-client";
+import { fetchAllProducts } from "@/lib/graphql-client";
 import { initializeRazorpayPayment } from "@/lib/razorpay";
 import { parsePriceValue, rewriteWpUrl } from "@/lib/utils";
 import type { RazorpayResponse } from "@/types/razorpay";
@@ -210,10 +210,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const loadProducts = async () => {
       try {
-        const data = await fetchGraphQL(GET_PRODUCTS_QUERY);
+        const data = await fetchAllProducts();
         if (cancelled) return;
-        if (data?.products?.nodes?.length > 0) {
-          const mappedProducts: Product[] = data.products.nodes.map((node: ProductNode) => {
+        if (data?.nodes?.length > 0) {
+          const mappedProducts: Product[] = (data.nodes as ProductNode[]).map((node: ProductNode) => {
             const categories = extractCategorySlugs(node.productCategories?.nodes);
             const price = node.price;
 

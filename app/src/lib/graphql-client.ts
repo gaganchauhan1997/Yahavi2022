@@ -31,8 +31,9 @@ export async function fetchGraphQL(
 }
 
 export const GET_PRODUCTS_QUERY = `
-  query GetProducts {
-    products(first: 100) {
+  query GetProducts($after: String) {
+    products(first: 100, after: $after) {
+      pageInfo { endCursor hasNextPage }
       nodes {
         id
         databaseId
@@ -62,3 +63,22 @@ export const GET_PRODUCTS_QUERY = `
     }
   }
 `;
+
+/**
+ * Fetch every product across pages (WPGraphQL caps `first` at 100, so we paginate).
+ * Hard cap of 10 pages = 1000 products to avoid runaways.
+ */
+export async function fetchAllProducts(): Promise<{ nodes: unknown[] }> {
+  const all: unknown[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 10; page++) {
+    const data = await fetchGraphQL(GET_PRODUCTS_QUERY, { after: cursor });
+    const products = data?.products;
+    if (!products) break;
+    if (Array.isArray(products.nodes)) all.push(...products.nodes);
+    if (!products.pageInfo?.hasNextPage) break;
+    cursor = products.pageInfo.endCursor;
+    if (!cursor) break;
+  }
+  return { nodes: all };
+}
