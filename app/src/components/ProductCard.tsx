@@ -4,6 +4,7 @@ import { Heart, ShoppingCart, Star, ArrowUpRight, Mail } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import type { Product } from "@/data/products";
 import { useProductAvailability } from "@/lib/product-availability";
+import { pickPlaceholderTheme } from "@/lib/product-placeholder";
 import RequestToDownloadModal from "@/components/RequestToDownloadModal";
 
 interface ProductCardProps {
@@ -56,13 +57,49 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-hack-yellow/30 to-hack-orange/30 px-6 text-center">
-            <span className="font-display text-lg font-black text-hack-black/60">
-              {product.name}
-            </span>
-          </div>
-        )}
+        ) : (() => {
+          const theme = pickPlaceholderTheme(
+            product.category,
+            product.subcategory,
+            (product.categories || []).join(' '),
+            product.name
+          );
+          return (
+            <div
+              className="relative flex h-full w-full flex-col items-center justify-center px-6 text-center overflow-hidden"
+              style={{
+                background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`,
+                color: theme.fg,
+              }}
+              role="img"
+              aria-label={product.name}
+            >
+              {/* soft pattern dots for depth */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-30"
+                style={{
+                  backgroundImage:
+                    'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18) 0 2px, transparent 3px), radial-gradient(circle at 80% 80%, rgba(255,255,255,0.12) 0 2px, transparent 3px)',
+                  backgroundSize: '36px 36px, 48px 48px',
+                }}
+              />
+              {/* big category icon */}
+              <div className="text-6xl sm:text-7xl drop-shadow-md select-none" aria-hidden="true">
+                {theme.icon}
+              </div>
+              {/* product name (max 3 lines) */}
+              <div className="relative mt-3 font-display text-base sm:text-lg font-bold leading-tight line-clamp-3">
+                {product.name}
+              </div>
+              {/* brand strip */}
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-4 py-2 bg-black/40 text-white text-[11px] font-semibold tracking-wide">
+                <span style={{ color: '#FFD60A' }}>HackKnow</span>
+                <span className="opacity-90">{theme.label}</span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Badges — neo-brutal pills */}
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
