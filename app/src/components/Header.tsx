@@ -6,6 +6,7 @@ import { categories } from "@/data/products";
 import { isAuthenticated, logout } from "@/lib/auth";
 import InstallButton from "@/components/InstallButton";
 import MobileSidebar from "@/components/MobileSidebar";
+import SearchAutocomplete from "@/components/SearchAutocomplete";
 import TdmSigil from "@/components/TdmSigil";
 import WalletBadge from "@/components/WalletBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -29,13 +30,10 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      dispatch({ type: "SET_SEARCH", query: searchQuery.trim() });
-      navigate("/shop");
-      setIsSearchOpen(false);
-    }
+  const submitSearch = (q: string) => {
+    dispatch({ type: "SET_SEARCH", query: q });
+    navigate("/shop");
+    setIsSearchOpen(false);
   };
 
   return (
@@ -190,25 +188,18 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar — AJAX autocomplete dropdown */}
         {isSearchOpen && (
           <div className="border-t border-hack-black/10 bg-white">
-            <form
-              onSubmit={handleSearch}
-              className="w-full px-4 sm:px-6 lg:px-8 py-4"
-            >
-              <div className="relative max-w-2xl mx-auto">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-hack-black/40" />
-                <input
-                  type="text"
-                  placeholder="Search templates, dashboards, assets..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-hack-black/5 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-hack-yellow"
-                  autoFocus
-                />
-              </div>
-            </form>
+            <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
+              <SearchAutocomplete
+                query={searchQuery}
+                onQueryChange={setSearchQuery}
+                onSubmit={submitSearch}
+                onPickResult={() => setIsSearchOpen(false)}
+                autoFocus
+              />
+            </div>
           </div>
         )}
       </header>

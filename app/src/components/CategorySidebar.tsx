@@ -24,6 +24,7 @@ type CatNode = WPCat & { children: CatNode[] };
 const topIcons: Record<string, React.ReactNode> = {
   "themes-templates": <Layout className="w-5 h-5" />,
   "website-templates": <Layout className="w-5 h-5" />,
+  "html-templates": <Layout className="w-5 h-5" />,
   "excel-sheets": <FileSpreadsheet className="w-5 h-5" />,
   "powerpoint-decks": <Presentation className="w-5 h-5" />,
   "digital-marketing": <Megaphone className="w-5 h-5" />,
