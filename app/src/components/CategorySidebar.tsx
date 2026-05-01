@@ -205,6 +205,31 @@ export default function CategorySidebar() {
               </div>
             )}
             <nav className="space-y-0.5 px-3">
+              {/* Pinned items — Brainxercise, Courses, Roadmaps, Verify */}
+              {[
+                { to: "/brainxercise", label: "Brainxercise", icon: <Brain className="w-5 h-5" />, badge: "DAILY" },
+                { to: "/courses",      label: "Courses",      icon: <GraduationCap className="w-5 h-5" />, badge: null },
+                { to: "/roadmaps",     label: "Roadmaps",     icon: <MapIcon className="w-5 h-5" />, badge: null },
+                { to: "/verify",       label: "Verify",       icon: <ShieldCheck className="w-5 h-5" />, badge: null },
+              ].map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={closeSidebar}
+                  className="flex items-center gap-3 pl-9 pr-3 py-2.5 rounded-xl hover:bg-hack-yellow/40 bg-hack-yellow/15 border border-hack-black/10 mb-0.5 transition-colors min-w-0"
+                >
+                  <span className="text-hack-black/80 shrink-0">{item.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate text-hack-black">{item.label}</p>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-hack-black text-hack-yellow rounded">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              ))}
+              <div className="my-2 mx-2 border-t border-hack-black/10" />
               {roots.map((cat) => {
                 const isOpen = !!openTop[cat.id];
                 const hasKids = cat.children.length > 0;
@@ -265,31 +290,6 @@ export default function CategorySidebar() {
                 );
               })}
             </nav>
-          </div>
-
-          {/* Quick Links */}
-          <div className="px-5 py-3 border-t border-hack-black/10">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-hack-black/45 mb-2">
-              Learn & Practice
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Link to="/brainxercise" onClick={closeSidebar}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-hack-yellow/40 hover:bg-hack-yellow text-hack-black text-xs font-bold border border-hack-black/20">
-                <Brain className="w-4 h-4" /> Brainxercise
-              </Link>
-              <Link to="/courses" onClick={closeSidebar}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-hack-black/5 text-hack-black text-xs font-bold border border-hack-black/20">
-                <GraduationCap className="w-4 h-4" /> Courses
-              </Link>
-              <Link to="/roadmaps" onClick={closeSidebar}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-hack-black/5 text-hack-black text-xs font-bold border border-hack-black/20">
-                <MapIcon className="w-4 h-4" /> Roadmaps
-              </Link>
-              <Link to="/verify" onClick={closeSidebar}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-hack-black/5 text-hack-black text-xs font-bold border border-hack-black/20">
-                <ShieldCheck className="w-4 h-4" /> Verify
-              </Link>
-            </div>
           </div>
 
           <div className="p-5 border-t border-hack-black/10 bg-hack-black/[0.02]">

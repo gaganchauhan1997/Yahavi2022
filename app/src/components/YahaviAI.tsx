@@ -58,12 +58,13 @@ const OPEN_KEY    = "hackknow-chat-open";
 const seed: ChatMsg = {
   role: "bot",
   text:
-    "Hi, I'm Yahavi AI — built by DeadMan. Ask me anything in any language (English, Hindi, Hinglish, French, German, Spanish…). I know HackKnow inside-out: products, prices, refunds, contact, policies — anything.",
+    "Hi! I'm Yahavi AI — your HackKnow assistant. Ask me about any product, course, roadmap, refund, or policy. I know the whole site inside-out and reply in clear English.",
   suggestions: [
-    { label: "Show free templates", href: "/shop/free-resources" },
+    { label: "Show free templates",   href: "/shop/free-resources" },
     { label: "Best Excel dashboards", href: "/shop/excel-templates" },
-    { label: "Track my order",       href: "/account/orders" },
-    { label: "Contact us",           href: "/contact" },
+    { label: "Browse courses",        href: "/courses" },
+    { label: "Track my order",        href: "/account/orders" },
+    { label: "Contact us",            href: "/contact" },
   ],
 };
 
@@ -191,17 +192,31 @@ export default function YahaviChat() {
         role: m.role === "bot" ? "assistant" : "user",
         content: m.text,
       }));
-      const res = await fetch(`${WP_REST_BASE}/chat`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          message: q,
-          history: historyForApi,
-          session_id: sessionIdRef.current,
-        }),
-      });
-      const data = await res.json().catch(() => ({})) as Partial<ChatMsg> & { reply?: string; bot_message_id?: number };
-      const rawReply = data.reply || data.text || "I'm here, but I couldn't form a reply. Try asking another way?";
+      const callChat = async (msg: string, freshen = false) => {
+        const sid = freshen
+          ? `${sessionIdRef.current}-r${Date.now().toString(36)}`
+          : sessionIdRef.current;
+        const r = await fetch(`${WP_REST_BASE}/chat`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            message: freshen ? `${msg}\u200B` : msg,  // ZWSP keeps content identical visually but bypasses dedupe hash
+            history: historyForApi,
+            session_id: sid,
+          }),
+        });
+        return r.json().catch(() => ({})) as Promise<Partial<ChatMsg> & { reply?: string; bot_message_id?: number; deduped?: boolean }>;
+      };
+
+      let data = await callChat(q);
+      // The server-side guard plugin dedupes identical (session, message) pairs
+      // within 60s and returns {ok:true, deduped:true} with no reply text. If
+      // we hit that, re-issue with a tweaked session id so the user always sees
+      // a reply instead of the empty-state fallback.
+      if (data && (data.deduped || (!data.reply && !data.text))) {
+        data = await callChat(q, true);
+      }
+      const rawReply = data.reply || data.text || "I'm here — could you rephrase that? My link to the knowledge base hiccupped for a second.";
       // Strip and execute any [[NAV:/path]] markers Yahavi embedded.
       const { cleanText, navTarget } = parseChatActions(rawReply);
       const botMsg: ChatMsg = {
@@ -333,7 +348,7 @@ export default function YahaviChat() {
                 Yahavi AI <Sparkles className="w-3 h-3 text-hack-yellow" />
               </div>
               <div className="text-[10px] uppercase tracking-wider text-white/60 font-mono">
-                by DeadMan • any language
+                by DeadMan • English
               </div>
             </div>
             <button
@@ -470,7 +485,7 @@ export default function YahaviChat() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Hindi, English, French, German…"
+              placeholder="Ask Yahavi anything…"
               className="flex-1 h-10 px-3 rounded-xl border border-hack-black/20 text-sm focus:outline-none focus:border-hack-black"
               autoComplete="off"
               disabled={sending}

@@ -332,13 +332,33 @@ export default function TestimonialsPage() {
               </div>
             </div>
             <div className="lg:col-span-3 order-1 lg:order-2">
-              <img
-                src="/images/comic-read-the-reviews.jpg"
-                alt="Comic strip: Manish visits Tiger Kingdom, doesn't read reviews, becomes lunch's new best friend. Note to self: read the reviews next time."
-                loading="lazy"
-                decoding="async"
-                className="w-full h-auto rounded-xl border-2 border-hack-black shadow-[4px_4px_0_0_#0A0A0A]"
-              />
+              <div
+                role="img"
+                aria-label="Three-panel comic strip: Manish visits Tiger Kingdom, skips the reviews, and becomes lunch."
+                className="grid grid-cols-3 gap-2 w-full p-4 rounded-xl border-2 border-hack-black shadow-[4px_4px_0_0_#0A0A0A] bg-white"
+              >
+                <div className="aspect-[3/4] rounded-lg border-2 border-hack-black bg-hack-yellow/40 flex flex-col p-3 relative">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-hack-black/60">Panel 1</span>
+                  <div className="flex-1 flex items-center justify-center text-5xl">🧳</div>
+                  <p className="font-display font-bold text-xs leading-tight text-hack-black">
+                    "Tiger Kingdom! No need to read reviews."
+                  </p>
+                </div>
+                <div className="aspect-[3/4] rounded-lg border-2 border-hack-black bg-hack-orange/30 flex flex-col p-3 relative">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-hack-black/60">Panel 2</span>
+                  <div className="flex-1 flex items-center justify-center text-5xl">🐅</div>
+                  <p className="font-display font-bold text-xs leading-tight text-hack-black">
+                    Tiger: "Lunch arrived early."
+                  </p>
+                </div>
+                <div className="aspect-[3/4] rounded-lg border-2 border-hack-black bg-hack-magenta/20 flex flex-col p-3 relative">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-hack-black/60">Panel 3</span>
+                  <div className="flex-1 flex items-center justify-center text-5xl">📖</div>
+                  <p className="font-display font-bold text-xs leading-tight text-hack-black">
+                    Manish (in tiger): "Read. The. Reviews."
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

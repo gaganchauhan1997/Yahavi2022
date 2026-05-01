@@ -103,7 +103,7 @@ function App() {
           <Header />
           <CategorySidebar />
           <CartDrawer />
-          <main>
+          <main className="min-h-[60vh] bg-hack-white">
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/"                    element={<HomePage />} />
