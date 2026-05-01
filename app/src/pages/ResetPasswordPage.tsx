@@ -168,8 +168,14 @@ const ResetPasswordPage = () => {
                       />
                       <input
                         type={showPw ? 'text' : 'password'}
+                        name="new-password"
+                        autoComplete="new-password"
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        spellCheck={false}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
                         placeholder="At least 8 characters"
                         minLength={8}
                         required
@@ -204,8 +210,14 @@ const ResetPasswordPage = () => {
                       />
                       <input
                         type={showCf ? 'text' : 'password'}
+                        name="confirm-password"
+                        autoComplete="new-password"
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        spellCheck={false}
                         value={confirm}
                         onChange={(e) => setConfirm(e.target.value)}
+                        onInput={(e) => setConfirm((e.target as HTMLInputElement).value)}
                         placeholder="Re-enter password"
                         minLength={8}
                         required

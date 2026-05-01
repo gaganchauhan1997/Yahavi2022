@@ -130,10 +130,16 @@ const LoginPage = () => {
               </label>
               <input
                 type="email"
+                name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
                 placeholder="you@yourdomain.com"
                 autoComplete="email"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
                 className="w-full bg-white text-hack-black placeholder:text-hack-black/40 rounded-xl h-12 px-4 border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A] focus:outline-none focus:translate-x-[1px] focus:translate-y-[1px] focus:shadow-[2px_2px_0_0_#1A1A1A] transition-all"
                 required
               />
@@ -148,10 +154,15 @@ const LoginPage = () => {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
                   placeholder="••••••••"
                   autoComplete="current-password"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className="w-full bg-white text-hack-black placeholder:text-hack-black/40 rounded-xl h-12 pl-4 pr-12 border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A] focus:outline-none focus:translate-x-[1px] focus:translate-y-[1px] focus:shadow-[2px_2px_0_0_#1A1A1A] transition-all"
                   required
                 />

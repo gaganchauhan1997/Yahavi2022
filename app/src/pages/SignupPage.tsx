@@ -215,10 +215,17 @@ const SignupPage: FC = () => {
                   </span>
                   <input
                     type="email"
+                    name="email"
+                    autoComplete="email"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    inputMode="email"
                     className="w-full border-4 border-hack-black bg-hack-white px-4 py-3 text-sm font-medium outline-none transition-colors focus:bg-hack-yellow/30"
                     placeholder="you@hackknow.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onInput={(e) => setFormData({ ...formData, email: (e.target as HTMLInputElement).value })}
                     required
                   />
                 </label>
@@ -252,10 +259,16 @@ const SignupPage: FC = () => {
                   </span>
                   <input
                     type="password"
+                    name="new-password"
+                    autoComplete="new-password"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className="w-full border-4 border-hack-black bg-hack-white px-4 py-3 text-sm font-medium outline-none transition-colors focus:bg-hack-yellow/30"
                     placeholder="Minimum 8 characters"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onInput={(e) => setFormData({ ...formData, password: (e.target as HTMLInputElement).value })}
                     minLength={8}
                     required
                   />
@@ -268,10 +281,16 @@ const SignupPage: FC = () => {
                   </span>
                   <input
                     type="password"
+                    name="confirm-password"
+                    autoComplete="new-password"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className="w-full border-4 border-hack-black bg-hack-white px-4 py-3 text-sm font-medium outline-none transition-colors focus:bg-hack-yellow/30"
                     placeholder="Re-enter password"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    onInput={(e) => setFormData({ ...formData, confirmPassword: (e.target as HTMLInputElement).value })}
                     required
                   />
                 </label>
