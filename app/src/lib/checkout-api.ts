@@ -116,5 +116,20 @@ export interface VerifyPaymentInput {
 export const createServerOrder = (input: CreateOrderInput) =>
   postJsonWithTimeout<CreateOrderResult>("/order", input, CREATE_ORDER_TIMEOUT_MS);
 
+export interface VerifyDownloadFile {
+  product_id: number;
+  product_name: string;
+  download_name: string;
+  download_url: string;
+}
+
+export interface VerifyPaymentResult {
+  success: boolean;
+  wc_order_id: number;
+  order_number?: string;
+  email?: string;
+  downloads?: VerifyDownloadFile[];
+}
+
 export const verifyServerPayment = (input: VerifyPaymentInput) =>
-  postJsonNoTimeout<{ success: boolean; wc_order_id: number }>("/verify", input);
+  postJsonNoTimeout<VerifyPaymentResult>("/verify", input);
