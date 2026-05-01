@@ -43,6 +43,8 @@ interface WCDownload {
   access_expires: string | null;
   downloads_remaining: string | number;
   download_count: number;
+  order_id?: number;
+  order_date?: string;
 }
 
 function authFetch(path: string) {
@@ -106,7 +108,7 @@ const RenderDownloads = () => {
           <FileDown className="w-14 h-14 mx-auto mb-4 text-gray-200" />
           <h3 className="font-bold text-hack-black mb-2">No Downloads Yet</h3>
           <p className="text-sm text-hack-black/60 mb-6 max-w-xs mx-auto">
-            After completing a purchase, your files appear here. You can re-download for up to 30 days.
+            After completing a purchase, your files appear here. Files never expire — you can re-download anytime.
           </p>
           <Link to="/shop" className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-hack-yellow rounded-full text-sm font-bold border-2 border-hack-black shadow-[3px_3px_0_#000] hover:shadow-[1px_1px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
             <ShoppingBag className="w-4 h-4" /> Browse Products
@@ -114,55 +116,35 @@ const RenderDownloads = () => {
         </div>
       ) : (
         <div className="grid gap-4">
-          {downloads.map(dl => {
-            const expires  = dl.access_expires ? new Date(dl.access_expires) : null;
-            const expired  = expires ? expires < new Date() : false;
-            const daysLeft = expires ? Math.ceil((expires.getTime() - Date.now()) / 86400000) : null;
-            return (
-              <div key={dl.download_id} className={`bg-white rounded-xl border p-6 transition-all ${expired ? 'border-red-200 opacity-70' : 'border-[3px] border-hack-black shadow-[4px_4px_0_#000] hover:shadow-[6px_6px_0_#000] hover:-translate-x-[2px] hover:-translate-y-[2px] transition-all'}`}>
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-hack-yellow border-2 border-hack-black rounded-xl border-2 border-hack-black flex items-center justify-center flex-shrink-0">
-                      <Download className="w-7 h-7 text-hack-black" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{dl.product_name}</h3>
-                      <p className="text-sm text-gray-500 mt-0.5">{dl.file?.name}</p>
-                      <div className="flex flex-wrap items-center gap-3 mt-1.5">
-                        {dl.download_count > 0 && (
-                          <span className="text-xs text-gray-400 flex items-center gap-1">
-                            <FileDown className="w-3.5 h-3.5" />Downloaded {dl.download_count}×
-                          </span>
-                        )}
-                        {daysLeft !== null && !expired && (
-                          <span className="text-xs text-emerald-600 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" />{daysLeft} day{daysLeft !== 1 ? 's' : ''} left
-                          </span>
-                        )}
-                        {expired && <span className="text-xs text-red-500 font-medium">Link expired</span>}
-                      </div>
+          {downloads.map(dl => (
+            <div key={`${dl.product_id}-${dl.download_id}-${dl.order_id ?? ''}`} className="bg-white rounded-xl p-6 transition-all border-[3px] border-hack-black shadow-[4px_4px_0_#000] hover:shadow-[6px_6px_0_#000] hover:-translate-x-[2px] hover:-translate-y-[2px]">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-hack-yellow border-2 border-hack-black rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Download className="w-7 h-7 text-hack-black" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{dl.product_name}</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">{dl.file?.name}</p>
+                    <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                      <span className="text-xs text-emerald-600 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />Never expires
+                      </span>
                     </div>
                   </div>
-                  {!expired ? (
-                    <a href={dl.download_url} download target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-hack-yellow rounded-full text-sm font-bold border-2 border-hack-black shadow-[3px_3px_0_#000] hover:shadow-[1px_1px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all whitespace-nowrap flex-shrink-0">
-                      <Download className="w-4 h-4" />Download Now
-                    </a>
-                  ) : (
-                    <Link to="/support"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-200 rounded-full text-sm text-gray-500 hover:border-hack-yellow transition-colors whitespace-nowrap flex-shrink-0">
-                      <HeadphonesIcon className="w-4 h-4" />Contact Support
-                    </Link>
-                  )}
                 </div>
+                <a href={dl.download_url} download target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-hack-black text-hack-yellow rounded-full text-sm font-bold border-2 border-hack-black shadow-[3px_3px_0_#000] hover:shadow-[1px_1px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all whitespace-nowrap flex-shrink-0">
+                  <Download className="w-4 h-4" />Download Now
+                </a>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
       {downloads.length > 0 && (
         <p className="text-xs text-gray-400 text-center pt-2">
-          Downloads valid 30 days from purchase.{' '}
+          All your purchases — no expiry, re-download anytime.{' '}
           <a href="mailto:support@hackknow.com" className="underline hover:text-hack-black">support@hackknow.com</a>
           {' '}| <a href="tel:+918796018700" className="underline hover:text-hack-black">+91 87960 18700</a>
         </p>
