@@ -203,7 +203,7 @@ const AffiliateLearnMorePage = () => {
               <Link to={LOGIN_NEXT}>
                 <Button
                   variant="outline"
-                  className="h-14 px-8 border-2 border-white/30 text-white hover:bg-white/10 rounded-full font-bold text-lg w-full sm:w-auto"
+                  className="h-14 px-8 bg-transparent border-2 border-white/70 text-white hover:bg-white hover:text-hack-black rounded-full font-bold text-lg w-full sm:w-auto transition-colors"
                 >
                   I already have an account
                 </Button>
