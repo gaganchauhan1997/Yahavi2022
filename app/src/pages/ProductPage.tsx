@@ -240,16 +240,16 @@ export default function ProductPage() {
                 </Button>
               </div>
 
-              {/* Live Preview button (shown only if admin set a preview URL) */}
+              {/* Live Preview — bold green CTA, sits right under Add to Cart on mobile + desktop */}
               {preview && (
                 <div className="mb-8">
                   <Button
                     onClick={handlePreviewClick}
-                    variant="outline"
-                    className="w-full h-12 rounded-full border-2 border-hack-black hover:bg-hack-yellow/30 font-bold gap-2"
+                    className="w-full h-14 rounded-full font-extrabold text-base gap-2 bg-emerald-400 text-hack-black border-2 border-hack-black shadow-[5px_5px_0_0_#0A0A0A] hover:bg-emerald-300 hover:shadow-[7px_7px_0_0_#0A0A0A] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[3px_3px_0_0_#0A0A0A] transition-all"
+                    aria-label="View live preview of this template"
                   >
-                    <Eye className="w-4 h-4" />
-                    Live Preview {preview.open_in === 'iframe' ? '(In-Page)' : '↗'}
+                    <Eye className="w-5 h-5" />
+                    View Live Preview {preview.open_in === 'iframe' ? '' : '↗'}
                   </Button>
                 </div>
               )}
