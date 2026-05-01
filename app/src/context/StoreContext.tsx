@@ -248,13 +248,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             };
           });
 
-          // Filter out products whose backend availability check says no file
-          // is attached. Products not present in the map are kept (defensive).
-          const deliverable = mappedProducts.filter((p) => {
-            const e = availability[String(p.id)];
-            if (!e) return true;
-            return e.has_file === true;
-          });
+          // Filter out NO-FILE products. Owner rule is strict: a product
+          // must NEVER appear on the storefront unless we have positively
+          // confirmed it has a downloadable file.
+          //
+          // Behaviour:
+          // - Map fully loaded with entries → STRICT: a product is shown only
+          //   when its availability entry has has_file === true. Unknown ids
+          //   are hidden (defensive — protects against stale/missing rows).
+          // - Map empty (network failure / endpoint down) → FAIL-OPEN: show
+          //   everything rather than blank the entire storefront. The shop
+          //   still functions; the bad-product window is the same as before
+          //   the filter existed.
+          const mapHasEntries = Object.keys(availability).length > 0;
+          const deliverable = mapHasEntries
+            ? mappedProducts.filter((p) => {
+                const e = availability[String(p.id)];
+                return !!e && e.has_file === true;
+              })
+            : mappedProducts;
           dispatch({ type: "SET_PRODUCTS", payload: deliverable });
         } else {
           throw new Error("No products returned from API");
