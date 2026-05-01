@@ -109,7 +109,7 @@ const earners = [
     name:    'Priya, 41',
     title:   'Stay-at-home parent, Pune',
     earned:  '₹12,800 this month',
-    quote:   'Mom groups pe Excel templates share karti hoon. Half the women buy. Yeh paisa beta ke tuition me jaata hai.',
+    quote:   'I share Excel templates in mom groups. Half the women end up buying. The earnings cover my son\'s tuition.',
     bg:      'bg-hack-yellow',
   },
 ];
