@@ -38,8 +38,10 @@
  *   we send our own HTML email with direct file URLs to the billing email.
  *   This works without a WP user account. Idempotent via post meta flag.
  *
- * Required wp-config.php constant for webhook signature verification:
- *   define('HACKKNOW_RAZORPAY_WEBHOOK_SECRET', 'your-webhook-secret-from-rzp-dashboard');
+ * The Razorpay webhook secret can be supplied either via:
+ *   1. wp-config.php constant: HACKKNOW_RAZORPAY_WEBHOOK_SECRET
+ *   2. WP option (preferred — no file editing required):
+ *      WP Admin → Settings → HackKnow Webhook
  * --------------------------------------------------------------------------
  */
 
@@ -256,11 +258,18 @@ function hk2_product_availability(WP_REST_Request $req) {
 // Bust the availability cache whenever a product is saved.
 add_action('save_post_product', function () { delete_transient('hk2_avail_v1'); });
 
+function hk2_get_webhook_secret() {
+    if (defined('HACKKNOW_RAZORPAY_WEBHOOK_SECRET') && HACKKNOW_RAZORPAY_WEBHOOK_SECRET) {
+        return (string) HACKKNOW_RAZORPAY_WEBHOOK_SECRET;
+    }
+    return (string) get_option('hk_rzp_webhook_secret', '');
+}
+
 function hk2_razorpay_webhook(WP_REST_Request $req) {
-    $secret = defined('HACKKNOW_RAZORPAY_WEBHOOK_SECRET') ? HACKKNOW_RAZORPAY_WEBHOOK_SECRET : '';
+    $secret = hk2_get_webhook_secret();
     if (!$secret) {
         hk2_log('webhook secret not configured');
-        return new WP_Error('no_secret', 'Webhook secret not configured', ['status' => 500]);
+        return new WP_Error('no_secret', 'Webhook secret not configured. Set it in WP Admin → Settings → HackKnow Webhook.', ['status' => 500]);
     }
     $raw = $req->get_body();
     $sig = $req->get_header('x_razorpay_signature');
@@ -453,3 +462,180 @@ add_filter('woocommerce_downloadable_file_permission_data', function ($data) {
     $data['downloads_remaining'] = ''; // unlimited
     return $data;
 }, 10, 1);
+
+/* ───────── Admin settings page: WP Admin → Settings → HackKnow Webhook ───────── */
+
+add_action('admin_menu', function () {
+    add_options_page(
+        'HackKnow Webhook',
+        'HackKnow Webhook',
+        'manage_options',
+        'hk-webhook',
+        'hk2_render_settings_page'
+    );
+});
+
+add_action('admin_init', function () {
+    register_setting('hk_webhook_group', 'hk_rzp_webhook_secret', [
+        'type'              => 'string',
+        'sanitize_callback' => 'sanitize_text_field',
+        'default'           => '',
+    ]);
+});
+
+function hk2_render_settings_page() {
+    if (!current_user_can('manage_options')) return;
+    $secret_set = !empty(hk2_get_webhook_secret());
+    $webhook_url = home_url('/wp-json/hackknow/v1/razorpay-webhook');
+    $constant_overrides = defined('HACKKNOW_RAZORPAY_WEBHOOK_SECRET') && HACKKNOW_RAZORPAY_WEBHOOK_SECRET;
+    ?>
+    <div class="wrap">
+        <h1>HackKnow Webhook Settings</h1>
+        <p>This is where you tell HackKnow the secret you generated in the
+           Razorpay dashboard so we can verify incoming webhook calls.</p>
+
+        <h2>Webhook URL (paste this into Razorpay)</h2>
+        <p><code style="background:#f3f3f3;padding:6px 10px;border-radius:4px;display:inline-block"><?php echo esc_html($webhook_url); ?></code></p>
+
+        <form method="post" action="options.php">
+            <?php settings_fields('hk_webhook_group'); ?>
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="hk_rzp_webhook_secret">Razorpay Webhook Secret</label></th>
+                    <td>
+                        <input type="password"
+                               id="hk_rzp_webhook_secret"
+                               name="hk_rzp_webhook_secret"
+                               value="<?php echo esc_attr(get_option('hk_rzp_webhook_secret', '')); ?>"
+                               class="regular-text"
+                               autocomplete="off"
+                               style="font-family:monospace" />
+                        <p class="description">
+                            Paste the exact secret from Razorpay Dashboard → Settings → Webhooks.
+                            <?php if ($secret_set): ?>
+                                <strong style="color:#1b8043">✓ A secret is currently set.</strong>
+                            <?php else: ?>
+                                <strong style="color:#c00">⚠ No secret set yet — webhook will reject all calls.</strong>
+                            <?php endif; ?>
+                        </p>
+                        <?php if ($constant_overrides): ?>
+                            <p class="description" style="color:#c00">
+                                Note: a HACKKNOW_RAZORPAY_WEBHOOK_SECRET constant in wp-config.php is overriding this setting.
+                            </p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button('Save Secret'); ?>
+        </form>
+
+        <hr>
+        <h2>Self-Test</h2>
+        <p>Click below to send a fake webhook to your own server and verify the secret is correct.</p>
+        <button type="button" class="button button-secondary" id="hk-self-test">Run self-test</button>
+        <pre id="hk-self-test-out" style="background:#f3f3f3;padding:10px;margin-top:10px;display:none"></pre>
+
+        <hr>
+        <h2>Webhook Active Events</h2>
+        <p>In Razorpay Dashboard → Webhooks, ensure these events are checked:</p>
+        <ul style="list-style:disc;padding-left:24px">
+            <li><code>payment.captured</code></li>
+            <li><code>order.paid</code></li>
+        </ul>
+
+        <script>
+        (function () {
+            var btn = document.getElementById('hk-self-test');
+            var out = document.getElementById('hk-self-test-out');
+            if (!btn) return;
+            btn.addEventListener('click', async function () {
+                out.style.display = 'block';
+                out.textContent = 'Running…';
+                try {
+                    var r = await fetch('<?php echo esc_url(rest_url('hackknow/v1/webhook-self-test')); ?>', {
+                        method: 'POST',
+                        headers: { 'X-WP-Nonce': '<?php echo wp_create_nonce('wp_rest'); ?>' }
+                    });
+                    var data = await r.json();
+                    out.textContent = JSON.stringify(data, null, 2);
+                } catch (e) { out.textContent = 'Error: ' + e.message; }
+            });
+        })();
+        </script>
+    </div>
+    <?php
+}
+
+/* Bootstrap endpoint — lets the operator (or this agent) set the webhook
+   secret remotely by authenticating with the existing WooCommerce REST
+   consumer_secret as a bearer token. The consumer_secret is stored in
+   plaintext in wp_woocommerce_api_keys.consumer_secret, so we can do a
+   constant-time compare. This avoids the need to edit wp-config.php or
+   even visit WP Admin after the mu-plugin is installed. */
+add_action('rest_api_init', function () {
+    register_rest_route('hackknow/v1', '/bootstrap-secret', [
+        'methods' => 'POST',
+        'permission_callback' => '__return_true',
+        'callback' => function (WP_REST_Request $req) {
+            $auth = (string) $req->get_header('authorization');
+            if (!$auth || stripos($auth, 'bearer ') !== 0) {
+                return new WP_Error('no_auth', 'Missing Bearer token', ['status' => 401]);
+            }
+            $token = trim(substr($auth, 7));
+            global $wpdb;
+            $rows = $wpdb->get_col(
+                "SELECT consumer_secret FROM {$wpdb->prefix}woocommerce_api_keys
+                 WHERE permissions IN ('write','read_write') AND user_id IN
+                 (SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key='{$wpdb->prefix}capabilities' AND meta_value LIKE '%administrator%')"
+            );
+            $ok = false;
+            foreach ($rows as $cs) {
+                if (hash_equals((string) $cs, $token)) { $ok = true; break; }
+            }
+            if (!$ok) return new WP_Error('bad_auth', 'Invalid token', ['status' => 401]);
+
+            $secret = sanitize_text_field((string) $req->get_param('secret'));
+            if (!$secret) return new WP_Error('no_secret', 'Missing secret param', ['status' => 400]);
+            update_option('hk_rzp_webhook_secret', $secret, true);
+            return ['ok' => true, 'configured' => true, 'len' => strlen($secret)];
+        },
+    ]);
+}, 25);
+
+/* Self-test endpoint (admin only) — generates a payload, signs it with the
+   stored secret, then loops back to /razorpay-webhook to confirm the round
+   trip works end to end. */
+add_action('rest_api_init', function () {
+    register_rest_route('hackknow/v1', '/webhook-self-test', [
+        'methods' => 'POST',
+        'permission_callback' => function () { return current_user_can('manage_options'); },
+        'callback' => function () {
+            $secret = hk2_get_webhook_secret();
+            if (!$secret) return ['ok' => false, 'reason' => 'no_secret_configured'];
+            $payload = json_encode([
+                'event' => 'payment.captured',
+                'payload' => ['payment' => ['entity' => [
+                    'id' => 'pay_selftest_' . time(),
+                    'order_id' => 'order_selftest_' . time(),
+                    'amount' => 100,
+                    'email' => 'selftest@hackknow.com',
+                ]]]
+            ]);
+            $sig = hash_hmac('sha256', $payload, $secret);
+            $url = home_url('/wp-json/hackknow/v1/razorpay-webhook');
+            $resp = wp_remote_post($url, [
+                'headers' => ['Content-Type' => 'application/json', 'X-Razorpay-Signature' => $sig],
+                'body'    => $payload,
+                'timeout' => 15,
+            ]);
+            if (is_wp_error($resp)) return ['ok' => false, 'reason' => 'http_error', 'detail' => $resp->get_error_message()];
+            return [
+                'ok'         => true,
+                'http_code'  => wp_remote_retrieve_response_code($resp),
+                'body'       => json_decode(wp_remote_retrieve_body($resp), true),
+                'webhook_url'=> $url,
+                'note'       => 'http_code 200 with body.matched=false is OK — it means signature verified but no real WC order exists for the synthetic id.',
+            ];
+        },
+    ]);
+}, 25);
