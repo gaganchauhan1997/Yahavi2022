@@ -62,9 +62,9 @@ export default function CheckoutPage() {
             )}
             <p className="text-hack-black/60 mb-8">
               {downloads.length > 0
-                ? "Aapki file niche ready hai. Receipt bhi bhej di hai "
-                : "Aapki download link bhej di hai "}
-              <strong className="text-hack-black">{buyerEmail}</strong> par.
+                ? "Your files are ready below. A receipt has also been sent to "
+                : "Your download link has been sent to "}
+              <strong className="text-hack-black">{buyerEmail}</strong>.
             </p>
 
             {downloads.length > 0 && (
@@ -99,16 +99,15 @@ export default function CheckoutPage() {
                   ))}
                 </ul>
                 <p className="text-xs text-hack-black/50 mt-4">
-                  Yeh links sirf aapke order ke liye hain. Phone change ho jaye
-                  ya browser close ho jaye, tab bhi{" "}
+                  These links belong to your order. If you change device or
+                  close the browser, you can always re-download from the{" "}
                   <Link
                     to="/account/downloads"
                     className="underline font-medium"
                   >
                     Downloads page
                   </Link>{" "}
-                  par apni email <strong>{buyerEmail}</strong> daal ke kabhi bhi
-                  re-download kar sakte hain.
+                  by entering your email <strong>{buyerEmail}</strong>.
                 </p>
               </div>
             )}
@@ -116,25 +115,25 @@ export default function CheckoutPage() {
             {downloads.length === 0 && (
               <div className="text-left bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-5 mb-8 space-y-3">
                 <p className="text-sm font-medium">
-                  Payment ho chuki hai — file 1 minute ke andar inbox me aa
-                  jayegi.
+                  Payment received — your file will arrive in your inbox within
+                  a minute.
                 </p>
                 <p className="text-sm">
-                  Agar email na mile, turant{" "}
+                  If the email doesn&apos;t show up, head to the{" "}
                   <Link
                     to="/account/downloads"
                     className="underline font-medium"
                   >
                     Downloads page
                   </Link>{" "}
-                  par apni email <strong>{buyerEmail}</strong> daal ke file
-                  download kar lijiye.
+                  and enter your email <strong>{buyerEmail}</strong> to grab
+                  your file straight away.
                 </p>
                 <p className="text-sm">
-                  Phir bhi problem ho? WhatsApp kijiye{" "}
+                  Still stuck? WhatsApp us at{" "}
                   <a
                     href={`https://wa.me/918588020662?text=${encodeURIComponent(
-                      `Hi HackKnow, mera order #${orderNumber} hai (email: ${buyerEmail}). File nahi mili, please bhej dijiye.`
+                      `Hi HackKnow, my order is #${orderNumber} (email: ${buyerEmail}). I haven't received my file — please send it.`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -142,8 +141,8 @@ export default function CheckoutPage() {
                   >
                     +91 85880 20662
                   </a>
-                  . Order number aur email saath me bhej dena, file 5 min me
-                  bhej denge.
+                  . Share your order number and email — we&apos;ll send the
+                  file within 5 minutes.
                 </p>
               </div>
             )}
