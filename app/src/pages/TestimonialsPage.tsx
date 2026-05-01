@@ -35,7 +35,7 @@ const REVIEWS: Review[] = [
     city: "Delhi, IN",
     rating: 5,
     text:
-      "Yahavi AI ne meri puri PowerPoint deck 5 minute mein recommend kar di. Pehli baar kisi store par chat assistant actually kaam karta hua dikha!",
+      "Yahavi AI recommended my entire PowerPoint deck in 5 minutes. First time I've ever seen a store chat assistant that actually works!",
     product: "Investor Pitch Deck Bundle",
     source: "Google Reviews",
     href: "https://www.google.com/search?q=hackknow+reviews",
