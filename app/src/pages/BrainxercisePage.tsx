@@ -150,7 +150,7 @@ export default function BrainxercisePage() {
               <Brain className="w-12 h-12 mx-auto mb-3 text-hack-black/30" />
               <p className="font-display font-bold text-xl mb-1">No exercises yet.</p>
               <p className="text-sm text-hack-black/55">
-                Admin abhi questions add kar raha hai. Wapas check karna jaldi!
+                Our team is adding new questions. Check back soon!
               </p>
             </div>
           )}
