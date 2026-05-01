@@ -1182,6 +1182,27 @@ add_action('rest_api_init', function () {
                     "SELECT * FROM " . hk2_audit_table_name() . " WHERE wc_order_id = %d ORDER BY id DESC LIMIT 50", $oid
                 ), ARRAY_A);
 
+                // Build download URLs the customer would receive via email.
+                // These are WC's signed per-order URLs and work for guest orders.
+                $downloads = [];
+                try {
+                    if (function_exists('wc_downloadable_product_permissions')) {
+                        wc_downloadable_product_permissions($oid, true);
+                    }
+                    if (method_exists($order, 'get_downloadable_items')) {
+                        foreach ($order->get_downloadable_items() as $it) {
+                            $downloads[] = [
+                                'product_id'    => isset($it['product_id']) ? (int) $it['product_id'] : 0,
+                                'product_name'  => isset($it['product_name']) ? (string) $it['product_name'] : '',
+                                'download_name' => isset($it['download_name']) ? (string) $it['download_name'] : '',
+                                'download_url'  => isset($it['download_url']) ? (string) $it['download_url'] : '',
+                            ];
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $downloads = ['error' => $e->getMessage()];
+                }
+
                 $out['order'] = [
                     'id'           => $oid,
                     'status'       => $order->get_status(),
@@ -1195,6 +1216,7 @@ add_action('rest_api_init', function () {
                     'postmeta_all' => $postmeta,
                     'notes'        => $note_arr,
                     'audit_rows'   => $audit,
+                    'downloads'    => $downloads,
                 ];
 
                 // Razorpay live lookup for this order's _razorpay_order_id
