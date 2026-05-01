@@ -38,13 +38,18 @@ export interface HKRoadmap {
 export interface HKRelease {
   id: number | string; slug: string; title: string;
   summary?: string;
+  excerpt?: string;
   content_html?: string;
   release_date: string;
   date_published?: string;
   type: string;
+  type_label?: string;
   source_url?: string;
+  cta_url?: string;
+  cta_label?: string;
   image?: string | null;
-  tags: string[];
+  cover?: string | null;
+  tags?: string[];
   /** "HackKnow" for curated, "TechCrunch" / "DEV.to" / etc for live RSS */
   rss_source?: string;
   rss_source_key?: string;
