@@ -65,13 +65,39 @@ export const GET_PRODUCTS_QUERY = `
 `;
 
 /**
+ * Fetch a single product by slug — fast path for ProductPage so it doesn't
+ * have to wait for the full catalog to paginate before it can render.
+ */
+export const GET_PRODUCT_BY_SLUG_QUERY = `
+  query GetProductBySlug($slug: ID!) {
+    product(id: $slug, idType: SLUG) {
+      id
+      databaseId
+      name
+      slug
+      description
+      shortDescription
+      date
+      ... on SimpleProduct {
+        price
+        regularPrice
+      }
+      productCategories {
+        nodes { id databaseId name slug }
+      }
+      image { sourceUrl altText }
+    }
+  }
+`;
+
+/**
  * Fetch every product across pages (WPGraphQL caps `first` at 100, so we paginate).
- * Hard cap of 10 pages = 1000 products to avoid runaways.
+ * Hard cap of 20 pages = 2000 products to avoid runaways.
  */
 export async function fetchAllProducts(): Promise<{ nodes: unknown[] }> {
   const all: unknown[] = [];
   let cursor: string | null = null;
-  for (let page = 0; page < 10; page++) {
+  for (let page = 0; page < 20; page++) {
     const data = await fetchGraphQL(GET_PRODUCTS_QUERY, { after: cursor });
     const products = data?.products;
     if (!products) break;

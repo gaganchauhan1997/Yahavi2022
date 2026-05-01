@@ -3,7 +3,9 @@ import { useParams, Link } from "react-router-dom";
 import DOMPurify from 'dompurify';
 import { Heart, ShoppingCart, Star, Download, Check, Shield, ArrowRight, Eye, X } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
-import { getProductBySlug, getRelatedProducts } from "@/data/products";
+import { getProductBySlug, getRelatedProducts, type Product } from "@/data/products";
+import { fetchGraphQL, GET_PRODUCT_BY_SLUG_QUERY } from "@/lib/graphql-client";
+import { rewriteWpUrl, parsePriceValue } from "@/lib/utils";
 import ProductCard from "@/components/ProductCard";
 import ReviewsBlock from "@/components/ReviewsBlock";
 import { Button } from "@/components/ui/button";
@@ -17,7 +19,47 @@ export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const { dispatch, toggleWishlist, state } = useStore();
 
-  const product = slug ? getProductBySlug(state.products, slug) : undefined;
+  /* Fast path: directly fetch this product by slug so we don't have to wait
+     for the entire 1700+ product catalog to paginate through GraphQL first. */
+  const [directProduct, setDirectProduct] = useState<Product | null>(null);
+  const [directLoading, setDirectLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (!slug) { setDirectLoading(false); return; }
+    let alive = true;
+    setDirectLoading(true);
+    (async () => {
+      try {
+        const data = await fetchGraphQL(GET_PRODUCT_BY_SLUG_QUERY, { slug });
+        if (!alive) return;
+        const node = data?.product;
+        if (node) {
+          const cats = (node.productCategories?.nodes || [])
+            .map((c: { slug?: string }) => c?.slug).filter(Boolean) as string[];
+          setDirectProduct({
+            id: node.databaseId?.toString() || node.id,
+            name: node.name,
+            slug: node.slug,
+            description: node.description,
+            shortDescription: node.shortDescription,
+            price: node.price,
+            regularPrice: node.regularPrice,
+            image: node.image
+              ? { sourceUrl: rewriteWpUrl(node.image.sourceUrl) ?? '' }
+              : undefined,
+            category: cats[0] || 'uncategorized',
+            categories: cats,
+            isFree: parsePriceValue(node.price) === 0 || cats.includes('free-resources'),
+          });
+        }
+      } catch { /* fall back to context lookup below */ }
+      finally { if (alive) setDirectLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, [slug]);
+
+  const productFromContext = slug ? getProductBySlug(state.products, slug) : undefined;
+  const product = productFromContext ?? directProduct ?? undefined;
   const relatedProducts = product ? getRelatedProducts(state.products, product) : [];
   const isInWishlist = product ? state.wishlist.includes(product.id) : false;
   const productImage = product?.image?.sourceUrl?.trim();
@@ -53,7 +95,7 @@ export default function ProductPage() {
     else window.open(preview.url, '_blank', 'noopener,noreferrer');
   };
 
-  if (state.loading) {
+  if (directLoading && !product) {
     return (
       <div className="pt-32 pb-20 text-center">
         <div className="inline-block w-8 h-8 border-4 border-hack-black border-t-transparent rounded-full animate-spin mb-4" />
