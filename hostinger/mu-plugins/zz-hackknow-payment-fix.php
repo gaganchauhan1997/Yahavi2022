@@ -254,9 +254,13 @@ function hk2_product_availability(WP_REST_Request $req) {
     if (is_array($cached)) return ['availability' => $cached, 'cached' => true];
 
     global $wpdb;
+    // Only consider products explicitly marked downloadable. This prevents
+    // non-digital products (courses, content posts, services) from being
+    // mis-flagged as "no file" and triggering Request-to-Download UI.
     $rows = $wpdb->get_results(
         "SELECT p.ID as id, pm.meta_value as downloads
          FROM {$wpdb->posts} p
+         INNER JOIN {$wpdb->postmeta} dm ON dm.post_id=p.ID AND dm.meta_key='_downloadable' AND dm.meta_value='yes'
          LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id=p.ID AND pm.meta_key='_downloadable_files'
          WHERE p.post_type='product' AND p.post_status='publish'",
         ARRAY_A
@@ -285,24 +289,34 @@ function hk2_get_webhook_secret() {
 }
 
 function hk2_razorpay_webhook(WP_REST_Request $req) {
+    $body_hash = '';
+    $audit_base = ['ip' => substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64)];
+
     $secret = hk2_get_webhook_secret();
     if (!$secret) {
         hk2_log('webhook secret not configured');
+        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, ['event' => 'config.missing', 'sig_ok' => 0, 'action' => 'reject_no_secret']));
         return new WP_Error('no_secret', 'Webhook secret not configured. Set it in WP Admin → Settings → HackKnow Webhook.', ['status' => 500]);
     }
     $raw = $req->get_body();
     $sig = $req->get_header('x_razorpay_signature');
-    if (!$sig || !$raw) return new WP_Error('bad_request', 'Missing signature or body', ['status' => 400]);
+    if ($raw) $body_hash = sha1($raw);
+    if (!$sig || !$raw) {
+        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, ['event' => 'bad_request', 'sig_ok' => 0, 'action' => 'reject_no_body', 'body_hash' => $body_hash]));
+        return new WP_Error('bad_request', 'Missing signature or body', ['status' => 400]);
+    }
 
     $expected = hash_hmac('sha256', $raw, $secret);
     if (!hash_equals($expected, $sig)) {
         hk2_log('webhook signature mismatch');
+        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, ['event' => 'sig_mismatch', 'sig_ok' => 0, 'action' => 'reject', 'body_hash' => $body_hash]));
         return new WP_Error('bad_signature', 'Signature mismatch', ['status' => 401]);
     }
 
     $payload = json_decode($raw, true);
     $event   = is_array($payload) ? ($payload['event'] ?? '') : '';
     if (!in_array($event, ['payment.captured', 'order.paid'], true)) {
+        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, ['event' => $event, 'sig_ok' => 1, 'action' => 'skip_event', 'body_hash' => $body_hash]));
         return ['ok' => true, 'skipped' => $event];
     }
 
@@ -320,12 +334,39 @@ function hk2_razorpay_webhook(WP_REST_Request $req) {
     }
     if (!$order) {
         hk2_log("webhook: no WC order for rzp_order=$rzp_order_id rzp_pay=$rzp_pay_id email=$email_hint");
+        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
+            'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
+            'sig_ok' => 1, 'action' => 'no_match', 'body_hash' => $body_hash,
+        ]));
         // Still 200 so Razorpay does not retry forever.
         return ['ok' => true, 'matched' => false];
     }
 
-    // Idempotency: if already completed, just confirm.
-    if (in_array($order->get_status(), ['completed'], true)) {
+    // ── ATOMIC IDEMPOTENCY LOCK ──
+    // add_post_meta with $unique=true is an INSERT IGNORE at the SQL level.
+    // It returns false if the meta_key already exists, so two concurrent
+    // webhook hits (payment.captured + order.paid arriving milliseconds
+    // apart, or a reconcile job racing with the webhook) cannot
+    // double-process the same payment.
+    $lock_key = '_hk2_webhook_lock';
+    $lock_token = $rzp_pay_id . '|' . time();
+    $got_lock = (bool) add_post_meta($order->get_id(), $lock_key, $lock_token, true);
+    if (!$got_lock) {
+        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
+            'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
+            'wc_order_id' => $order->get_id(), 'sig_ok' => 1, 'action' => 'duplicate_skipped', 'body_hash' => $body_hash,
+        ]));
+        return ['ok' => true, 'duplicate' => true, 'wc_order' => $order->get_id()];
+    }
+
+    // Idempotency v2: if already completed AND already saw THIS payment id,
+    // confirm and return without re-firing emails.
+    $prev_pay = (string) get_post_meta($order->get_id(), '_razorpay_payment_id', true);
+    if (in_array($order->get_status(), ['completed'], true) && $prev_pay === $rzp_pay_id) {
+        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
+            'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
+            'wc_order_id' => $order->get_id(), 'sig_ok' => 1, 'action' => 'already_completed', 'body_hash' => $body_hash,
+        ]));
         return ['ok' => true, 'already' => true, 'wc_order' => $order->get_id()];
     }
 
@@ -343,6 +384,11 @@ function hk2_razorpay_webhook(WP_REST_Request $req) {
         $order->update_status('completed', 'Auto-completed via Razorpay webhook (' . $event . ').');
     }
     $order->add_order_note('Razorpay webhook ' . $event . ' rcvd; payment ' . $rzp_pay_id . ' verified.');
+
+    if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
+        'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
+        'wc_order_id' => $order->get_id(), 'sig_ok' => 1, 'action' => 'payment_complete', 'body_hash' => $body_hash,
+    ]));
 
     // The completed-status hook above will send our delivery email.
     // Also nudge the standard WC customer email for parity.
@@ -589,22 +635,45 @@ function hk2_render_settings_page() {
     <?php
 }
 
-/* Bootstrap endpoint — lets the operator (or this agent) set the webhook
-   secret remotely by authenticating with the existing WooCommerce REST
-   consumer_secret as a bearer token. The consumer_secret is stored in
-   plaintext in wp_woocommerce_api_keys.consumer_secret, so we can do a
-   constant-time compare. This avoids the need to edit wp-config.php or
-   even visit WP Admin after the mu-plugin is installed. */
+/* Bootstrap endpoint — one-shot setup channel. Auto-disables permanently
+   after a successful set, so even a leaked Woo consumer_secret cannot be
+   used to overwrite the webhook secret later. Per-IP rate limited and
+   guarded by a hash_equals comparison against admin-owned WC API keys.
+   To re-open the channel, an admin must delete the
+   `hk_rzp_bootstrap_locked` option in WP Admin. */
 add_action('rest_api_init', function () {
     register_rest_route('hackknow/v1', '/bootstrap-secret', [
         'methods' => 'POST',
         'permission_callback' => '__return_true',
         'callback' => function (WP_REST_Request $req) {
+            // Hard-disable after first successful use OR if a secret is
+            // already configured (admin-set, prior bootstrap, etc.).
+            if (get_option('hk_rzp_bootstrap_locked') === '1') {
+                return new WP_Error('locked', 'Bootstrap channel disabled. Webhook secret already configured. Change it via WP Admin → Settings → HackKnow Webhook.', ['status' => 410]);
+            }
+            $existing = (string) get_option('hk_rzp_webhook_secret', '');
+            if ($existing !== '') {
+                update_option('hk_rzp_bootstrap_locked', '1', true);
+                return new WP_Error('already_set', 'A webhook secret is already configured. Change it via WP Admin instead.', ['status' => 409]);
+            }
+
+            // Per-IP throttle: 5 attempts / 10 min
+            $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+            $tk = 'hk2_boot_' . md5($ip);
+            $tries = (int) get_transient($tk);
+            if ($tries >= 5) {
+                return new WP_Error('rate_limited', 'Too many attempts.', ['status' => 429]);
+            }
+            set_transient($tk, $tries + 1, 600);
+
             $auth = (string) $req->get_header('authorization');
             if (!$auth || stripos($auth, 'bearer ') !== 0) {
                 return new WP_Error('no_auth', 'Missing Bearer token', ['status' => 401]);
             }
             $token = trim(substr($auth, 7));
+            if (strlen($token) < 20) {
+                return new WP_Error('bad_auth', 'Invalid token', ['status' => 401]);
+            }
             global $wpdb;
             $rows = $wpdb->get_col(
                 "SELECT consumer_secret FROM {$wpdb->prefix}woocommerce_api_keys
@@ -618,9 +687,12 @@ add_action('rest_api_init', function () {
             if (!$ok) return new WP_Error('bad_auth', 'Invalid token', ['status' => 401]);
 
             $secret = sanitize_text_field((string) $req->get_param('secret'));
-            if (!$secret) return new WP_Error('no_secret', 'Missing secret param', ['status' => 400]);
+            if (!$secret || strlen($secret) < 8) return new WP_Error('no_secret', 'Missing or too-short secret param', ['status' => 400]);
             update_option('hk_rzp_webhook_secret', $secret, true);
-            return ['ok' => true, 'configured' => true, 'len' => strlen($secret)];
+            // Lock immediately after successful set
+            update_option('hk_rzp_bootstrap_locked', '1', true);
+            delete_transient($tk);
+            return ['ok' => true, 'configured' => true, 'len' => strlen($secret), 'channel_locked' => true];
         },
     ]);
 }, 25);
@@ -671,21 +743,40 @@ add_action('rest_api_init', function () {
  * money for goods you cannot deliver is fraud. We enforce this at THREE
  * layers — purchasability filter, add-to-cart guard, and frontend UI.
  */
+/**
+ * True iff the product is a digital good with NO downloadable file attached
+ * at either the variation level or the parent level. Treats non-digital
+ * products (where neither self nor parent is marked downloadable) as
+ * deliverable — we don't want to block courses/services.
+ */
+function hk2_is_undeliverable($product) {
+    if (!$product) return false;
+    $is_variation = $product->is_type('variation');
+    $self_downloadable = $product->is_downloadable();
+    $parent = $is_variation ? wc_get_product($product->get_parent_id()) : null;
+    $parent_downloadable = $parent ? $parent->is_downloadable() : false;
+    if (!$self_downloadable && !$parent_downloadable) return false;
+    if (!empty(hk2_product_files($product->get_id()))) return false;
+    if ($parent && !empty(hk2_product_files($parent->get_id()))) return false;
+    return true;
+}
+
 add_filter('woocommerce_is_purchasable', function ($purchasable, $product) {
     if (!$product) return $purchasable;
-    // Variations: defer to parent product policy
-    $check = $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : $product;
-    if (!$check || !$check->is_downloadable()) return $purchasable; // non-digital products unaffected
-    $files = hk2_product_files($check->get_id());
-    return empty($files) ? false : $purchasable;
+    return hk2_is_undeliverable($product) ? false : $purchasable;
+}, 99, 2);
+
+// Some themes/extensions check variation purchasability via this filter.
+add_filter('woocommerce_variation_is_purchasable', function ($purchasable, $variation) {
+    if (!$variation) return $purchasable;
+    return hk2_is_undeliverable($variation) ? false : $purchasable;
 }, 99, 2);
 
 // Belt + suspenders: also block at the add-to-cart step in case any code path
 // bypasses is_purchasable (custom themes, REST cart, etc.)
 add_filter('woocommerce_add_to_cart_validation', function ($passed, $product_id, $quantity, $variation_id = 0) {
-    $pid = $variation_id ? wp_get_post_parent_id($variation_id) : (int) $product_id;
-    $product = wc_get_product($pid);
-    if ($product && $product->is_downloadable() && empty(hk2_product_files($pid))) {
+    $check = $variation_id ? wc_get_product((int) $variation_id) : wc_get_product((int) $product_id);
+    if ($check && hk2_is_undeliverable($check)) {
         if (function_exists('wc_add_notice')) {
             wc_add_notice('This product is not yet available for purchase. Please use the "Request to Download" option.', 'error');
         }

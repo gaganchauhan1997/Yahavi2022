@@ -700,6 +700,43 @@ function hackknow_create_order(WP_REST_Request $req) {
     $order = wc_create_order(['status' => 'pending']);
     if ($uid) $order->set_customer_id($uid);
 
+    // ── Pre-flight: reject any item whose digital product has no
+    //    downloadable file attached. India payment compliance: we cannot
+    //    accept money for goods we cannot deliver. Mirrors the guard in
+    //    zz-hackknow-payment-fix.php for the WC cart path.
+    $undeliverable = [];
+    foreach ($items as $i) {
+        $pid = absint($i['product_id'] ?? 0);
+        if (!$pid) continue;
+        $vid = absint($i['variation_id'] ?? 0);
+        $check_id = $vid ?: $pid;
+        $product = wc_get_product($check_id);
+        if (!$product) continue;
+        if ($product->is_downloadable()) {
+            $files = $product->get_downloads();
+            $has_any = false;
+            if (!empty($files)) {
+                foreach ($files as $f) {
+                    if (is_object($f) && method_exists($f, 'get_file') && $f->get_file()) { $has_any = true; break; }
+                }
+            }
+            // For variations, fall back to parent if variation has none
+            if (!$has_any && $vid) {
+                $parent = wc_get_product($pid);
+                if ($parent) {
+                    foreach ((array)$parent->get_downloads() as $f) {
+                        if (is_object($f) && method_exists($f, 'get_file') && $f->get_file()) { $has_any = true; break; }
+                    }
+                }
+            }
+            if (!$has_any) $undeliverable[] = $product->get_name() . " (#$check_id)";
+        }
+    }
+    if (!empty($undeliverable)) {
+        $order->update_status('cancelled', 'HackKnow: rejected — product(s) without downloadable file: ' . implode('; ', $undeliverable));
+        return new WP_Error('product_undeliverable', 'One or more selected products are not currently available. Please use the Request to Download option for: ' . implode(', ', $undeliverable), ['status' => 422, 'undeliverable' => $undeliverable]);
+    }
+
     foreach ($items as $i) {
         $pid = absint($i['product_id'] ?? 0);
         $qty = max(1, absint($i['quantity'] ?? 1));
