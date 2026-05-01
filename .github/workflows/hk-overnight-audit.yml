@@ -1,0 +1,74 @@
+name: HackKnow Overnight Audit
+
+# Runs every hour. Read-only checks against production.
+# Reports get pushed to the `audit-reports` branch (orphan, no app code,
+# so this never triggers the GCE deploy webhook on `main`).
+
+on:
+  schedule:
+    - cron: '0 * * * *'        # hourly (UTC)
+  workflow_dispatch: {}        # allow manual trigger from the Actions tab
+
+concurrency:
+  group: hk-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write          # needs to push to audit-reports branch
+
+    steps:
+      - name: Checkout main (for the script)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run audit
+        env:
+          AUDIT_OUT: /tmp/audit-out
+        run: node scripts/hk-overnight-audit.mjs
+
+      - name: Push report to audit-reports branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config user.name  "hk-audit-bot"
+          git config user.email "audit-bot@users.noreply.github.com"
+
+          STATUS=$(cat /tmp/audit-out/latest-status.txt 2>/dev/null || echo "?")
+          STAMP=$(date -u +%Y-%m-%dT%H-%MZ)
+
+          # Switch to audit-reports (orphan branch — separate from main).
+          if git ls-remote --exit-code --heads origin audit-reports >/dev/null 2>&1; then
+            git fetch --depth=1 origin audit-reports
+            git checkout -B audit-reports origin/audit-reports
+          else
+            git checkout --orphan audit-reports
+            git rm -rf . > /dev/null 2>&1 || true
+            echo "# HackKnow audit reports" > README.md
+            echo "" >> README.md
+            echo "Auto-generated hourly. See \`.audit/INDEX.md\` for the rolling log." >> README.md
+            git add README.md
+          fi
+
+          mkdir -p .audit
+          cp -r /tmp/audit-out/. .audit/ 2>/dev/null || true
+
+          git add .audit/
+          if git diff --quiet --staged; then
+            echo "no changes — skipping commit"
+            exit 0
+          fi
+
+          git commit -m "audit ${STAMP} — ${STATUS}"
+          git push origin audit-reports
