@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Zap, ArrowRight, Mail, Lock } from 'lucide-react';
 import { loginWithWordPress, loginWithGoogleToken } from '@/lib/auth';
@@ -30,6 +30,32 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  // refs are the source of truth on iOS Safari, where password-manager
+  // autofill mutates input.value WITHOUT firing onChange/onInput.
+  const emailRef = useRef<HTMLInputElement | null>(null);
+  const pwRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync any value Safari/1Password may have injected before our handlers ran.
+  useEffect(() => {
+    const sync = () => {
+      const e = emailRef.current?.value ?? '';
+      const p = pwRef.current?.value ?? '';
+      setEmail((prev) => (prev === e ? prev : e));
+      setPassword((prev) => (prev === p ? prev : p));
+    };
+    const t1 = window.setTimeout(sync, 100);
+    const t2 = window.setTimeout(sync, 600);
+    const t3 = window.setTimeout(sync, 1500);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, []);
   // Safe redirect: only same-origin internal paths (must start with '/' but not '//')
   const next = (() => {
     const raw = new URLSearchParams(
@@ -42,10 +68,19 @@ const LoginPage = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Read DOM directly — autofill may not have flowed into React state yet.
+    const emailLive = (emailRef.current?.value ?? email).trim();
+    const pwLive = pwRef.current?.value ?? password;
+    if (!emailLive || !pwLive) {
+      setError('Please enter both email and password.');
+      setEmail(emailLive);
+      setPassword(pwLive);
+      return;
+    }
     setIsLoading(true);
     setError('');
     try {
-      await loginWithWordPress(email, password);
+      await loginWithWordPress(emailLive, pwLive);
       navigate(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -129,6 +164,7 @@ const LoginPage = () => {
                 Email
               </label>
               <input
+                ref={emailRef}
                 type="email"
                 name="email"
                 value={email}
@@ -153,6 +189,7 @@ const LoginPage = () => {
               </label>
               <div className="relative">
                 <input
+                  ref={pwRef}
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={password}

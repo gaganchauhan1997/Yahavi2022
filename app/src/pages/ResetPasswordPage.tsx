@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Lock,
@@ -28,6 +28,11 @@ const ResetPasswordPage = () => {
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
 
+  // refs are the source of truth on iOS Safari, where Strong-Password
+  // autofill mutates input.value WITHOUT firing onChange/onInput.
+  const pwRef = useRef<HTMLInputElement | null>(null);
+  const cfRef = useRef<HTMLInputElement | null>(null);
+
   const linkValid = useMemo(() => Boolean(key && login), [key, login]);
   const passOk = password.length >= 8 && password === confirm;
 
@@ -38,16 +43,49 @@ const ResetPasswordPage = () => {
       );
   }, [linkValid]);
 
+  // Sync any value Safari/1Password may have injected before our event
+  // handlers mounted, so the gated submit button enables.
+  useEffect(() => {
+    const sync = () => {
+      const p = pwRef.current?.value ?? '';
+      const c = cfRef.current?.value ?? '';
+      setPassword((prev) => (prev === p ? prev : p));
+      setConfirm((prev) => (prev === c ? prev : c));
+    };
+    const t1 = window.setTimeout(sync, 100);
+    const t2 = window.setTimeout(sync, 600);
+    const t3 = window.setTimeout(sync, 1500);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!linkValid || !passOk) return;
+    if (!linkValid) return;
+    // Read DOM directly — autofill value may not be in React state yet.
+    const pwLive = pwRef.current?.value ?? password;
+    const cfLive = cfRef.current?.value ?? confirm;
+    if (pwLive.length < 8 || pwLive !== cfLive) {
+      setError('Password must be at least 8 characters and both fields must match.');
+      // also push DOM into state so UI reflects it
+      setPassword(pwLive);
+      setConfirm(cfLive);
+      return;
+    }
     setIsLoading(true);
     setError('');
     try {
       const res = await fetch(`${WP_REST_BASE}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ key, login, password }),
+        body: JSON.stringify({ key, login, password: pwLive }),
       });
       const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (res.ok && data?.success) {
@@ -167,8 +205,9 @@ const ResetPasswordPage = () => {
                         strokeWidth={2.5}
                       />
                       <input
+                        ref={pwRef}
                         type={showPw ? 'text' : 'password'}
-                        name="new-password"
+                        name="newPassword"
                         autoComplete="new-password"
                         autoCapitalize="off"
                         autoCorrect="off"
@@ -209,8 +248,9 @@ const ResetPasswordPage = () => {
                         strokeWidth={2.5}
                       />
                       <input
+                        ref={cfRef}
                         type={showCf ? 'text' : 'password'}
-                        name="confirm-password"
+                        name="confirmPassword"
                         autoComplete="new-password"
                         autoCapitalize="off"
                         autoCorrect="off"
@@ -248,7 +288,7 @@ const ResetPasswordPage = () => {
                   {/* Submit */}
                   <button
                     type="submit"
-                    disabled={isLoading || !linkValid || !passOk}
+                    disabled={isLoading || !linkValid}
                     className={neoBtn}
                   >
                     {isLoading ? (

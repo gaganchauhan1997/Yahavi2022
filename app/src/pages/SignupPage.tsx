@@ -203,7 +203,7 @@ const SignupPage: FC = () => {
                     className="w-full border-4 border-hack-black bg-hack-white px-4 py-3 text-sm font-medium outline-none transition-colors focus:bg-hack-yellow/30"
                     placeholder="Gagan Chauhan"
                     value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, fullName: e.target.value }))}
                     required
                   />
                 </label>
@@ -224,8 +224,8 @@ const SignupPage: FC = () => {
                     className="w-full border-4 border-hack-black bg-hack-white px-4 py-3 text-sm font-medium outline-none transition-colors focus:bg-hack-yellow/30"
                     placeholder="you@hackknow.com"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    onInput={(e) => setFormData({ ...formData, email: (e.target as HTMLInputElement).value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                    onInput={(e) => setFormData((prev) => ({ ...prev, email: (e.target as HTMLInputElement).value }))}
                     required
                   />
                 </label>
@@ -241,7 +241,7 @@ const SignupPage: FC = () => {
                   className="w-full border-4 border-hack-black bg-hack-white px-4 py-3 text-sm font-medium outline-none transition-colors focus:bg-hack-yellow/30"
                   placeholder="+91 98765 43210"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
                   pattern="[\+]?[0-9\s\-\(\)]{10,}"
                   title="Please enter a valid phone number"
                   required
@@ -259,7 +259,7 @@ const SignupPage: FC = () => {
                   </span>
                   <input
                     type="password"
-                    name="new-password"
+                    name="newPassword"
                     autoComplete="new-password"
                     autoCapitalize="off"
                     autoCorrect="off"
@@ -267,8 +267,8 @@ const SignupPage: FC = () => {
                     className="w-full border-4 border-hack-black bg-hack-white px-4 py-3 text-sm font-medium outline-none transition-colors focus:bg-hack-yellow/30"
                     placeholder="Minimum 8 characters"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    onInput={(e) => setFormData({ ...formData, password: (e.target as HTMLInputElement).value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+                    onInput={(e) => setFormData((prev) => ({ ...prev, password: (e.target as HTMLInputElement).value }))}
                     minLength={8}
                     required
                   />
@@ -281,7 +281,7 @@ const SignupPage: FC = () => {
                   </span>
                   <input
                     type="password"
-                    name="confirm-password"
+                    name="confirmPassword"
                     autoComplete="new-password"
                     autoCapitalize="off"
                     autoCorrect="off"
@@ -289,8 +289,8 @@ const SignupPage: FC = () => {
                     className="w-full border-4 border-hack-black bg-hack-white px-4 py-3 text-sm font-medium outline-none transition-colors focus:bg-hack-yellow/30"
                     placeholder="Re-enter password"
                     value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    onInput={(e) => setFormData({ ...formData, confirmPassword: (e.target as HTMLInputElement).value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                    onInput={(e) => setFormData((prev) => ({ ...prev, confirmPassword: (e.target as HTMLInputElement).value }))}
                     required
                   />
                 </label>
