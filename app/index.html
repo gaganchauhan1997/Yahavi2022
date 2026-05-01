@@ -185,16 +185,35 @@
         setTimeout(hide, 6000);
         window.__hkHideSplash=hide;
       })();
-      // ----- Kill any stale service workers (root cause of "needs reload" first-load) -----
+      // ----- Surgically kill ONLY the legacy empty-stub service worker -----
+      // (the 451-byte sw.js / service-worker.js that did `clients.claim()`
+      //  with no fetch handler — root cause of "needs reload" first-load).
+      // Any future legitimate SW registered under a different scope/script
+      // will be left untouched.
       (function(){
         if(!('serviceWorker' in navigator)) return;
+        var STUBS=['/sw.js','/service-worker.js'];
         try{
           navigator.serviceWorker.getRegistrations().then(function(regs){
-            regs.forEach(function(r){ try{ r.unregister(); }catch(e){} });
+            regs.forEach(function(r){
+              try{
+                var sw = r.active || r.waiting || r.installing;
+                var url = sw && sw.scriptURL ? sw.scriptURL : '';
+                var path = '';
+                try{ path = new URL(url).pathname; }catch(e){ path = url; }
+                if(STUBS.indexOf(path) !== -1){
+                  r.unregister();
+                }
+              }catch(e){}
+            });
           });
-          // Also scrub any caches the old SW may have left behind
+          // Scrub only the legacy unnamed cache(s) (we never used named caches)
           if('caches' in window){
-            caches.keys().then(function(keys){ keys.forEach(function(k){ try{ caches.delete(k); }catch(e){} }); });
+            caches.keys().then(function(keys){
+              keys.forEach(function(k){
+                if(/workbox|hackknow-sw|sw-cache/i.test(k)){ try{ caches.delete(k); }catch(e){} }
+              });
+            });
           }
         }catch(e){}
       })();
