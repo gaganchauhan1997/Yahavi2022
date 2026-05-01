@@ -48,6 +48,7 @@ const TestimonialsPage    = lazy(() => import('./pages/TestimonialsPage'));
 const SSOBridgePage       = lazy(() => import('./pages/SSOBridgePage'));
 const BrainxercisePage    = lazy(() => import('./pages/BrainxercisePage'));
 const SponsorPage         = lazy(() => import('./pages/SponsorPage'));
+const VendorApplyPage     = lazy(() => import('./pages/VendorApplyPage'));
 const BrainxerciseDetailPage = lazy(() => import('./pages/BrainxerciseDetailPage'));
 
 function PageLoader() {
@@ -146,6 +147,9 @@ function App() {
                 <Route path="/brainxercise/:slug"   element={<BrainxerciseDetailPage />} />
                 <Route path="/sponsor"              element={<SponsorPage />} />
                 <Route path="/sponsors"             element={<Navigate to="/sponsor" replace />} />
+                <Route path="/become-a-vendor"      element={<VendorApplyPage />} />
+                <Route path="/vendor-apply"         element={<Navigate to="/become-a-vendor" replace />} />
+                <Route path="/sell"                 element={<Navigate to="/become-a-vendor" replace />} />
                 <Route path="/testimonials"         element={<TestimonialsPage />} />
                 <Route path="/reviews"              element={<Navigate to="/testimonials" replace />} />
 

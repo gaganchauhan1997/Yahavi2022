@@ -3,6 +3,20 @@ module.exports = {
   darkMode: ["class"],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
+    /*
+     * Owner request: tablets must show the mobile layout.
+     * Tailwind defaults are sm=640 / md=768 / lg=1024.
+     * We push BOTH md and lg up to 1024 so any md:* and lg:* utilities
+     * only activate at true desktop width — every device under 1024px
+     * (mobile + tablet) renders the mobile layout.
+     */
+    screens: {
+      sm: '640px',
+      md: '1024px',
+      lg: '1024px',
+      xl: '1280px',
+      '2xl': '1536px',
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
