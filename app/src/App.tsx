@@ -59,9 +59,29 @@ function PageLoader() {
   );
 }
 
-function ScrollToTop() {
+function RouteTransition() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }, [pathname]);
+  useEffect(() => {
+    // Smooth scroll-to-top + a soft view-transition where supported.
+    // Falls back gracefully on Safari / Firefox (just scrolls).
+    const doScroll = () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const d = document as unknown as { startViewTransition?: (cb: () => void) => void };
+    if (typeof d.startViewTransition === 'function') {
+      try { d.startViewTransition(doScroll); return; } catch { /* fall through */ }
+    }
+    // Fallback: quick CSS fade
+    const root = document.getElementById('root');
+    if (root) {
+      root.style.transition = 'opacity 180ms ease-out';
+      root.style.opacity = '0.55';
+      requestAnimationFrame(() => {
+        doScroll();
+        requestAnimationFrame(() => { root.style.opacity = '1'; });
+      });
+    } else {
+      doScroll();
+    }
+  }, [pathname]);
   return null;
 }
 
@@ -98,7 +118,7 @@ function App() {
     <ErrorBoundary>
       <StoreProvider>
         <Router>
-          <ScrollToTop />
+          <RouteTransition />
           <YahaviAI />
           <Header />
           <CategorySidebar />

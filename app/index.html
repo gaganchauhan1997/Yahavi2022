@@ -114,7 +114,7 @@
         "@type": "ContactPoint",
         "email": "team@hackknow.com",
         "contactType": "customer service",
-        "availableLanguage": ["English", "Hindi"]
+        "availableLanguage": ["English"]
       }
     }
     </script>
@@ -134,9 +134,71 @@
       }
     }
     </script>
+    <!-- Mobile LCP hero preload -->
+    <link rel="preload" as="image" href="/images/hero/phone-mockup.webp"
+          type="image/webp" media="(max-width: 1023px)" fetchpriority="high" />
+
+    <!-- First-paint splash CSS (inlined to avoid blank-screen on first load) -->
+    <style>
+      html,body{margin:0;padding:0;background:#0A0A0A;color:#fff;font-family:Inter,system-ui,sans-serif}
+      #hk-splash{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0A0A0A;z-index:2147483646;transition:opacity .25s ease-out}
+      #hk-splash.hide{opacity:0;pointer-events:none}
+      #hk-splash .logo{font-family:"Space Grotesk",Inter,system-ui,sans-serif;font-weight:700;font-size:34px;letter-spacing:-.02em;color:#FFD60A}
+      #hk-splash .tag{margin-top:8px;font-size:13px;color:#9aa0a6;letter-spacing:.02em}
+      #hk-splash .ring{margin-top:22px;width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,214,10,.18);border-top-color:#FFD60A;animation:hk-spin .8s linear infinite}
+      @keyframes hk-spin{to{transform:rotate(360deg)}}
+      @media (prefers-reduced-motion:reduce){#hk-splash .ring{animation:none}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="hk-splash" role="status" aria-label="Loading HackKnow">
+        <div class="logo">HackKnow</div>
+        <div class="tag">Premium Digital Products Marketplace</div>
+        <div class="ring" aria-hidden="true"></div>
+      </div>
+    </div>
+    <script>
+      // ----- Splash hide on hydration / load / timeout -----
+      (function(){
+        var hidden=false;
+        function hide(){
+          if(hidden) return; hidden=true;
+          var s=document.getElementById('hk-splash');
+          if(!s) return;
+          s.classList.add('hide');
+          setTimeout(function(){ if(s && s.parentNode) s.parentNode.removeChild(s); },350);
+        }
+        // Hide as soon as React paints anything inside #root other than splash
+        var root=document.getElementById('root');
+        if(root && 'MutationObserver' in window){
+          var mo=new MutationObserver(function(){
+            // any node added to #root that isn't the splash itself => app rendered
+            for(var i=0;i<root.children.length;i++){
+              if(root.children[i].id!=='hk-splash'){ hide(); mo.disconnect(); return; }
+            }
+          });
+          mo.observe(root,{childList:true});
+        }
+        window.addEventListener('load', function(){ setTimeout(hide, 1200); });
+        // Hard fallback so user is never stuck looking at the splash
+        setTimeout(hide, 6000);
+        window.__hkHideSplash=hide;
+      })();
+      // ----- Kill any stale service workers (root cause of "needs reload" first-load) -----
+      (function(){
+        if(!('serviceWorker' in navigator)) return;
+        try{
+          navigator.serviceWorker.getRegistrations().then(function(regs){
+            regs.forEach(function(r){ try{ r.unregister(); }catch(e){} });
+          });
+          // Also scrub any caches the old SW may have left behind
+          if('caches' in window){
+            caches.keys().then(function(keys){ keys.forEach(function(k){ try{ caches.delete(k); }catch(e){} }); });
+          }
+        }catch(e){}
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
