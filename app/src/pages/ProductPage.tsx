@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import DOMPurify from 'dompurify';
-import { Heart, ShoppingCart, Star, Download, Check, Shield, ArrowRight, Eye, X } from "lucide-react";
+import { Heart, ShoppingCart, Star, Download, Check, Shield, ArrowRight, Eye, X, Mail } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { useProductAvailability } from "@/lib/product-availability";
+import RequestToDownloadModal from "@/components/RequestToDownloadModal";
 import { getProductBySlug, getRelatedProducts, type Product } from "@/data/products";
 import { fetchGraphQL, GET_PRODUCT_BY_SLUG_QUERY } from "@/lib/graphql-client";
 import { rewriteWpUrl, parsePriceValue } from "@/lib/utils";
@@ -110,6 +111,11 @@ export default function ProductPage() {
     if (preview.open_in === 'iframe') setPreviewOpen(true);
     else window.open(preview.url, '_blank', 'noopener,noreferrer');
   };
+
+  // Hooks must run unconditionally — declared above the early returns.
+  const availability = useProductAvailability(product?.id);
+  const isFileLess = availability !== null && availability.has_file === false;
+  const [requestOpen, setRequestOpen] = useState(false);
 
   if (directLoading && !product) {
     return (
@@ -275,15 +281,27 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Actions */}
+              {/* Actions — file-less products show Request to Download
+                  instead of Add to Cart, so customers can never accidentally
+                  pay for an undeliverable item. */}
               <div className="flex gap-3 mb-3">
-                <Button
-                  onClick={handleAddToCart}
-                  className="flex-1 h-14 bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full font-bold text-base gap-2"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  {product.isFree ? "Download Free" : "Add to Cart"}
-                </Button>
+                {isFileLess && !product.isFree ? (
+                  <Button
+                    onClick={() => setRequestOpen(true)}
+                    className="flex-1 h-14 bg-hack-magenta text-hack-black hover:bg-hack-magenta/80 rounded-full font-bold text-base gap-2 border-[2.5px] border-hack-black shadow-[4px_4px_0_0_#1A1A1A]"
+                  >
+                    <Mail className="w-5 h-5" />
+                    Request to Download
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleAddToCart}
+                    className="flex-1 h-14 bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full font-bold text-base gap-2"
+                  >
+                    <ShoppingCart className="w-5 h-5" />
+                    {product.isFree ? "Download Free" : "Add to Cart"}
+                  </Button>
+                )}
                 <Button
                   onClick={handleToggleWishlist}
                   variant="outline"
@@ -464,6 +482,13 @@ export default function ProductPage() {
           </div>
         </div>
       )}
+
+      <RequestToDownloadModal
+        open={requestOpen}
+        onClose={() => setRequestOpen(false)}
+        productId={product.id}
+        productName={product.name}
+      />
     </div>
   );
 }

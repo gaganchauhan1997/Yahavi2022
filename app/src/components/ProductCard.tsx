@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, ShoppingCart, Star, ArrowUpRight } from "lucide-react";
+import { Heart, ShoppingCart, Star, ArrowUpRight, Mail } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import type { Product } from "@/data/products";
 import { useProductAvailability } from "@/lib/product-availability";
+import RequestToDownloadModal from "@/components/RequestToDownloadModal";
 
 interface ProductCardProps {
   product: Product;
@@ -14,11 +16,23 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
   const isInWishlist = state.wishlist.includes(product.id);
   const productImage = product.image?.sourceUrl?.trim();
   const availability = useProductAvailability(product.id);
+  const [requestOpen, setRequestOpen] = useState(false);
+
+  // Until availability data loads, treat as available so we don't flicker
+  // the Request button on every card. Once data arrives, file-less products
+  // permanently show the Request flow.
+  const isFileLess = availability !== null && availability.has_file === false;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     dispatch({ type: "ADD_TO_CART", product });
+  };
+
+  const handleOpenRequest = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRequestOpen(true);
   };
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
@@ -28,6 +42,7 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
   };
 
   return (
+    <>
     <Link
       to={`/product/${product.slug}`}
       className={`group relative block bg-white rounded-2xl overflow-hidden border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] hover:shadow-[3px_3px_0_0_#1A1A1A] hover:translate-x-[3px] hover:translate-y-[3px] transition-all duration-200 ${className}`}
@@ -103,14 +118,25 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
           </span>
         )}
 
-        {/* Quick Add Button — neo-brutal yellow chip */}
-        {!product.isFree && (
+        {/* Quick action button — Add to Cart (yellow) for ready products,
+            Request to Download (magenta envelope) for file-less products. */}
+        {!product.isFree && !isFileLess && (
           <button
             onClick={handleAddToCart}
             aria-label="Add to cart"
             className="absolute bottom-3 right-3 w-10 h-10 rounded-lg bg-hack-yellow flex items-center justify-center border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A] hover:shadow-[1px_1px_0_0_#1A1A1A] hover:translate-x-[2px] hover:translate-y-[2px] transition-all opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
           >
             <ShoppingCart className="w-5 h-5 text-hack-black" strokeWidth={2.5} />
+          </button>
+        )}
+        {!product.isFree && isFileLess && (
+          <button
+            onClick={handleOpenRequest}
+            aria-label="Request to download"
+            title="Request to download"
+            className="absolute bottom-3 right-3 w-10 h-10 rounded-lg bg-hack-magenta flex items-center justify-center border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A] hover:shadow-[1px_1px_0_0_#1A1A1A] hover:translate-x-[2px] hover:translate-y-[2px] transition-all opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+          >
+            <Mail className="w-5 h-5 text-hack-black" strokeWidth={2.5} />
           </button>
         )}
       </div>
@@ -162,5 +188,12 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
         </div>
       </div>
     </Link>
+    <RequestToDownloadModal
+      open={requestOpen}
+      onClose={() => setRequestOpen(false)}
+      productId={product.id}
+      productName={product.name}
+    />
+    </>
   );
 }

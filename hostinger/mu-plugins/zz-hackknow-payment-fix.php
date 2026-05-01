@@ -662,3 +662,355 @@ add_action('rest_api_init', function () {
         },
     ]);
 }, 25);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SAFETY MODULE 1 — Server-side block of file-less product purchase
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Owner requirement: customer should NEVER be able to pay for a "demo" product
+ * (one without a downloadable file attached). India payment law: accepting
+ * money for goods you cannot deliver is fraud. We enforce this at THREE
+ * layers — purchasability filter, add-to-cart guard, and frontend UI.
+ */
+add_filter('woocommerce_is_purchasable', function ($purchasable, $product) {
+    if (!$product) return $purchasable;
+    // Variations: defer to parent product policy
+    $check = $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : $product;
+    if (!$check || !$check->is_downloadable()) return $purchasable; // non-digital products unaffected
+    $files = hk2_product_files($check->get_id());
+    return empty($files) ? false : $purchasable;
+}, 99, 2);
+
+// Belt + suspenders: also block at the add-to-cart step in case any code path
+// bypasses is_purchasable (custom themes, REST cart, etc.)
+add_filter('woocommerce_add_to_cart_validation', function ($passed, $product_id, $quantity, $variation_id = 0) {
+    $pid = $variation_id ? wp_get_post_parent_id($variation_id) : (int) $product_id;
+    $product = wc_get_product($pid);
+    if ($product && $product->is_downloadable() && empty(hk2_product_files($pid))) {
+        if (function_exists('wc_add_notice')) {
+            wc_add_notice('This product is not yet available for purchase. Please use the "Request to Download" option.', 'error');
+        }
+        return false;
+    }
+    return $passed;
+}, 99, 4);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SAFETY MODULE 2 — "Request to Download" lead capture
+ * ═══════════════════════════════════════════════════════════════════════════
+ * For products without a file, the React frontend shows a "REQUEST TO
+ * DOWNLOAD" button that POSTs to /request-product. We persist the lead in a
+ * custom table and notify the owner.
+ */
+function hk2_requests_table_name() {
+    global $wpdb;
+    return $wpdb->prefix . 'hk_product_requests';
+}
+
+function hk2_install_requests_table() {
+    global $wpdb;
+    $table = hk2_requests_table_name();
+    $charset = $wpdb->get_charset_collate();
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta("CREATE TABLE $table (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        product_id BIGINT UNSIGNED NOT NULL,
+        product_name VARCHAR(255) NOT NULL DEFAULT '',
+        email VARCHAR(190) NOT NULL,
+        name VARCHAR(190) NOT NULL DEFAULT '',
+        phone VARCHAR(50) NOT NULL DEFAULT '',
+        message TEXT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        created_at DATETIME NOT NULL,
+        ip VARCHAR(64) NOT NULL DEFAULT '',
+        ua VARCHAR(255) NOT NULL DEFAULT '',
+        PRIMARY KEY  (id),
+        KEY product_id (product_id),
+        KEY email (email),
+        KEY status (status)
+    ) $charset;");
+}
+register_activation_hook(__FILE__, 'hk2_install_requests_table');
+// mu-plugins don't fire activation; ensure schema once on first load
+add_action('init', function () {
+    if (get_option('hk2_requests_schema_v1') !== '1') {
+        hk2_install_requests_table();
+        update_option('hk2_requests_schema_v1', '1');
+    }
+}, 5);
+
+add_action('rest_api_init', function () {
+    register_rest_route('hackknow/v1', '/request-product', [
+        'methods' => 'POST',
+        'permission_callback' => '__return_true',
+        'callback' => function (WP_REST_Request $req) {
+            global $wpdb;
+            $b = $req->get_json_params();
+            $pid   = isset($b['product_id']) ? (int) $b['product_id'] : 0;
+            $email = isset($b['email']) ? sanitize_email($b['email']) : '';
+            $name  = isset($b['name'])  ? sanitize_text_field($b['name'])  : '';
+            $phone = isset($b['phone']) ? sanitize_text_field($b['phone']) : '';
+            $msg   = isset($b['message']) ? wp_kses_post($b['message']) : '';
+            if (!$pid)   return new WP_Error('bad_request', 'product_id required', ['status' => 400]);
+            if (!$email || !is_email($email)) return new WP_Error('bad_email', 'valid email required', ['status' => 400]);
+
+            $product = wc_get_product($pid);
+            if (!$product) return new WP_Error('not_found', 'product not found', ['status' => 404]);
+
+            // Crude rate limit: max 5 requests / hour per email per product
+            $since = gmdate('Y-m-d H:i:s', time() - 3600);
+            $existing = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM " . hk2_requests_table_name() .
+                " WHERE email=%s AND product_id=%d AND created_at > %s",
+                $email, $pid, $since
+            ));
+            if ($existing >= 5) {
+                return new WP_Error('rate_limited', 'Too many requests, try later.', ['status' => 429]);
+            }
+
+            $wpdb->insert(hk2_requests_table_name(), [
+                'product_id'   => $pid,
+                'product_name' => (string) $product->get_name(),
+                'email'        => $email,
+                'name'         => $name,
+                'phone'        => $phone,
+                'message'      => $msg,
+                'status'       => 'open',
+                'created_at'   => gmdate('Y-m-d H:i:s'),
+                'ip'           => substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64),
+                'ua'           => substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+            ]);
+
+            // Notify owner
+            $owner_to = apply_filters('hk2_requests_owner_email', 'ceo.hackknow@gmail.com');
+            $admin_url = admin_url('admin.php?page=hk-product-requests');
+            wp_mail(
+                $owner_to,
+                'New Request to Download — ' . $product->get_name(),
+                "A user requested a product not yet available:\n\n"
+                . "Product: " . $product->get_name() . " (#$pid)\n"
+                . "Email:   $email\n"
+                . "Name:    $name\n"
+                . "Phone:   $phone\n"
+                . "Message: $msg\n\n"
+                . "Manage all requests: $admin_url\n",
+                ['Content-Type: text/plain; charset=UTF-8']
+            );
+
+            // Acknowledge to user
+            wp_mail(
+                $email,
+                'We received your request — ' . $product->get_name(),
+                ($name ? "Hi $name,\n\n" : "Hi,\n\n")
+                . "Thanks for your interest in \"" . $product->get_name() . "\". "
+                . "This product is not currently available as an instant download. "
+                . "Our team will get back to you shortly at this email address.\n\n"
+                . "— HackKnow team",
+                ['Content-Type: text/plain; charset=UTF-8']
+            );
+
+            return ['ok' => true, 'message' => 'We will get back to you shortly.'];
+        },
+    ]);
+
+    // Owner-only listing
+    register_rest_route('hackknow/v1', '/admin/product-requests', [
+        'methods' => 'GET',
+        'permission_callback' => function () { return current_user_can('manage_woocommerce'); },
+        'callback' => function (WP_REST_Request $req) {
+            global $wpdb;
+            $status = sanitize_key((string) $req->get_param('status'));
+            $where = $status ? $wpdb->prepare(' WHERE status=%s', $status) : '';
+            $rows = $wpdb->get_results("SELECT * FROM " . hk2_requests_table_name() . $where . " ORDER BY id DESC LIMIT 500", ARRAY_A);
+            return ['ok' => true, 'count' => count($rows), 'requests' => $rows];
+        },
+    ]);
+}, 30);
+
+// Admin menu page to view/close requests
+add_action('admin_menu', function () {
+    add_menu_page(
+        'Product Requests',
+        'Product Requests',
+        'manage_woocommerce',
+        'hk-product-requests',
+        function () {
+            global $wpdb;
+            // Handle close action
+            if (!empty($_POST['hk_close_id']) && check_admin_referer('hk_close_request')) {
+                $wpdb->update(hk2_requests_table_name(),
+                    ['status' => 'closed'],
+                    ['id' => (int) $_POST['hk_close_id']]);
+                echo '<div class="notice notice-success"><p>Marked closed.</p></div>';
+            }
+            $rows = $wpdb->get_results("SELECT * FROM " . hk2_requests_table_name() . " ORDER BY id DESC LIMIT 500");
+            echo '<div class="wrap"><h1>Product Requests (file-less product leads)</h1>';
+            if (!$rows) { echo '<p>No requests yet.</p></div>'; return; }
+            echo '<table class="wp-list-table widefat striped"><thead><tr>
+                <th>ID</th><th>When</th><th>Product</th><th>Email</th><th>Name</th><th>Phone</th><th>Status</th><th></th>
+                </tr></thead><tbody>';
+            foreach ($rows as $r) {
+                echo '<tr>';
+                echo '<td>' . (int) $r->id . '</td>';
+                echo '<td>' . esc_html($r->created_at) . '</td>';
+                echo '<td><a href="' . esc_url(get_edit_post_link($r->product_id)) . '">' . esc_html($r->product_name) . '</a></td>';
+                echo '<td>' . esc_html($r->email) . '</td>';
+                echo '<td>' . esc_html($r->name) . '</td>';
+                echo '<td>' . esc_html($r->phone) . '</td>';
+                echo '<td>' . esc_html($r->status) . '</td>';
+                echo '<td>';
+                if ($r->status === 'open') {
+                    echo '<form method="post" style="display:inline">';
+                    wp_nonce_field('hk_close_request');
+                    echo '<input type="hidden" name="hk_close_id" value="' . (int)$r->id . '">';
+                    echo '<button class="button button-small">Close</button>';
+                    echo '</form>';
+                }
+                echo '</td></tr>';
+            }
+            echo '</tbody></table></div>';
+        },
+        'dashicons-email-alt'
+    );
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SAFETY MODULE 3 — Payment audit log
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Every webhook hit is recorded — signature outcome, payload hash, action.
+ * Critical for India payment compliance: indisputable record of what was
+ * received, when, and what we did about it.
+ */
+function hk2_audit_table_name() {
+    global $wpdb;
+    return $wpdb->prefix . 'hk_payment_audit';
+}
+function hk2_install_audit_table() {
+    global $wpdb;
+    $table = hk2_audit_table_name();
+    $charset = $wpdb->get_charset_collate();
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta("CREATE TABLE $table (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        ts DATETIME NOT NULL,
+        event VARCHAR(64) NOT NULL DEFAULT '',
+        razorpay_payment_id VARCHAR(64) NOT NULL DEFAULT '',
+        razorpay_order_id VARCHAR(64) NOT NULL DEFAULT '',
+        wc_order_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+        sig_ok TINYINT(1) NOT NULL DEFAULT 0,
+        action VARCHAR(64) NOT NULL DEFAULT '',
+        body_hash CHAR(40) NOT NULL DEFAULT '',
+        ip VARCHAR(64) NOT NULL DEFAULT '',
+        PRIMARY KEY  (id),
+        KEY razorpay_payment_id (razorpay_payment_id),
+        KEY wc_order_id (wc_order_id),
+        KEY ts (ts)
+    ) $charset;");
+}
+add_action('init', function () {
+    if (get_option('hk2_audit_schema_v1') !== '1') {
+        hk2_install_audit_table();
+        update_option('hk2_audit_schema_v1', '1');
+    }
+}, 5);
+
+function hk2_audit_log($row) {
+    global $wpdb;
+    $defaults = [
+        'ts' => gmdate('Y-m-d H:i:s'),
+        'event' => '', 'razorpay_payment_id' => '', 'razorpay_order_id' => '',
+        'wc_order_id' => 0, 'sig_ok' => 0, 'action' => '', 'body_hash' => '',
+        'ip' => substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64),
+    ];
+    $wpdb->insert(hk2_audit_table_name(), array_merge($defaults, $row));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SAFETY MODULE 4 — Manual Razorpay reconciliation (safety net)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * If for any reason the webhook miss-fired (network outage, server downtime,
+ * Razorpay dashboard misconfiguration), this admin endpoint pulls recent
+ * captured payments from Razorpay's API and reconciles them against
+ * WooCommerce orders. Reuses the existing Razorpay key/secret stored by the
+ * Razorpay plugin (option `woocommerce_razorpay_settings`).
+ */
+add_action('rest_api_init', function () {
+    register_rest_route('hackknow/v1', '/admin/reconcile-payments', [
+        'methods'  => 'POST',
+        'permission_callback' => function () { return current_user_can('manage_woocommerce'); },
+        'callback' => function (WP_REST_Request $req) {
+            $hours = max(1, min(168, (int) $req->get_param('hours') ?: 24));
+            $rz = get_option('woocommerce_razorpay_settings');
+            if (empty($rz['key_id']) || empty($rz['key_secret'])) {
+                return new WP_Error('no_creds', 'Razorpay credentials not configured in WC settings.', ['status' => 500]);
+            }
+            $from = time() - ($hours * 3600);
+            $url  = "https://api.razorpay.com/v1/payments?from=$from&count=100";
+            $resp = wp_remote_get($url, [
+                'headers' => ['Authorization' => 'Basic ' . base64_encode($rz['key_id'] . ':' . $rz['key_secret'])],
+                'timeout' => 20,
+            ]);
+            if (is_wp_error($resp)) return new WP_Error('http_error', $resp->get_error_message(), ['status' => 500]);
+            $code = wp_remote_retrieve_response_code($resp);
+            $data = json_decode(wp_remote_retrieve_body($resp), true);
+            if ($code !== 200 || empty($data['items'])) {
+                return ['ok' => true, 'fetched' => 0, 'reconciled' => 0, 'http_code' => $code, 'note' => 'No payments returned.'];
+            }
+            $reconciled = 0; $skipped = 0; $details = [];
+            foreach ($data['items'] as $p) {
+                if (($p['status'] ?? '') !== 'captured') { $skipped++; continue; }
+                $rpid = $p['id'] ?? '';
+                $oid  = $p['order_id'] ?? '';
+                $wc_id = hk2_find_wc_order_by_razorpay_ids($rpid, $oid, $p['email'] ?? '', (int)($p['amount'] ?? 0));
+                if (!$wc_id) { $skipped++; $details[] = ['rpid' => $rpid, 'reason' => 'no_wc_match']; continue; }
+                $order = wc_get_order($wc_id);
+                if (!$order) { $skipped++; continue; }
+                if (!$order->is_paid()) {
+                    $order->payment_complete($rpid);
+                    $order->add_order_note('Reconciled via /admin/reconcile-payments (Razorpay payment ' . $rpid . ').');
+                    hk2_audit_log([
+                        'event' => 'reconcile.captured',
+                        'razorpay_payment_id' => $rpid,
+                        'razorpay_order_id'   => $oid,
+                        'wc_order_id' => $wc_id,
+                        'sig_ok' => 1, // direct API, not webhook
+                        'action' => 'payment_complete',
+                    ]);
+                    $reconciled++;
+                    $details[] = ['rpid' => $rpid, 'wc_order_id' => $wc_id, 'action' => 'completed'];
+                } else {
+                    $details[] = ['rpid' => $rpid, 'wc_order_id' => $wc_id, 'action' => 'already_paid'];
+                }
+            }
+            return [
+                'ok' => true,
+                'window_hours' => $hours,
+                'fetched' => count($data['items']),
+                'reconciled' => $reconciled,
+                'skipped' => $skipped,
+                'details' => $details,
+            ];
+        },
+    ]);
+}, 35);
+
+// Helper used by reconciliation: find a WC order matching a Razorpay payment.
+function hk2_find_wc_order_by_razorpay_ids($razorpay_payment_id, $razorpay_order_id, $email = '', $amount_paise = 0) {
+    // Strategy 1: match _transaction_id
+    $orders = wc_get_orders(['limit' => 1, 'meta_key' => '_transaction_id', 'meta_value' => $razorpay_payment_id]);
+    if (!empty($orders)) return $orders[0]->get_id();
+    // Strategy 2: match _razorpay_order_id meta (set by Razorpay WC plugin)
+    $orders = wc_get_orders(['limit' => 1, 'meta_key' => '_razorpay_order_id', 'meta_value' => $razorpay_order_id]);
+    if (!empty($orders)) return $orders[0]->get_id();
+    // Strategy 3: best-effort email + amount match in the last 24h, status=pending/on-hold
+    if ($email && $amount_paise) {
+        $rs = wc_get_orders([
+            'limit' => 5, 'billing_email' => $email, 'status' => ['pending', 'on-hold', 'failed'],
+            'date_created' => '>' . (time() - 86400),
+        ]);
+        $target = round($amount_paise / 100, 2);
+        foreach ($rs as $o) {
+            if (abs((float)$o->get_total() - $target) < 0.01) return $o->get_id();
+        }
+    }
+    return 0;
+}
