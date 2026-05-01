@@ -6,7 +6,7 @@ import { rewriteWpUrl } from "@/lib/utils";
 
 const SEARCH_QUERY = `
   query SearchProducts($q: String!) {
-    products(first: 8, where: { search: $q, orderby: { field: TITLE, order: ASC } }) {
+    products(first: 8, where: { search: $q }) {
       nodes {
         id
         databaseId
