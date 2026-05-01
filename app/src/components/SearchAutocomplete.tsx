@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Search, Loader2, ArrowUpRight } from "lucide-react";
 import { fetchGraphQL } from "@/lib/graphql-client";
 import { rewriteWpUrl } from "@/lib/utils";
