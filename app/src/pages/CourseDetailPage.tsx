@@ -30,17 +30,28 @@ export default function CourseDetailPage() {
   }, [slug]);
 
   // Merge static enrichment (real lessons, body, resource link) over the API
-  // chapter list. Owner-uploaded chapter data always wins; enrichment fills
-  // the gaps for chapters that came back as title-only.
+  // chapter list. The API response is the source of truth — enrichment only
+  // GAP-FILLS missing fields. Match by normalised title first (robust against
+  // chapter reordering), then by positional index as fallback. If the API
+  // ever returns more chapters than enrichment, the extras render gracefully
+  // with whatever the API supplied (no enrichment overlay).
   const mergedChapters = useMemo(() => {
     if (!course) return [];
     const enrichment = getCourseEnrichment(course.slug);
+    const norm = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     return course.chapters.map((ch, i) => {
-      const e = enrichment?.chapters[i];
+      const apiTitleN = norm(ch.title || "");
+      // Title-match first; fall back to index match.
+      let e = enrichment?.chapters.find(
+        (c, ei) => apiTitleN && norm((enrichment?.chapters[ei] as { title?: string }).title || "") === apiTitleN,
+      );
+      if (!e) e = enrichment?.chapters[i];
+      const apiLessons = ch.lessons && ch.lessons.length > 0 ? ch.lessons : null;
       return {
         title: ch.title,
         duration: ch.duration || e?.duration,
-        lessons: (ch.lessons && ch.lessons.length > 0) ? ch.lessons : (e?.lessons ?? []),
+        lessons: apiLessons ?? e?.lessons ?? [],
         body: e?.body,
         resourceUrl: e?.resourceUrl,
         resourceLabel: e?.resourceLabel,
