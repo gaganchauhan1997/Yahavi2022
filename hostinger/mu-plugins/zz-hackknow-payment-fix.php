@@ -217,7 +217,44 @@ add_action('rest_api_init', function () {
         'permission_callback' => '__return_true',
         'callback'            => 'hk2_downloads_by_token',
     ]);
+
+    // Public availability map: {product_id: {has_file, file_count}} for every
+    // downloadable WC product. Frontend overlays a green/red dot on cards.
+    register_rest_route('hackknow/v1', '/product-availability', [
+        'methods'             => 'GET',
+        'permission_callback' => '__return_true',
+        'callback'            => 'hk2_product_availability',
+    ]);
 }, 20); // priority 20 → runs after the default 10 from hackknow-checkout.php
+
+function hk2_product_availability(WP_REST_Request $req) {
+    // 5-minute cache so this is cheap even on heavy traffic.
+    $cached = get_transient('hk2_avail_v1');
+    if (is_array($cached)) return ['availability' => $cached, 'cached' => true];
+
+    global $wpdb;
+    $rows = $wpdb->get_results(
+        "SELECT p.ID as id, pm.meta_value as downloads
+         FROM {$wpdb->posts} p
+         LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id=p.ID AND pm.meta_key='_downloadable_files'
+         WHERE p.post_type='product' AND p.post_status='publish'",
+        ARRAY_A
+    );
+    $map = [];
+    foreach ($rows as $row) {
+        $pid   = (int) $row['id'];
+        $files = $row['downloads'] ? maybe_unserialize($row['downloads']) : [];
+        $count = is_array($files) ? count(array_filter($files, function ($f) {
+            return is_array($f) && !empty($f['file']);
+        })) : 0;
+        $map[$pid] = ['has_file' => $count > 0, 'file_count' => $count];
+    }
+    set_transient('hk2_avail_v1', $map, 5 * MINUTE_IN_SECONDS);
+    return ['availability' => $map, 'cached' => false];
+}
+
+// Bust the availability cache whenever a product is saved.
+add_action('save_post_product', function () { delete_transient('hk2_avail_v1'); });
 
 function hk2_razorpay_webhook(WP_REST_Request $req) {
     $secret = defined('HACKKNOW_RAZORPAY_WEBHOOK_SECRET') ? HACKKNOW_RAZORPAY_WEBHOOK_SECRET : '';
