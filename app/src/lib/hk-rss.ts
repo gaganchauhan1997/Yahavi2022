@@ -131,14 +131,44 @@ function extractImg(html?: string): string {
 }
 
 /**
+ * Allow-list URL sanitiser. Returns the URL only when the protocol is one we
+ * trust to render. Everything else (`javascript:`, `vbscript:`, `data:` for
+ * non-images, weird schemes from malicious feeds) becomes empty string.
+ */
+function safeHttpUrl(u: string): string {
+  if (!u) return '';
+  const t = u.trim();
+  // Protocol-relative + relative URLs treated as https.
+  if (t.startsWith('//')) return `https:${t}`;
+  if (/^https?:\/\//i.test(t)) return t;
+  return '';
+}
+function safeImgUrl(u: string): string {
+  if (!u) return '';
+  const t = u.trim();
+  if (t.startsWith('//')) return `https:${t}`;
+  if (/^https?:\/\//i.test(t)) return t;
+  // Allow data:image/* (used by some feeds for inline thumbs) but not other data: URIs.
+  if (/^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(t)) return t;
+  return '';
+}
+
+/** Hostname (lowercase) of a URL, '' if not parseable. */
+function hostOf(u: string): string {
+  try { return new URL(u).hostname.toLowerCase(); } catch { return ''; }
+}
+
+/**
  * Convert a raw item into HKRelease shape so the news page renders it.
  * IMPORTANT: populate both the canonical fields the page reads
  * (`source_url`, `image`, `summary`) AND the legacy aliases
  * (`cta_url`, `cover`, `excerpt`) so any consumer keeps working.
  */
 function toRelease(feed: FrontendFeed, item: Rss2JsonItem, idx: number): HKRelease {
-  const thumb = item.thumbnail || item.enclosure?.link || extractImg(item.description) || '';
-  const text  = stripHtml(item.description);
+  const rawThumb = item.thumbnail || item.enclosure?.link || extractImg(item.description) || '';
+  const thumb    = safeImgUrl(rawThumb);              // sanitised — no javascript: etc.
+  const link     = safeHttpUrl(item.link || '');      // sanitised — only http(s) links
+  const text     = stripHtml(item.description);
   return {
     id: 1_000_000 + (feed.key.charCodeAt(0) * 1000) + idx,
     slug: `${feed.key}-${idx}`,
@@ -150,8 +180,8 @@ function toRelease(feed: FrontendFeed, item: Rss2JsonItem, idx: number): HKRelea
     release_date: item.pubDate || new Date().toISOString(),
     image: thumb || null,                                // ← page reads this
     cover: thumb,                                        // ← legacy alias
-    source_url: item.link,                               // ← page reads this
-    cta_url: item.link,                                  // ← legacy alias
+    source_url: link,                                    // ← page reads this
+    cta_url: link,                                       // ← legacy alias
     cta_label: 'Read article',
     rss_source: feed.name,
     rss_source_key: feed.key,
@@ -350,16 +380,43 @@ const STOP = new Set([
   'now','just','today','yesterday'
 ]);
 
-/** Build a normalized fingerprint for grouping similar headlines. */
-function titleKey(title: string): string {
+/** Significant words from a title (used for fingerprint + Jaccard check). */
+function titleWords(title: string): string[] {
   return title
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length >= 3 && !STOP.has(w))
-    .slice(0, 5)        // first 5 significant words ≈ the story
-    .sort()             // order-independent
-    .join('|');
+    .filter(w => w.length >= 3 && !STOP.has(w));
+}
+
+/**
+ * Build a fingerprint for grouping similar headlines. Sorted so it's order-
+ * independent. Requires ≥3 significant words → very generic headlines
+ * (e.g. "iPhone launch") never collide.
+ */
+function titleKey(title: string): string {
+  const w = titleWords(title);
+  if (w.length < 3) return '';
+  return w.slice(0, 6).sort().join('|');
+}
+
+/** Jaccard similarity over significant-word sets. */
+function jaccard(a: string[], b: string[]): number {
+  if (!a.length || !b.length) return 0;
+  const A = new Set(a), B = new Set(b);
+  let inter = 0;
+  for (const x of A) if (B.has(x)) inter++;
+  const union = A.size + B.size - inter;
+  return union ? inter / union : 0;
+}
+
+/** Strip the registrable domain root for "from same source" comparisons. */
+function rootDomain(host: string): string {
+  if (!host) return '';
+  // Drop www. and take last 2 labels (good enough for grouping; not a PSL).
+  const h = host.replace(/^www\./, '');
+  const parts = h.split('.');
+  return parts.length >= 2 ? parts.slice(-2).join('.') : h;
 }
 
 export interface CitedRelease extends HKRelease {
@@ -367,32 +424,49 @@ export interface CitedRelease extends HKRelease {
 }
 
 /**
- * Collapse duplicate stories. Keeps the FIRST item (highest sort order)
- * as the canonical card and attaches all other source URLs as `citations`.
+ * Collapse near-identical stories into one card with multiple citations.
+ *
+ * Safety guards (each must pass before grouping):
+ *   1. Both titles produce a non-empty fingerprint (≥3 sig words).
+ *   2. Jaccard similarity of their significant-word sets ≥ 0.55
+ *      (defends against false-positive bucket collisions).
+ *   3. Items come from DIFFERENT root domains
+ *      (don't fold "X covered by X" into a citation chip).
+ *   4. Same source twice → keep separate cards.
  */
 export function groupCitations(items: HKRelease[]): CitedRelease[] {
-  const buckets = new Map<string, CitedRelease>();
+  const buckets = new Map<string, { card: CitedRelease; words: string[]; rootHost: string }>();
   const out: CitedRelease[] = [];
   for (const it of items) {
     const k = titleKey(it.title || '');
-    if (!k || k.split('|').length < 2) {
-      // Too generic to group safely — keep as standalone.
+    const url = it.source_url || it.cta_url || '';
+    const host = rootDomain(hostOf(url));
+    if (!k) {
       out.push(it as CitedRelease);
       continue;
     }
     const existing = buckets.get(k);
     if (existing) {
-      const url = it.source_url || it.cta_url || '';
-      if (url && !existing.citations!.some(c => c.url === url)) {
-        existing.citations!.push({
+      const myWords = titleWords(it.title || '');
+      const sim = jaccard(myWords, existing.words);
+      if (
+        sim >= 0.55 &&                            // similar enough
+        host && host !== existing.rootHost &&     // different source
+        !existing.card.citations!.some(c => c.url === url) &&
+        url
+      ) {
+        existing.card.citations!.push({
           source: it.rss_source || 'Source',
           url,
           color: it.rss_color,
         });
+        continue;                                 // merged — don't push standalone
       }
+      // Couldn't safely merge → keep as standalone card.
+      out.push(it as CitedRelease);
     } else {
       const fresh: CitedRelease = { ...it, citations: [] };
-      buckets.set(k, fresh);
+      buckets.set(k, { card: fresh, words: titleWords(it.title || ''), rootHost: host });
       out.push(fresh);
     }
   }

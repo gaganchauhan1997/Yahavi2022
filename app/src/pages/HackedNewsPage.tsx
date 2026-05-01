@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, ExternalLink, Loader2, Newspaper, Radio, RefreshCcw, Wifi } from 'lucide-react';
 import { fetchAllNews, type HKRelease } from '@/lib/hk-content';
@@ -67,9 +67,14 @@ export default function HackedNewsPage() {
   const [err, setErr]         = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Refs for cross-effect coordination without re-binding listeners.
+  const lastRefreshedRef = useRef(0);     // mirrors health.lastRefreshed for the visibility handler
+  const reqIdRef         = useRef(0);     // monotonically-increasing fetch id (latest-wins)
+
   // ── Fetch (initial + on refreshKey bump) ────────────────────────────
   useEffect(() => {
     let alive = true;
+    const myReqId = ++reqIdRef.current;
     (async () => {
       // Distinguish first load (full splash) from background refresh (silent).
       if (items.length === 0) setLoading(true); else setRefreshing(true);
@@ -81,6 +86,10 @@ export default function HackedNewsPage() {
           fetchFrontendNews({ perFeed: 3, limit: 240, perFeedTimeoutMs: 6000 })
             .catch(() => ({ items: [] as HKRelease[], liveCount: 0, totalCount: 0, perSource: [] })),
         ]);
+
+        // Latest-wins: if another refresh started while we were awaiting,
+        // discard our results entirely (no half-state, no flash).
+        if (!alive || myReqId !== reqIdRef.current) return;
 
         // De-dupe identical links/titles, then group near-identical stories.
         const seen = new Set<string>();
@@ -94,36 +103,37 @@ export default function HackedNewsPage() {
         merged.sort((a, b) => (b.release_date || '').localeCompare(a.release_date || ''));
         const grouped = groupCitations(merged);
 
-        if (!alive) return;
+        if (!alive || myReqId !== reqIdRef.current) return;
         setItems(grouped);
         setCounts({
           curated: backend.curated || backend.items.length,
           live:    (backend.live || 0) + frontend.items.length,
           total:   grouped.length,
         });
-        setHealth({
-          ok: frontend.liveCount,
-          total: frontend.totalCount,
-          lastRefreshed: Date.now(),
-        });
-      } catch (e) { if (alive) setErr((e as Error).message); }
-      finally { if (alive) { setLoading(false); setRefreshing(false); } }
+        const now = Date.now();
+        setHealth({ ok: frontend.liveCount, total: frontend.totalCount, lastRefreshed: now });
+        lastRefreshedRef.current = now;
+      } catch (e) { if (alive && myReqId === reqIdRef.current) setErr((e as Error).message); }
+      finally { if (alive && myReqId === reqIdRef.current) { setLoading(false); setRefreshing(false); } }
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
   // ── Auto-refresh every 5 minutes (only when tab is visible) ─────────
+  // Empty deps: handler reads `lastRefreshedRef.current` so it never goes stale.
   useEffect(() => {
     const id = window.setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         setRefreshKey(k => k + 1);
       }
     }, AUTO_REFRESH_MS);
-    // Refresh immediately when user comes back to the tab (if last fetch > 2 min ago).
     const onVis = () => {
-      if (document.visibilityState === 'visible') {
-        if (Date.now() - health.lastRefreshed > 2 * 60 * 1000) setRefreshKey(k => k + 1);
+      if (document.visibilityState !== 'visible') return;
+      // First-ever focus before any fetch finished → don't double-fire.
+      if (lastRefreshedRef.current === 0) return;
+      if (Date.now() - lastRefreshedRef.current > 2 * 60 * 1000) {
+        setRefreshKey(k => k + 1);
       }
     };
     document.addEventListener('visibilitychange', onVis);
@@ -131,7 +141,6 @@ export default function HackedNewsPage() {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
