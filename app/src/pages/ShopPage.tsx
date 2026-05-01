@@ -5,6 +5,7 @@ import ProductCard from "@/components/ProductCard";
 import { useStore } from "@/context/StoreContext";
 import { categories as _allCategories } from "@/data/products";
 import { isHiddenCat } from "@/lib/hidden-cats";
+import { useAvailabilityMap, isProductDeliverable } from "@/lib/product-availability";
 const categories = _allCategories.filter((c) => !isHiddenCat(c.slug));
 
 import { useDocumentMeta } from '@/lib/useDocumentMeta';
@@ -150,6 +151,7 @@ export default function ShopPage() {
   const subParam = searchParams.get("sub");
   const { state } = useStore();
   const { products, loading, searchQuery } = state;
+  const availabilityMap = useAvailabilityMap();
   const [sortBy, setSortBy] = useState("featured");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedMaxPrice, setSelectedMaxPrice] = useState<number | null>(null);
@@ -168,6 +170,11 @@ export default function ShopPage() {
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
+
+    // OWNER RULE: hide every product without an attached file (red dot).
+    // Only deliverable (green-dot) products are shown to customers. Operators
+    // still see the full catalog inside WP Admin.
+    result = result.filter((product) => isProductDeliverable(product.id, availabilityMap));
 
     if (categorySlug) {
       result = result.filter((product) => {
@@ -214,7 +221,7 @@ export default function ShopPage() {
     }
 
     return result;
-  }, [categorySlug, filterParam, maxVisiblePrice, products, searchQuery, sortBy, subParam]);
+  }, [categorySlug, filterParam, maxVisiblePrice, products, searchQuery, sortBy, subParam, availabilityMap]);
 
   // Reset to page 1 whenever filters change
   useEffect(() => {
