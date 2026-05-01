@@ -64,9 +64,24 @@ export default function ProductPage() {
   const isInWishlist = product ? state.wishlist.includes(product.id) : false;
   const productImage = product?.image?.sourceUrl?.trim();
 
-  /* Preview URL fetched from custom endpoint; null = none / not fetched yet */
+  /* Preview URL fetched from custom endpoint; null = none / not fetched yet.
+     We allowlist preview origins to prevent any chance of a tampered backend
+     pointing the iframe / new-tab popup at an off-site URL. */
+  const PREVIEW_ALLOWED_HOSTS = ['www.hackknow.com', 'hackknow.com', 'shop.hackknow.com'];
+  const isAllowedPreviewUrl = (raw: string): boolean => {
+    try {
+      const u = new URL(raw, window.location.origin);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+      return PREVIEW_ALLOWED_HOSTS.includes(u.hostname);
+    } catch { return false; }
+  };
+
   const [preview, setPreview] = useState<HKPreview | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  /* Reset modal whenever the slug (i.e. user-visible product) changes, so
+     stale iframe content from a previous product never flashes. */
+  useEffect(() => { setPreviewOpen(false); setPreview(null); }, [slug]);
 
   useEffect(() => {
     if (!product?.id) { setPreview(null); return; }
@@ -79,7 +94,7 @@ export default function ProductPage() {
         if (!r.ok) return;
         const data = await r.json();
         if (!alive) return;
-        if (data && data.preview_url) {
+        if (data && typeof data.preview_url === 'string' && isAllowedPreviewUrl(data.preview_url)) {
           setPreview({ url: data.preview_url, open_in: data.open_in === 'iframe' ? 'iframe' : 'newtab' });
         } else {
           setPreview(null);
@@ -440,7 +455,8 @@ export default function ProductPage() {
               src={preview.url}
               title="Product live preview"
               className="w-full h-[calc(100%-40px)] border-0"
-              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+              sandbox="allow-scripts allow-popups"
+              referrerPolicy="no-referrer"
               loading="lazy"
             />
           </div>
