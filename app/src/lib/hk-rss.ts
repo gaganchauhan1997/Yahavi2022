@@ -104,8 +104,18 @@ export const FRONTEND_FEEDS: FrontendFeed[] = [
 interface Rss2JsonItem  { title: string; link: string; pubDate: string; description?: string; thumbnail?: string; enclosure?: { link?: string }; }
 interface Rss2JsonResp  { status: string; feed?: { title?: string; image?: string }; items?: Rss2JsonItem[]; }
 
-const PROXY_PRIMARY  = 'https://api.rss2json.com/v1/api.json';
-const PROXY_FALLBACK = 'https://api.allorigins.win/raw';
+/**
+ * Proxy ladder — tried in order until one returns ≥1 parseable item.
+ * Order is set by current real-world reliability + browser-CORS support:
+ *   1. codetabs   — fast, CORS `*`, raw XML, no quota observed.
+ *   2. allorigins — raw XML, CORS reflects request Origin (but flaky from
+ *                   some networks when Origin header is set).
+ *   3. rss2json   — JSON-shaped (gives us thumbnails when up), but currently
+ *                   returning `status:"error"` for many feeds → tried last.
+ */
+const PROXY_CODETABS   = 'https://api.codetabs.com/v1/proxy/?quest=';
+const PROXY_ALLORIGINS = 'https://api.allorigins.win/raw?url=';
+const PROXY_RSS2JSON   = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
 /** Strip HTML tags + collapse whitespace for excerpts. */
 function stripHtml(s?: string, max = 220): string {
@@ -186,46 +196,81 @@ function parseRawXml(xml: string): Rss2JsonItem[] {
 export interface FeedFetchResult {
   feed: FrontendFeed;
   ok: boolean;
-  via: 'rss2json' | 'allorigins' | 'none';
+  via: 'codetabs' | 'allorigins' | 'rss2json' | 'none';
   items: HKRelease[];
 }
 
-/** Per-feed AbortController + timeout. One slow feed cannot kill the batch. */
+/** Generic per-attempt fetch with its own AbortController + timeout. */
+async function tryProxyXml(
+  url: string,
+  perFeedTimeoutMs: number,
+): Promise<string | null> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), perFeedTimeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok) return null;
+    const txt = await r.text();
+    return txt && txt.length > 80 ? txt : null;   // sanity: empty/error stubs
+  } catch { return null; }
+  finally { clearTimeout(t); }
+}
+
+async function tryProxyJson(
+  url: string,
+  perFeedTimeoutMs: number,
+): Promise<Rss2JsonResp | null> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), perFeedTimeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok) return null;
+    return (await r.json()) as Rss2JsonResp;
+  } catch { return null; }
+  finally { clearTimeout(t); }
+}
+
+/**
+ * Per-feed proxy ladder — codetabs → allorigins → rss2json.
+ * Returns the first proxy that yields ≥1 parseable item, or an empty
+ * result if all three fail. One slow feed cannot kill the batch.
+ */
 async function fetchOne(
   feed: FrontendFeed,
   perFeed: number,
   perFeedTimeoutMs: number,
 ): Promise<FeedFetchResult> {
-  // ----- attempt 1: rss2json -----
-  const ctl1 = new AbortController();
-  const t1 = setTimeout(() => ctl1.abort(), perFeedTimeoutMs);
-  try {
-    const u = `${PROXY_PRIMARY}?rss_url=${encodeURIComponent(feed.url)}&count=${perFeed}`;
-    const r = await fetch(u, { signal: ctl1.signal });
-    if (r.ok) {
-      const j = (await r.json()) as Rss2JsonResp;
-      if (j.status === 'ok' && Array.isArray(j.items) && j.items.length) {
-        return { feed, ok: true, via: 'rss2json', items: j.items.slice(0, perFeed).map((it, i) => toRelease(feed, it, i)) };
+  const enc = encodeURIComponent(feed.url);
+
+  // ----- attempt 1: codetabs (raw XML, fastest in current real-world tests) -----
+  {
+    const xml = await tryProxyXml(`${PROXY_CODETABS}${enc}`, perFeedTimeoutMs);
+    if (xml) {
+      const items = parseRawXml(xml).slice(0, perFeed);
+      if (items.length) {
+        return { feed, ok: true, via: 'codetabs', items: items.map((it, i) => toRelease(feed, it, i)) };
       }
     }
-  } catch { /* fall through */ }
-  finally { clearTimeout(t1); }
+  }
 
-  // ----- attempt 2: AllOrigins raw XML -----
-  const ctl2 = new AbortController();
-  const t2 = setTimeout(() => ctl2.abort(), perFeedTimeoutMs);
-  try {
-    const u = `${PROXY_FALLBACK}?url=${encodeURIComponent(feed.url)}`;
-    const r = await fetch(u, { signal: ctl2.signal });
-    if (r.ok) {
-      const xml = await r.text();
+  // ----- attempt 2: allorigins (raw XML) -----
+  {
+    const xml = await tryProxyXml(`${PROXY_ALLORIGINS}${enc}`, perFeedTimeoutMs);
+    if (xml) {
       const items = parseRawXml(xml).slice(0, perFeed);
       if (items.length) {
         return { feed, ok: true, via: 'allorigins', items: items.map((it, i) => toRelease(feed, it, i)) };
       }
     }
-  } catch { /* fall through */ }
-  finally { clearTimeout(t2); }
+  }
+
+  // ----- attempt 3: rss2json (JSON; only when up — gives us thumbnails) -----
+  {
+    const j = await tryProxyJson(`${PROXY_RSS2JSON}${enc}&count=${perFeed}`, perFeedTimeoutMs);
+    if (j && j.status === 'ok' && Array.isArray(j.items) && j.items.length) {
+      return { feed, ok: true, via: 'rss2json', items: j.items.slice(0, perFeed).map((it, i) => toRelease(feed, it, i)) };
+    }
+  }
 
   return { feed, ok: false, via: 'none', items: [] };
 }
