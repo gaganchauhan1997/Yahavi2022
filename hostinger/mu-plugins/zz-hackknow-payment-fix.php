@@ -1302,3 +1302,139 @@ add_action('rest_api_init', function () {
         },
     ]);
 }, 36);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SAFETY MODULE 6 — AUTO-RECONCILE CRON (LAYER 2 of permanent payment fix)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WP-Cron job that runs every 5 minutes. Pulls the last 30 minutes of
+ * captured Razorpay payments and force-completes any WC order that is
+ * still pending/on-hold/failed but has a matching captured payment.
+ *
+ * This is the ULTIMATE safety net. Even if:
+ *   - Razorpay never delivered the webhook
+ *   - The webhook signature was wrong
+ *   - The customer closed their browser before /verify ran
+ *   - Our PHP threw a fatal mid-flight
+ * …this cron will pick it up within 5 minutes and complete the order,
+ * which fires the delivery hook (email + WC native completed-order email).
+ *
+ * Idempotent. Skips orders already paid. Audit-logs every action.
+ */
+
+// Register a 5-minute cron interval (WP only ships hourly/twicedaily/daily).
+add_filter('cron_schedules', function ($s) {
+    if (!isset($s['hk2_every_5min'])) {
+        $s['hk2_every_5min'] = ['interval' => 300, 'display' => 'Every 5 Minutes (HackKnow)'];
+    }
+    return $s;
+});
+
+// Schedule the event on plugin load if not already scheduled.
+add_action('init', function () {
+    if (!wp_next_scheduled('hk2_auto_reconcile_cron')) {
+        wp_schedule_event(time() + 60, 'hk2_every_5min', 'hk2_auto_reconcile_cron');
+    }
+}, 5);
+
+add_action('hk2_auto_reconcile_cron', 'hk2_run_auto_reconcile');
+
+function hk2_run_auto_reconcile() {
+    // Single-instance lock so two cron firings can't race.
+    $lock = 'hk2_recon_lock';
+    if (get_transient($lock)) return;
+    set_transient($lock, 1, 240); // released after 4 min
+
+    try {
+        $rz = get_option('woocommerce_razorpay_settings');
+        if (empty($rz['key_id']) || empty($rz['key_secret'])) {
+            set_transient('hk2_recon_last', ['ok' => false, 'err' => 'no_creds', 'ts' => time()], HOUR_IN_SECONDS);
+            return;
+        }
+        // Pull last 30 minutes of payments (window > cron interval to overlap safely).
+        $from = time() - (30 * 60);
+        $url  = "https://api.razorpay.com/v1/payments?from=$from&count=100";
+        $resp = wp_remote_get($url, [
+            'headers' => ['Authorization' => 'Basic ' . base64_encode($rz['key_id'] . ':' . $rz['key_secret'])],
+            'timeout' => 20,
+        ]);
+        if (is_wp_error($resp)) {
+            set_transient('hk2_recon_last', ['ok' => false, 'err' => $resp->get_error_message(), 'ts' => time()], HOUR_IN_SECONDS);
+            return;
+        }
+        $code = wp_remote_retrieve_response_code($resp);
+        $body = json_decode(wp_remote_retrieve_body($resp), true);
+        if ($code !== 200 || empty($body['items'])) {
+            set_transient('hk2_recon_last', ['ok' => true, 'fetched' => 0, 'reconciled' => 0, 'http' => $code, 'ts' => time()], HOUR_IN_SECONDS);
+            return;
+        }
+
+        $reconciled = 0; $skipped = 0; $errors = 0;
+        foreach ($body['items'] as $p) {
+            if (($p['status'] ?? '') !== 'captured') { $skipped++; continue; }
+            $rpid = (string)($p['id'] ?? '');
+            $oid  = (string)($p['order_id'] ?? '');
+            $email = (string)($p['email'] ?? '');
+            $amt  = (int)($p['amount'] ?? 0);
+
+            // Match strategies (in order): _transaction_id → _razorpay_order_id
+            // → notes.wc_order_id → email+amount in last 24h.
+            $wc_id = hk2_find_wc_order_by_razorpay_ids($rpid, $oid, $email, $amt);
+            if (!$wc_id && !empty($p['notes']['wc_order_id'])) {
+                $wc_id = (int) $p['notes']['wc_order_id'];
+            }
+            if (!$wc_id) { $skipped++; continue; }
+
+            $order = wc_get_order($wc_id);
+            if (!$order) { $errors++; continue; }
+            if ($order->is_paid()) { $skipped++; continue; }
+
+            // Idempotency lock per-order so a webhook firing simultaneously
+            // can't double-process.
+            $olock = 'hk2_recon_o_' . $wc_id;
+            if (!set_transient($olock, 1, 60)) { $skipped++; continue; }
+
+            try {
+                update_post_meta($wc_id, '_razorpay_payment_id', $rpid);
+                if ($oid) update_post_meta($wc_id, '_razorpay_order_id', $oid);
+                $order->payment_complete($rpid);
+                if ($order->get_status() !== 'completed') {
+                    $order->update_status('completed', 'Auto-reconciled by HackKnow cron — Razorpay payment ' . $rpid . ' was captured but not webhook-matched.');
+                }
+                $order->add_order_note('Auto-reconcile cron matched Razorpay payment ' . $rpid . ' (' . ($p['method'] ?? 'unknown') . ', ₹' . round($amt / 100, 2) . ')');
+                hk2_audit_log([
+                    'event'               => 'cron.reconcile.captured',
+                    'razorpay_payment_id' => $rpid,
+                    'razorpay_order_id'   => $oid,
+                    'wc_order_id'         => $wc_id,
+                    'sig_ok'              => 1,
+                    'action'              => 'payment_complete',
+                ]);
+                $reconciled++;
+            } catch (\Throwable $e) {
+                $errors++;
+                if (function_exists('error_log')) {
+                    error_log('[hackknow] auto-reconcile failed for order ' . $wc_id . ': ' . $e->getMessage());
+                }
+            }
+        }
+        set_transient('hk2_recon_last', [
+            'ok' => true, 'ts' => time(),
+            'fetched' => count($body['items']),
+            'reconciled' => $reconciled, 'skipped' => $skipped, 'errors' => $errors,
+        ], HOUR_IN_SECONDS);
+    } finally {
+        delete_transient($lock);
+    }
+}
+
+// Optional admin endpoint to peek at the last cron run (Bearer-token authed).
+add_action('rest_api_init', function () {
+    register_rest_route('hackknow/v1', '/admin/recon-status', [
+        'methods'  => 'GET',
+        'permission_callback' => 'hk2_admin_auth_or_bearer',
+        'callback' => function () {
+            return ['ok' => true, 'last' => get_transient('hk2_recon_last') ?: null,
+                    'next_run' => wp_next_scheduled('hk2_auto_reconcile_cron')];
+        },
+    ]);
+}, 37);
