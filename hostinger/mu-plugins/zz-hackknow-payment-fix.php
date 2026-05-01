@@ -1024,10 +1024,34 @@ function hk2_audit_log($row) {
  * WooCommerce orders. Reuses the existing Razorpay key/secret stored by the
  * Razorpay plugin (option `woocommerce_razorpay_settings`).
  */
+
+// Admin-permission helper: accepts either WP cookie auth (manage_woocommerce)
+// OR a Bearer token equal to the Razorpay webhook secret. Used so we can run
+// reconcile/diagnose remotely (without a logged-in browser session) when a
+// customer is reporting "I paid but didn't get the file" and we need to act
+// in seconds. Includes IP throttle to prevent brute-force.
+function hk2_admin_auth_or_bearer(WP_REST_Request $req) {
+    if (current_user_can('manage_woocommerce')) return true;
+    // Bearer token path
+    $auth = (string) $req->get_header('authorization');
+    if (stripos($auth, 'Bearer ') !== 0) return false;
+    $token = trim(substr($auth, 7));
+    $rz    = get_option('woocommerce_razorpay_settings');
+    $expected = (string) ($rz['webhook_secret'] ?? '');
+    if ($expected === '' || !hash_equals($expected, $token)) return false;
+    // Per-IP throttle: max 10 admin-bearer hits per minute
+    $ip  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $key = 'hk2_adm_thr_' . md5($ip);
+    $n   = (int) get_transient($key);
+    if ($n >= 10) return false;
+    set_transient($key, $n + 1, 60);
+    return true;
+}
+
 add_action('rest_api_init', function () {
     register_rest_route('hackknow/v1', '/admin/reconcile-payments', [
         'methods'  => 'POST',
-        'permission_callback' => function () { return current_user_can('manage_woocommerce'); },
+        'permission_callback' => 'hk2_admin_auth_or_bearer',
         'callback' => function (WP_REST_Request $req) {
             $hours = max(1, min(168, (int) $req->get_param('hours') ?: 24));
             $rz = get_option('woocommerce_razorpay_settings');
@@ -1105,3 +1129,176 @@ function hk2_find_wc_order_by_razorpay_ids($razorpay_payment_id, $razorpay_order
     }
     return 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SAFETY MODULE 5 — Diagnostic endpoint (single-order forensic lookup)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * GET /hackknow/v1/admin/diagnose?order=<wc_id>
+ * GET /hackknow/v1/admin/diagnose?audit=1&limit=30
+ * GET /hackknow/v1/admin/diagnose?email=<addr>&hours=24
+ *
+ * Bearer-token authed. Returns full order meta (incl. _razorpay_*), notes,
+ * audit log rows, and (when an order_id is present) live Razorpay payment
+ * lookup so we can answer "did the customer actually pay?" in one call.
+ */
+add_action('rest_api_init', function () {
+    register_rest_route('hackknow/v1', '/admin/diagnose', [
+        'methods'  => 'GET',
+        'permission_callback' => 'hk2_admin_auth_or_bearer',
+        'callback' => function (WP_REST_Request $req) {
+            global $wpdb;
+            $out = ['ok' => true, 'ts' => gmdate('c')];
+
+            // Mode A: per-order forensic
+            $oid = (int) $req->get_param('order');
+            if ($oid > 0) {
+                $order = wc_get_order($oid);
+                if (!$order) return new WP_Error('not_found', "Order $oid not found", ['status' => 404]);
+                $meta = [];
+                foreach ($order->get_meta_data() as $m) {
+                    $d = $m->get_data();
+                    $meta[$d['key']] = is_scalar($d['value']) ? (string)$d['value'] : json_encode($d['value']);
+                }
+                // Also include the protected core meta WP stores in postmeta directly
+                $raw = $wpdb->get_results($wpdb->prepare(
+                    "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d", $oid
+                ), ARRAY_A);
+                $postmeta = [];
+                foreach ($raw as $r) {
+                    $postmeta[$r['meta_key']] = (strlen($r['meta_value']) > 500)
+                        ? substr($r['meta_value'], 0, 500) . '…(truncated)'
+                        : $r['meta_value'];
+                }
+                $notes = wc_get_order_notes(['order_id' => $oid, 'limit' => 50]);
+                $note_arr = [];
+                foreach ($notes as $n) {
+                    $note_arr[] = [
+                        'date'    => (string)$n->date_created,
+                        'author'  => $n->added_by,
+                        'content' => $n->content,
+                    ];
+                }
+                $audit = $wpdb->get_results($wpdb->prepare(
+                    "SELECT * FROM " . hk2_audit_table_name() . " WHERE wc_order_id = %d ORDER BY id DESC LIMIT 50", $oid
+                ), ARRAY_A);
+
+                $out['order'] = [
+                    'id'           => $oid,
+                    'status'       => $order->get_status(),
+                    'total'        => $order->get_total(),
+                    'email'        => $order->get_billing_email(),
+                    'date_created' => (string) $order->get_date_created(),
+                    'date_paid'    => (string) $order->get_date_paid(),
+                    'payment_method' => $order->get_payment_method(),
+                    'transaction_id' => $order->get_transaction_id(),
+                    'meta'         => $meta,
+                    'postmeta_all' => $postmeta,
+                    'notes'        => $note_arr,
+                    'audit_rows'   => $audit,
+                ];
+
+                // Razorpay live lookup for this order's _razorpay_order_id
+                $rz = get_option('woocommerce_razorpay_settings');
+                $rpid = $postmeta['_razorpay_order_id'] ?? '';
+                if ($rpid && !empty($rz['key_id']) && !empty($rz['key_secret'])) {
+                    $url = "https://api.razorpay.com/v1/orders/" . rawurlencode($rpid) . "/payments";
+                    $resp = wp_remote_get($url, [
+                        'headers' => ['Authorization' => 'Basic ' . base64_encode($rz['key_id'] . ':' . $rz['key_secret'])],
+                        'timeout' => 15,
+                    ]);
+                    if (!is_wp_error($resp)) {
+                        $body = json_decode(wp_remote_retrieve_body($resp), true);
+                        $out['razorpay_order_lookup'] = [
+                            'razorpay_order_id' => $rpid,
+                            'http' => wp_remote_retrieve_response_code($resp),
+                            'count' => isset($body['count']) ? (int)$body['count'] : 0,
+                            'items' => array_map(function ($p) {
+                                return [
+                                    'id'        => $p['id'] ?? '',
+                                    'status'    => $p['status'] ?? '',
+                                    'amount'    => $p['amount'] ?? 0,
+                                    'method'    => $p['method'] ?? '',
+                                    'email'     => $p['email'] ?? '',
+                                    'contact'   => $p['contact'] ?? '',
+                                    'created_at'=> $p['created_at'] ?? 0,
+                                    'error_code'=> $p['error_code'] ?? null,
+                                    'error_description'=> $p['error_description'] ?? null,
+                                ];
+                            }, $body['items'] ?? []),
+                        ];
+                    }
+                } else {
+                    $out['razorpay_order_lookup'] = ['skipped' => 'no _razorpay_order_id meta on this order'];
+                }
+                return $out;
+            }
+
+            // Mode B: by email (last N hours) — pulls Razorpay payments by email and matches
+            $email = trim((string) $req->get_param('email'));
+            if ($email !== '') {
+                $hours = max(1, min(168, (int) $req->get_param('hours') ?: 24));
+                $rz = get_option('woocommerce_razorpay_settings');
+                if (empty($rz['key_id']) || empty($rz['key_secret'])) {
+                    return new WP_Error('no_creds', 'Razorpay creds missing.', ['status' => 500]);
+                }
+                $from = time() - ($hours * 3600);
+                $url  = "https://api.razorpay.com/v1/payments?from=$from&count=100";
+                $resp = wp_remote_get($url, [
+                    'headers' => ['Authorization' => 'Basic ' . base64_encode($rz['key_id'] . ':' . $rz['key_secret'])],
+                    'timeout' => 20,
+                ]);
+                $body = is_wp_error($resp) ? ['items' => []] : json_decode(wp_remote_retrieve_body($resp), true);
+                $matches = [];
+                foreach ($body['items'] ?? [] as $p) {
+                    if (strcasecmp(($p['email'] ?? ''), $email) !== 0) continue;
+                    $matches[] = [
+                        'id'        => $p['id'] ?? '',
+                        'order_id'  => $p['order_id'] ?? '',
+                        'status'    => $p['status'] ?? '',
+                        'amount'    => $p['amount'] ?? 0,
+                        'method'    => $p['method'] ?? '',
+                        'email'     => $p['email'] ?? '',
+                        'contact'   => $p['contact'] ?? '',
+                        'created_at'=> $p['created_at'] ?? 0,
+                        'error_code'=> $p['error_code'] ?? null,
+                        'error_description'=> $p['error_description'] ?? null,
+                    ];
+                }
+                // Also list recent WC orders for that email
+                $rs = wc_get_orders([
+                    'limit' => 10, 'billing_email' => $email,
+                    'date_created' => '>' . $from, 'orderby' => 'date', 'order' => 'DESC',
+                ]);
+                $wc_orders = [];
+                foreach ($rs as $o) {
+                    $wc_orders[] = [
+                        'id' => $o->get_id(), 'status' => $o->get_status(),
+                        'total' => $o->get_total(), 'date' => (string) $o->get_date_created(),
+                        '_razorpay_order_id' => $o->get_meta('_razorpay_order_id'),
+                        '_razorpay_payment_id' => $o->get_meta('_razorpay_payment_id'),
+                        'transaction_id' => $o->get_transaction_id(),
+                    ];
+                }
+                $out['email_query'] = [
+                    'email' => $email, 'hours' => $hours,
+                    'razorpay_payments' => $matches,
+                    'wc_orders' => $wc_orders,
+                ];
+                return $out;
+            }
+
+            // Mode C: dump recent audit rows
+            if ((int) $req->get_param('audit') === 1) {
+                $limit = max(1, min(200, (int) $req->get_param('limit') ?: 30));
+                $rows = $wpdb->get_results(
+                    "SELECT * FROM " . hk2_audit_table_name() . " ORDER BY id DESC LIMIT $limit",
+                    ARRAY_A
+                );
+                $out['audit'] = $rows;
+                return $out;
+            }
+
+            return new WP_Error('bad_request', 'Pass ?order=<id>, or ?email=<addr>, or ?audit=1', ['status' => 400]);
+        },
+    ]);
+}, 36);
