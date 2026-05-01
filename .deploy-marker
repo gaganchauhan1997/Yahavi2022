@@ -1,0 +1,2 @@
+last-redeploy-nudge: 2026-05-01T19:53:27Z
+reason: GCE webhook fired before feat(courses) + fix(shop) commits landed; new bundle missed them.
