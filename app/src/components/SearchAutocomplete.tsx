@@ -52,9 +52,12 @@ export default function SearchAutocomplete({
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const requestIdRef = useRef(0);
   const navigate = useNavigate();
 
-  /* Debounced fetch — re-runs whenever query stabilises for 220 ms. */
+  /* Debounced fetch — re-runs whenever query stabilises for 220 ms. We tag
+     each in-flight request with an incrementing id so a slow earlier request
+     can never overwrite the newer query's results when it finally resolves. */
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
@@ -64,15 +67,17 @@ export default function SearchAutocomplete({
     }
     setLoading(true);
     const handle = window.setTimeout(async () => {
+      const myId = ++requestIdRef.current;
       try {
         const data = await fetchGraphQL(SEARCH_QUERY, { q });
+        if (myId !== requestIdRef.current) return; // stale — discard
         const nodes: SuggestionNode[] = (data?.products?.nodes ?? []) as SuggestionNode[];
         setResults(nodes);
         setActiveIdx(-1);
       } catch {
-        setResults([]);
+        if (myId === requestIdRef.current) setResults([]);
       } finally {
-        setLoading(false);
+        if (myId === requestIdRef.current) setLoading(false);
       }
     }, 220);
     return () => window.clearTimeout(handle);
