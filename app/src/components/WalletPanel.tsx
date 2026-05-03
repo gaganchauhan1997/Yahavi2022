@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Coins, Plus, History as HistoryIcon, ShieldCheck } from "lucide-react";
 import { yaviWallet, loadRazorpay, type WalletMe, type WalletLedgerRow } from "@/lib/yavi-wallet";
 import { isAuthenticated, getCurrentUser } from "@/lib/auth";
@@ -56,20 +56,22 @@ export default function WalletPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | null>(null);
 
+  const isMounted = useRef(true);
+
   useEffect(() => {
-    if (!isAuthenticated()) { setLoading(false); return; }
-    let alive = true;
+    isMounted.current = true;
+    if (!isAuthenticated()) { setLoading(false); return () => { isMounted.current = false; }; }
     yaviWallet.me()
-      .then((d) => { if (alive) setMe(d); })
-      .catch((e) => { toast.error((e as Error).message || "Failed to load wallet"); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+      .then((d) => { if (isMounted.current) setMe(d); })
+      .catch((e) => { if (isMounted.current) toast.error((e as Error).message || "Failed to load wallet"); })
+      .finally(() => { if (isMounted.current) setLoading(false); });
+    return () => { isMounted.current = false; };
   }, []);
 
   const refresh = async () => {
     try {
       const d = await yaviWallet.me();
-      setMe(d);
+      if (isMounted.current) setMe(d);
       window.dispatchEvent(new Event("yavi:wallet:refresh"));
     } catch { /* ignore */ }
   };
@@ -108,20 +110,24 @@ export default function WalletPanel() {
             }
             await refresh();
           } catch (e) {
-            toast.error("Payment received but credit failed. Contact support with your payment ID.", {
-              description: (e as Error).message,
-            });
+            if (isMounted.current) {
+              toast.error("Payment received but credit failed. Contact support with your payment ID.", {
+                description: (e as Error).message,
+              });
+            }
           } finally {
-            setBusy(null);
+            if (isMounted.current) setBusy(null);
           }
         },
-        modal: { ondismiss: () => setBusy(null) },
+        modal: { ondismiss: () => { if (isMounted.current) setBusy(null); } },
       };
 
       new Rzp(opts).open();
     } catch (e) {
-      toast.error((e as Error).message || "Could not start payment");
-      setBusy(null);
+      if (isMounted.current) {
+        toast.error((e as Error).message || "Could not start payment");
+        setBusy(null);
+      }
     }
   };
 

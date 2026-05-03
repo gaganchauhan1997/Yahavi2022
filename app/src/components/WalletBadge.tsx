@@ -11,28 +11,30 @@ import { isAuthenticated } from "@/lib/auth";
  */
 export default function WalletBadge() {
   const [balance, setBalance] = useState<number | null>(null);
-  const inFlight = useRef(false);
-
-  const refresh = async () => {
-    if (!isAuthenticated() || inFlight.current) return;
-    inFlight.current = true;
-    try {
-      const me = await yaviWallet.me();
-      setBalance(me.balance_yavi);
-    } catch {
-      /* swallow — keep last known value */
-    } finally {
-      inFlight.current = false;
-    }
-  };
+  const inFlight  = useRef(false);
+  const isMounted = useRef(true);
 
   useEffect(() => {
-    let alive = true;
-    refresh().finally(() => { if (!alive) setBalance(null); });
+    isMounted.current = true;
+
+    const refresh = async () => {
+      if (!isAuthenticated() || inFlight.current) return;
+      inFlight.current = true;
+      try {
+        const me = await yaviWallet.me();
+        if (isMounted.current) setBalance(me.balance_yavi);
+      } catch {
+        /* swallow — keep last known value */
+      } finally {
+        inFlight.current = false;
+      }
+    };
+
+    void refresh();
     const onRefresh = () => { void refresh(); };
     window.addEventListener("yavi:wallet:refresh", onRefresh);
     return () => {
-      alive = false;
+      isMounted.current = false;
       window.removeEventListener("yavi:wallet:refresh", onRefresh);
     };
   }, []);
