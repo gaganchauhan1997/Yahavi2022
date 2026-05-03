@@ -9,6 +9,10 @@ import Header from './components/Header';
 import MobileBottomBar from './components/MobileBottomBar';
 import YahaviAI from './components/YahaviAI';
 import CookieConsent from './components/CookieConsent';
+import AnnouncementBar from './components/AnnouncementBar';
+import SocialProofToast from './components/SocialProofToast';
+import StickyCheckoutBar from './components/StickyCheckoutBar';
+import ExitIntentModal from './components/ExitIntentModal';
 import { StoreProvider } from './context/StoreContext';
 import { installFetchInterceptor } from './lib/fetch-interceptor';
 
@@ -122,6 +126,7 @@ function App() {
         <Router>
           <RouteTransition />
           <YahaviAI />
+          <AnnouncementBar />
           <Header />
           <CategorySidebar />
           <CartDrawer />
@@ -189,6 +194,9 @@ function App() {
         </Router>
         <Toaster richColors position="top-right" />
         <CookieConsent />
+        <SocialProofToast />
+        <StickyCheckoutBar />
+        <ExitIntentModal />
       </StoreProvider>
     </ErrorBoundary>
   );
