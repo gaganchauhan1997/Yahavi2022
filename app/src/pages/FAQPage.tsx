@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, HelpCircle, MessageCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const faqs = [
   {
@@ -8,73 +8,126 @@ const faqs = [
     questions: [
       {
         q: 'What is HackKnow?',
-        a: 'HackKnow is a digital marketplace where creators can buy and sell premium digital products including templates, themes, Excel sheets, PowerPoint decks, and more.'
+        a: 'HackKnow is India\'s premium digital marketplace where creators and professionals can buy and download high-quality digital products including Excel templates, MIS dashboards, PowerPoint decks, website templates, marketing kits, and self-paced courses. We offer 233+ premium products across 28 categories, trusted by 10,000+ Indian professionals.'
       },
       {
-        q: 'How do I create an account?',
-        a: 'Click the "Sign Up" button in the top right corner, fill in your details, and verify your email address. It takes less than a minute!'
+        q: 'How do I create an account on HackKnow?',
+        a: 'Click the "Sign Up" button in the top right corner, enter your email and password, and verify your email. The whole process takes less than 60 seconds, and your account is free forever.'
       },
       {
         q: 'Is HackKnow free to use?',
-        a: 'Yes! Creating an account and browsing products is completely free. You only pay when you purchase a product.'
+        a: 'Yes — creating an account, browsing the entire catalogue, and downloading our 100+ free resources is completely free. You only pay when you choose to buy a premium template, dashboard, or course.'
+      },
+      {
+        q: 'Where is HackKnow based?',
+        a: 'HackKnow is proudly Made in India and built for the world. Our team is based in India and we ship digital products to customers across India, the United States, the United Kingdom, the UAE, Canada, Australia, and 50+ other countries.'
       }
     ]
   },
   {
-    category: 'Purchases',
+    category: 'Purchases & Payments',
     questions: [
       {
-        q: 'How do downloads work?',
-        a: 'After purchase, you will receive an email with a download link. You can also access your downloads anytime from your account dashboard under "My Orders".'
+        q: 'How do downloads work after purchase?',
+        a: 'The moment your payment is confirmed, you get an instant email with your download link. You can also re-download anytime from "My Orders" inside your account dashboard. Downloads are unlimited for life — no expiry, no monthly limits.'
       },
       {
         q: 'What payment methods do you accept?',
-        a: 'We accept all major credit/debit cards, UPI, net banking, and wallets through our secure payment partner Razorpay.'
+        a: 'We accept all major credit cards, debit cards, UPI (Google Pay, PhonePe, Paytm), net banking from 50+ Indian banks, and digital wallets — all through our secure payment partner Razorpay. International cards are also accepted.'
       },
       {
-        q: 'Can I get a refund?',
-        a: 'Due to the digital nature of our products, we generally do not offer refunds once the download has been accessed. However, if you face technical issues, contact our support team within 7 days.'
+        q: 'Are payments on HackKnow secure?',
+        a: 'Yes — every transaction is processed via Razorpay\'s PCI-DSS Level 1 certified gateway with end-to-end encryption. We never see or store your card details. Our checkout uses HTTPS with HSTS preload, and the entire site runs on HTTP/2 with TLS 1.3.'
+      },
+      {
+        q: 'What is your refund policy?',
+        a: 'Because our products are instantly downloadable digital files, refunds are limited. However, if a download is broken, the file is corrupted, or the product is materially different from the description, contact support@hackknow.com within 7 days and we will refund or replace it. See our full Refund Policy for details.'
       }
     ]
   },
   {
-    category: 'Selling',
+    category: 'Products & Quality',
     questions: [
       {
-        q: 'How do I become a seller?',
-        a: 'Anyone can sell on HackKnow! Simply create an account, go to your seller dashboard, and upload your first product. We review all submissions within 24-48 hours.'
+        q: 'What kinds of products can I buy on HackKnow?',
+        a: 'Premium Excel dashboards (sales, finance, HR, MIS), PowerPoint presentation templates, website themes (HTML, WordPress), marketing kits, social media templates, business document templates, calculators, calendars, courses on Excel & MIS reporting, career roadmaps, and much more — across 28 curated categories.'
       },
       {
-        q: 'What are the fees for selling?',
-        a: 'We charge a 15% commission on each sale. This covers payment processing, hosting, and marketing your products.'
+        q: 'Are the templates editable?',
+        a: 'Yes — every Excel, PowerPoint, and document template ships in fully editable native format (.xlsx, .pptx, .docx). Website templates ship with editable source files. You own the files for life and can adapt them freely for personal or commercial use under our standard licence.'
       },
       {
-        q: 'When do I get paid?',
-        a: 'Payments are processed weekly. Once your balance reaches ₹500, you can request a payout to your bank account or PayPal.'
+        q: 'How is HackKnow different from Envato or Flipkart?',
+        a: 'HackKnow is curated specifically for the Indian professional and SME market. Pricing is in INR with UPI checkout, products are sized for Indian business workflows (GST-ready invoices, INR formatting, Indian fiscal year calendars), and our support is India-timezone-friendly. We are also smaller and more curated — every listing is hand-reviewed.'
       }
     ]
   },
   {
-    category: 'Technical',
+    category: 'Selling on HackKnow',
     questions: [
       {
-        q: 'What file formats are supported?',
-        a: 'We support a wide range of formats including: .zip, .pdf, .pptx, .xlsx, .docx, .fig, .sketch, .psd, and more. Each product listing shows the included formats.'
+        q: 'How do I become a seller / vendor?',
+        a: 'Anyone can sell on HackKnow. Create a free account, visit /become-a-vendor, submit a short application with samples of your work, and our team reviews it within 24-48 hours. Once approved, you can list unlimited products from your seller dashboard.'
       },
       {
-        q: 'How do I open the downloaded files?',
-        a: 'Most files can be opened with standard software like Microsoft Office, Google Workspace, or design tools like Figma and Adobe Creative Suite.'
+        q: 'What commission does HackKnow charge sellers?',
+        a: 'Sellers keep 70% of every sale; HackKnow takes a 30% commission which covers payment processing, hosting, customer support, marketing, and platform development. There is no upfront fee, no monthly subscription, and no listing charge.'
+      },
+      {
+        q: 'When and how do sellers get paid?',
+        a: 'Payouts are processed weekly. Once your seller balance crosses ₹500, you can request payout to any Indian bank account or UPI ID — typically credited within 1-2 business days.'
+      }
+    ]
+  },
+  {
+    category: 'Technical & Files',
+    questions: [
+      {
+        q: 'What file formats does HackKnow support?',
+        a: 'We host every common business and design format: .xlsx, .xlsm, .pptx, .docx, .pdf, .zip, .html, .css, .js, .psd, .fig, .sketch, .ai, .png, .jpg, .svg, .mp4, and more. Each product page lists exactly which formats are included.'
+      },
+      {
+        q: 'How do I open the files I download?',
+        a: 'Most files open with standard tools you probably already have: Microsoft Office (Excel, PowerPoint, Word), Google Workspace (Sheets, Slides, Docs), or free alternatives like LibreOffice. Design files need Figma, Adobe Photoshop, or Sketch.'
       },
       {
         q: 'Is there a file size limit?',
-        a: 'Individual files can be up to 500MB. For larger files, we recommend splitting them or using cloud storage links.'
+        a: 'Single files can be up to 500 MB. For larger products (full website themes with assets, video courses, etc.), we serve them as cloud-hosted bundles with download-resume support — so even slow connections finish reliably.'
       }
     ]
   }
 ];
 
+// Flat array for JSON-LD generation
+const allFaqs = faqs.flatMap(s => s.questions);
+
 const FAQPage = () => {
   const [openItems, setOpenItems] = useState<{[key: string]: boolean}>({});
+
+  // Inject FAQPage JSON-LD on mount, remove on unmount.
+  // This is the structured data Google uses to render rich-snippet
+  // FAQ accordions directly inside the search result — huge SERP real-estate win.
+  useEffect(() => {
+    const id = 'hk-faqpage-ld';
+    const json = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: allFaqs.map(({ q, a }) => ({
+        '@type': 'Question',
+        name: q,
+        acceptedAnswer: { '@type': 'Answer', text: a },
+      })),
+    };
+    let el = document.getElementById(id) as HTMLScriptElement | null;
+    if (!el) {
+      el = document.createElement('script');
+      el.type = 'application/ld+json';
+      el.id = id;
+      document.head.appendChild(el);
+    }
+    el.textContent = JSON.stringify(json);
+    return () => { el?.remove(); };
+  }, []);
 
   const toggleItem = (key: string) => {
     setOpenItems(prev => ({...prev, [key]: !prev[key]}));
