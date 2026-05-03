@@ -191,12 +191,12 @@ function App() {
           </main>
           <Footer />
           <MobileBottomBar />
+          <SocialProofToast />
+          <StickyCheckoutBar />
+          <ExitIntentModal />
         </Router>
         <Toaster richColors position="top-right" />
         <CookieConsent />
-        <SocialProofToast />
-        <StickyCheckoutBar />
-        <ExitIntentModal />
       </StoreProvider>
     </ErrorBoundary>
   );
