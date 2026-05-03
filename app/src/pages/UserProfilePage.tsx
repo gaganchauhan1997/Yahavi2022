@@ -5,7 +5,7 @@ import {
   User, Package, Heart, Download, CreditCard, MapPin,
   LogOut, ChevronRight, ShoppingBag, Phone, Mail, Calendar,
   Edit2, Camera, CheckCircle, Loader2, AlertCircle,
-  HeadphonesIcon, Plus, Trash2, Save, FileDown, Clock
+  HeadphonesIcon, Plus, Trash2, Save, FileDown, Clock, Coins
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,9 +14,11 @@ import { WP_REST_BASE } from '@/lib/api-base';
 import { getAuthToken } from '@/lib/auth-token';
 import { useStore } from '@/context/StoreContext';
 import ProductCard from '@/components/ProductCard';
+import WalletPanel from '@/components/WalletPanel';
 
 const mainItems = [
   { id: 'profile',   label: 'My Profile',        icon: User },
+  { id: 'wallet',    label: 'YAVI Wallet',        icon: Coins },
   { id: 'downloads', label: 'My Downloads',       icon: Download },
   { id: 'wishlist',  label: 'My Wishlist',        icon: Heart },
   { id: 'payments',  label: 'Payment Methods',    icon: CreditCard },
@@ -538,6 +540,7 @@ export default function UserProfilePage() {
   const renderContent = () => {
     switch (activeTab) {
       case 'profile':   return renderProfile();
+      case 'wallet':    return <WalletPanel />;
       case 'downloads': return <RenderDownloads />;
       case 'wishlist': {
         const wishlistProducts = state.products.filter(p => state.wishlist.includes(p.id));
