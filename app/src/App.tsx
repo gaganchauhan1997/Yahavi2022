@@ -27,6 +27,7 @@ const ContactPage         = lazy(() => import('./pages/ContactPage'));
 const AffiliatePage           = lazy(() => import('./pages/AffiliatePage'));
 const AffiliateLearnMorePage  = lazy(() => import('./pages/AffiliateLearnMorePage'));
 const BlogPage            = lazy(() => import('./pages/BlogPage'));
+const BlogPostPage        = lazy(() => import('./pages/BlogPostPage'));
 const FAQPage             = lazy(() => import('./pages/FAQPage'));
 const PrivacyPolicyPage   = lazy(() => import('./pages/PrivacyPolicyPage'));
 const RefundPolicyPage    = lazy(() => import('./pages/RefundPolicyPage'));
@@ -141,6 +142,7 @@ function App() {
                 <Route path="/affiliate"              element={<AffiliatePage />} />
                 <Route path="/affiliate/learn-more"   element={<AffiliateLearnMorePage />} />
                 <Route path="/blog"                element={<BlogPage />} />
+                <Route path="/blog/:slug"          element={<BlogPostPage />} />
                 <Route path="/faq"                 element={<FAQPage />} />
                 <Route path="/privacy"             element={<PrivacyPolicyPage />} />
                 <Route path="/refund-policy"       element={<RefundPolicyPage />} />
