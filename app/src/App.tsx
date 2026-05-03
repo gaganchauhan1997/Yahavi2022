@@ -48,6 +48,7 @@ const TestimonialsPage    = lazy(() => import('./pages/TestimonialsPage'));
 const SSOBridgePage       = lazy(() => import('./pages/SSOBridgePage'));
 const BrainxercisePage    = lazy(() => import('./pages/BrainxercisePage'));
 const SponsorPage         = lazy(() => import('./pages/SponsorPage'));
+const WalletPage          = lazy(() => import('./pages/WalletPage'));
 const VendorApplyPage     = lazy(() => import('./pages/VendorApplyPage'));
 const BrainxerciseDetailPage = lazy(() => import('./pages/BrainxerciseDetailPage'));
 
@@ -174,6 +175,7 @@ function App() {
                 <Route path="/reviews"              element={<Navigate to="/testimonials" replace />} />
 
                 {/* First-party SSO bridge for ai.hackknow.com etc. */}
+                <Route path="/wallet"               element={<AuthGuard><WalletPage /></AuthGuard>} />
                 <Route path="/auth/sso-bridge"      element={<SSOBridgePage />} />
 
                 <Route path="*"                    element={<Navigate to="/" replace />} />
