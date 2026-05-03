@@ -30,18 +30,49 @@ export default function SocialProofToast() {
 
   useEffect(() => {
     if (dismissed) return;
+
+    let first: number | undefined;
+    let second: number | undefined;
+    let consentPoll: number | undefined;
+
     const showOne = () => {
       setToast({ name: rand(NAMES), city: rand(CITIES), product: rand(products), mins: Math.floor(Math.random() * 14) + 1 });
       window.setTimeout(() => setToast(null), 6000);
     };
-    // First toast after 12s, then every 28-45s
-    const first = window.setTimeout(showOne, 12000);
-    const loop = () => {
-      showOne();
-      timerRef.current = window.setTimeout(loop, 28000 + Math.random() * 17000);
+    const startSchedule = () => {
+      // First toast after 12s, then every 28-45s
+      first = window.setTimeout(showOne, 12000);
+      const loop = () => {
+        showOne();
+        timerRef.current = window.setTimeout(loop, 28000 + Math.random() * 17000);
+      };
+      second = window.setTimeout(loop, 45000);
     };
-    const second = window.setTimeout(loop, 45000);
-    return () => { clearTimeout(first); clearTimeout(second); if (timerRef.current) clearTimeout(timerRef.current); };
+
+    // Wait until cookie-consent (accept OR decline) before starting — avoid overlay stacking.
+    const consentDone = () => {
+      try {
+        const v = localStorage.getItem('hackknow-cookie-consent');
+        return v === 'accepted' || v === 'declined';
+      } catch { return true; }
+    };
+    if (consentDone()) {
+      startSchedule();
+    } else {
+      consentPoll = window.setInterval(() => {
+        if (consentDone()) {
+          if (consentPoll) window.clearInterval(consentPoll);
+          startSchedule();
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (first) clearTimeout(first);
+      if (second) clearTimeout(second);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (consentPoll) window.clearInterval(consentPoll);
+    };
   }, [dismissed, products]);
 
   if (dismissed || !toast) return null;

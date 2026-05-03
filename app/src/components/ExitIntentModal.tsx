@@ -17,22 +17,52 @@ export default function ExitIntentModal() {
     try { already = sessionStorage.getItem(SEEN_KEY) === '1'; } catch {}
     if (already) return;
 
+    let mobileTimer: number | undefined;
+    let consentPoll: number | undefined;
+    let armed = false;
+
     const trigger = () => {
       try { sessionStorage.setItem(SEEN_KEY, '1'); } catch {}
       setOpen(true);
       window.removeEventListener('mouseout', onMouseOut);
-      clearTimeout(mobileTimer);
+      if (mobileTimer) window.clearTimeout(mobileTimer);
+      if (consentPoll) window.clearInterval(consentPoll);
     };
     const onMouseOut = (e: MouseEvent) => {
       if (e.relatedTarget === null && e.clientY < 10) trigger();
     };
-    // Desktop: exit-intent on mouse leave from top
-    window.addEventListener('mouseout', onMouseOut);
-    // Mobile fallback: trigger after 90s of activity
-    const mobileTimer = window.setTimeout(trigger, 90000);
+    const arm = () => {
+      if (armed) return;
+      armed = true;
+      // Desktop: exit-intent on mouse leave from top
+      window.addEventListener('mouseout', onMouseOut);
+      // Mobile fallback: trigger after 90s of activity
+      mobileTimer = window.setTimeout(trigger, 90000);
+    };
+
+    // Wait for cookie-consent (accept OR decline) before arming — never stack two overlays.
+    const consentDone = () => {
+      try {
+        const v = localStorage.getItem('hackknow-cookie-consent');
+        return v === 'accepted' || v === 'declined';
+      } catch { return true; }
+    };
+    if (consentDone()) {
+      arm();
+    } else {
+      consentPoll = window.setInterval(() => {
+        if (consentDone()) {
+          if (consentPoll) window.clearInterval(consentPoll);
+          // Give the consent banner ~1.5s to fade out before arming
+          window.setTimeout(arm, 1500);
+        }
+      }, 1000);
+    }
+
     return () => {
       window.removeEventListener('mouseout', onMouseOut);
-      clearTimeout(mobileTimer);
+      if (mobileTimer) window.clearTimeout(mobileTimer);
+      if (consentPoll) window.clearInterval(consentPoll);
     };
   }, []);
 
