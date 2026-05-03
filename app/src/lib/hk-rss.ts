@@ -113,6 +113,9 @@ interface Rss2JsonResp  { status: string; feed?: { title?: string; image?: strin
  *   3. rss2json   — JSON-shaped (gives us thumbnails when up), but currently
  *                   returning `status:"error"` for many feeds → tried last.
  */
+// Tier-0: our own WordPress backend (zz-hk-rss-proxy.php) — wp_remote_get + 5min transient cache.
+// Bypasses 3rd-party rate limits/quotas/outages. Allow-listed feed hosts only.
+const PROXY_HK_BACKEND = 'https://shop.hackknow.com/wp-json/hk/v1/rss?url=';
 const PROXY_CODETABS   = 'https://api.codetabs.com/v1/proxy/?quest=';
 const PROXY_ALLORIGINS = 'https://api.allorigins.win/raw?url=';
 const PROXY_RSS2JSON   = 'https://api.rss2json.com/v1/api.json?rss_url=';
@@ -226,8 +229,27 @@ function parseRawXml(xml: string): Rss2JsonItem[] {
 export interface FeedFetchResult {
   feed: FrontendFeed;
   ok: boolean;
-  via: 'codetabs' | 'allorigins' | 'rss2json' | 'none';
+  via: 'hk' | 'codetabs' | 'allorigins' | 'rss2json' | 'none';
   items: HKRelease[];
+}
+
+/** Tier-0 fetch via our own /wp-json/hk/v1/rss endpoint. Returns items pre-parsed by PHP. */
+interface HkProxyItem { title: string; link: string; description?: string; pubDate?: string; image?: string }
+interface HkProxyResp { source?: string; count?: number; items?: HkProxyItem[]; cached?: boolean; error?: string }
+async function tryProxyHkBackend(
+  feedUrl: string,
+  perFeedTimeoutMs: number,
+): Promise<HkProxyItem[] | null> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), perFeedTimeoutMs);
+  try {
+    const r = await fetch(`${PROXY_HK_BACKEND}${encodeURIComponent(feedUrl)}`, { signal: ctl.signal });
+    if (!r.ok) return null;
+    const j = (await r.json()) as HkProxyResp;
+    if (!j || !Array.isArray(j.items) || j.items.length === 0) return null;
+    return j.items;
+  } catch { return null; }
+  finally { clearTimeout(t); }
 }
 
 /** Generic per-attempt fetch with its own AbortController + timeout. */
@@ -261,9 +283,9 @@ async function tryProxyJson(
 }
 
 /**
- * Per-feed proxy ladder — codetabs → allorigins → rss2json.
+ * Per-feed proxy ladder — hk-backend → codetabs → allorigins → rss2json.
  * Returns the first proxy that yields ≥1 parseable item, or an empty
- * result if all three fail. One slow feed cannot kill the batch.
+ * result if all four fail. One slow feed cannot kill the batch.
  */
 async function fetchOne(
   feed: FrontendFeed,
@@ -271,6 +293,22 @@ async function fetchOne(
   perFeedTimeoutMs: number,
 ): Promise<FeedFetchResult> {
   const enc = encodeURIComponent(feed.url);
+
+  // ----- attempt 0: our WordPress backend (cached 5min, no rate limits, no CORS issues) -----
+  {
+    const items = await tryProxyHkBackend(feed.url, perFeedTimeoutMs);
+    if (items && items.length) {
+      // Backend already parsed XML and returned normalised items — map directly.
+      const mapped: HKRelease[] = items.slice(0, perFeed).map((it, i) => toRelease(feed, {
+        title: it.title || '',
+        link: it.link || '',
+        pubDate: it.pubDate || '',
+        description: it.description || '',
+        thumbnail: it.image || '',
+      }, i));
+      return { feed, ok: true, via: 'hk', items: mapped };
+    }
+  }
 
   // ----- attempt 1: codetabs (raw XML, fastest in current real-world tests) -----
   {
