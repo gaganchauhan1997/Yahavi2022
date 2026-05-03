@@ -45,6 +45,15 @@ export default function ExitIntentModal() {
     setErr(null);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) { setErr('Please enter a valid email'); return; }
     setSubmitting(true);
+    // Fallback: always remember the lead locally so we never lose it
+    try {
+      const raw = localStorage.getItem('hk_local_leads_v1');
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr)) {
+        arr.push({ email: email.trim(), source: 'exit-intent', at: new Date().toISOString() });
+        localStorage.setItem('hk_local_leads_v1', JSON.stringify(arr.slice(-50)));
+      }
+    } catch { /* ignore quota */ }
     try {
       const r = await fetch(`${API_BASE}/wp-json/hackknow/v1/lead/capture`, {
         method: 'POST',
@@ -52,10 +61,12 @@ export default function ExitIntentModal() {
         body: JSON.stringify({ email: email.trim(), source: 'exit-intent' }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok || !data?.ok) throw new Error(data?.error || 'Could not save email');
-      setDone({ code: data.coupon_code || 'WELCOME20' });
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Something went wrong');
+      // If backend is missing (404) or down, still reward the user — they completed the action
+      const code = (data && data.coupon_code) || 'WELCOME20';
+      setDone({ code });
+    } catch {
+      // Network/endpoint missing — still show the coupon so the user gets immediate value
+      setDone({ code: 'WELCOME20' });
     } finally {
       setSubmitting(false);
     }
