@@ -1,0 +1,74 @@
+{
+  "at": "2026-05-03T09:17:55.313Z",
+  "passed": 11,
+  "total": 11,
+  "status": "OK 11/11",
+  "results": [
+    {
+      "pass": true,
+      "msg": "splash×9 + SW killer ok",
+      "name": "Homepage 200 + splash + SW killer",
+      "ms": 342
+    },
+    {
+      "pass": true,
+      "msg": "Hindi occurrences=0",
+      "name": "JSON-LD has no Hindi",
+      "ms": 39
+    },
+    {
+      "pass": true,
+      "msg": "HackedNewsPage-_IDyEofc.js ok (3 proxies, sanitised)",
+      "name": "Hacked News chunk has all 3 proxies + no javascript:",
+      "ms": 192
+    },
+    {
+      "pass": true,
+      "msg": "12 releases",
+      "name": "Backend /releases returns items",
+      "ms": 1275
+    },
+    {
+      "pass": true,
+      "msg": "12 roadmaps",
+      "name": "Backend /roadmaps returns ≥10",
+      "ms": 1119
+    },
+    {
+      "pass": true,
+      "msg": "10 courses",
+      "name": "Backend /courses returns items",
+      "ms": 1151
+    },
+    {
+      "pass": true,
+      "msg": "status=200",
+      "name": "Yahavi /chat/history reachable",
+      "ms": 1104
+    },
+    {
+      "pass": true,
+      "msg": "status=400",
+      "name": "Sponsor order route alive (rejects bad payload)",
+      "ms": 1051
+    },
+    {
+      "pass": true,
+      "msg": "10/10 ok",
+      "name": "Storefront 10 routes all 200",
+      "ms": 402
+    },
+    {
+      "pass": true,
+      "msg": "6/6 sample feeds returned items",
+      "name": "RSS proxy alive (≥3/6 sample feeds via codetabs)",
+      "ms": 442
+    },
+    {
+      "pass": true,
+      "msg": "index-B3wjl74J.js 164082B immutable",
+      "name": "Main bundle present + ≥100KB + cache headers",
+      "ms": 147
+    }
+  ]
+}
