@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, Search } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Search, Star } from 'lucide-react';
+import { FEATURED_ARTICLES, type FeaturedArticle } from '@/content/featured-articles';
 
 const WP = 'https://shop.hackknow.com/wp-json/wp/v2';
 
@@ -62,6 +63,49 @@ const FALLBACK_GRADIENTS = [
   'linear-gradient(135deg, #FFD60A 0%, #FF00A0 100%)',
 ];
 
+// Unified card type so featured + WP posts render through the same code path.
+type Card = {
+  key: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  image: string;
+  gradient: string;
+  category: string;
+  date: string;
+  readTime: string;
+  featured: boolean;
+};
+
+function featuredToCard(a: FeaturedArticle): Card {
+  return {
+    key: 'feat-' + a.slug,
+    slug: a.slug,
+    title: a.title,
+    excerpt: a.excerpt,
+    image: '',
+    gradient: a.gradient,
+    category: a.category,
+    date: a.publishDate,
+    readTime: a.readMinutes + ' min read',
+    featured: true,
+  };
+}
+function wpToCard(p: WpPost, idx: number): Card {
+  return {
+    key: 'wp-' + p.id,
+    slug: p.slug,
+    title: decodeHtml(stripHtml(p.title.rendered)),
+    excerpt: decodeHtml(stripHtml(p.excerpt.rendered)),
+    image: pickImage(p),
+    gradient: FALLBACK_GRADIENTS[idx % FALLBACK_GRADIENTS.length],
+    category: pickCategory(p),
+    date: p.date,
+    readTime: readTime(p.excerpt.rendered),
+    featured: false,
+  };
+}
+
 const BlogPage = () => {
   const [posts, setPosts] = useState<WpPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,14 +132,22 @@ const BlogPage = () => {
     return () => { alive = false; ctrl.abort(); };
   }, [page]);
 
+  // Combined feed: featured articles first (only on page 1), then WP posts.
+  const allCards: Card[] = useMemo(() => {
+    const featured = page === 1 ? FEATURED_ARTICLES.map(featuredToCard) : [];
+    // De-dup: if a WP post has the same slug as a featured article, drop the WP version.
+    const featuredSlugs = new Set(FEATURED_ARTICLES.map(a => a.slug));
+    const wp = posts.filter(p => !featuredSlugs.has(p.slug)).map(wpToCard);
+    return [...featured, ...wp];
+  }, [posts, page]);
+
   const filtered = useMemo(() => {
-    if (!query.trim()) return posts;
+    if (!query.trim()) return allCards;
     const q = query.toLowerCase();
-    return posts.filter((p) =>
-      stripHtml(p.title.rendered).toLowerCase().includes(q) ||
-      stripHtml(p.excerpt.rendered).toLowerCase().includes(q)
+    return allCards.filter((c) =>
+      c.title.toLowerCase().includes(q) || c.excerpt.toLowerCase().includes(q),
     );
-  }, [posts, query]);
+  }, [allCards, query]);
 
   return (
     <div className="min-h-screen bg-hack-white">
@@ -137,7 +189,7 @@ const BlogPage = () => {
             </div>
           )}
 
-          {loading && posts.length === 0 ? (
+          {loading && posts.length === 0 && filtered.length === 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="bg-white rounded-2xl overflow-hidden border border-hack-black/5 animate-pulse">
@@ -154,49 +206,47 @@ const BlogPage = () => {
             <div className="text-center text-hack-black/60 py-16">No articles match your search.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filtered.map((post, idx) => {
-                const img = pickImage(post);
-                const category = pickCategory(post);
-                const grad = FALLBACK_GRADIENTS[idx % FALLBACK_GRADIENTS.length];
-                const title = decodeHtml(stripHtml(post.title.rendered));
-                const excerpt = decodeHtml(stripHtml(post.excerpt.rendered));
-                return (
-                  <Link
-                    key={post.id}
-                    to={`/blog/${post.slug}`}
-                    className="group block bg-white rounded-2xl overflow-hidden border border-hack-black/5 card-hover"
-                  >
-                    <div className="aspect-[16/10] overflow-hidden bg-hack-black/5" style={!img ? { background: grad } : undefined}>
-                      {img ? (
-                        <img
-                          src={img}
-                          alt={title}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-hack-black/80 font-display font-bold text-xl px-6 text-center">
-                          {category}
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-6">
-                      <span className="inline-block px-3 py-1 bg-hack-yellow/20 text-hack-black text-xs font-bold rounded-full mb-3">
-                        {category}
-                      </span>
-                      <h2 className="font-display font-bold text-xl mb-3 line-clamp-2 group-hover:text-hack-magenta transition-colors">
-                        {title}
-                      </h2>
-                      <p className="text-hack-black/60 text-sm mb-4 line-clamp-3">{excerpt}</p>
-                      <div className="flex items-center gap-4 text-xs text-hack-black/40">
-                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(post.date)}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{readTime(post.excerpt.rendered)}</span>
+              {filtered.map((card) => (
+                <Link
+                  key={card.key}
+                  to={`/blog/${card.slug}`}
+                  className="group block bg-white rounded-2xl overflow-hidden border border-hack-black/5 card-hover relative"
+                >
+                  {card.featured && (
+                    <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 px-2.5 py-1 bg-hack-yellow text-hack-black text-[11px] font-bold rounded-full shadow-md">
+                      <Star className="w-3 h-3" /> Featured
+                    </span>
+                  )}
+                  <div className="aspect-[16/10] overflow-hidden bg-hack-black/5" style={!card.image ? { background: card.gradient } : undefined}>
+                    {card.image ? (
+                      <img
+                        src={card.image}
+                        alt={card.title}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-hack-black/80 font-display font-bold text-xl px-6 text-center">
+                        {card.category}
                       </div>
+                    )}
+                  </div>
+                  <div className="p-6">
+                    <span className="inline-block px-3 py-1 bg-hack-yellow/20 text-hack-black text-xs font-bold rounded-full mb-3">
+                      {card.category}
+                    </span>
+                    <h2 className="font-display font-bold text-xl mb-3 line-clamp-2 group-hover:text-hack-magenta transition-colors">
+                      {card.title}
+                    </h2>
+                    <p className="text-hack-black/60 text-sm mb-4 line-clamp-3">{card.excerpt}</p>
+                    <div className="flex items-center gap-4 text-xs text-hack-black/40">
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(card.date)}</span>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{card.readTime}</span>
                     </div>
-                  </Link>
-                );
-              })}
+                  </div>
+                </Link>
+              ))}
             </div>
           )}
 

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, Tag } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Tag, Star } from 'lucide-react';
+import { getFeaturedArticle, type FeaturedArticle } from '@/content/featured-articles';
 
 const WP = 'https://shop.hackknow.com/wp-json/wp/v2';
+const SITE = 'https://www.hackknow.com';
 
 type WpPost = {
   id: number;
@@ -18,6 +20,20 @@ type WpPost = {
     'wp:featuredmedia'?: Array<{ source_url?: string; alt_text?: string; media_details?: { sizes?: Record<string, { source_url: string }> } }>;
     'wp:term'?: Array<Array<{ id: number; name: string; slug: string }>>;
   };
+};
+
+// Unified rendered post — covers both WP posts and featured articles.
+type RenderedPost = {
+  source: 'wp' | 'featured';
+  title: string;
+  contentHtml: string;
+  excerpt: string;
+  category: string;
+  date: string;
+  modified?: string;
+  hero: { src: string; alt: string };
+  heroGradient?: string;
+  featured?: FeaturedArticle;
 };
 
 function decodeHtml(s: string): string {
@@ -45,19 +61,105 @@ function pickHero(p: WpPost): { src: string; alt: string } {
   return { src, alt: m.alt_text || '' };
 }
 
+function injectArticleSchema(slug: string, post: RenderedPost) {
+  const id = 'hk-article-ld';
+  const json: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': post.featured ? 'Article' : 'BlogPosting',
+    headline: post.title,
+    description: post.excerpt,
+    datePublished: post.date,
+    dateModified: post.modified || post.date,
+    inLanguage: 'en-IN',
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `${SITE}/blog/${slug}` },
+    author: { '@type': 'Organization', name: 'HackKnow' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'HackKnow',
+      logo: { '@type': 'ImageObject', url: `${SITE}/icon-512.png` },
+    },
+    image: post.hero.src || `${SITE}/og-image.jpg`,
+    articleSection: post.category,
+  };
+  let el = document.getElementById(id) as HTMLScriptElement | null;
+  if (!el) {
+    el = document.createElement('script');
+    el.type = 'application/ld+json';
+    el.id = id;
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(json);
+}
+
+function injectFaqSchema(faq: { q: string; a: string }[]) {
+  const id = 'hk-article-faq-ld';
+  const json = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map(({ q, a }) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a },
+    })),
+  };
+  let el = document.getElementById(id) as HTMLScriptElement | null;
+  if (!el) {
+    el = document.createElement('script');
+    el.type = 'application/ld+json';
+    el.id = id;
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(json);
+}
+
+function removeSchema(id: string) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
 const BlogPostPage = () => {
   const { slug } = useParams<{ slug: string }>();
-  const [post, setPost] = useState<WpPost | null>(null);
+  const [post, setPost] = useState<RenderedPost | null>(null);
   const [related, setRelated] = useState<WpPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!slug) return;
+    setError(null);
+    setRelated([]);
+
+    // 1. STATIC FEATURED ARTICLE — render synchronously, no WP fetch needed.
+    const fa = getFeaturedArticle(slug);
+    if (fa) {
+      const rendered: RenderedPost = {
+        source: 'featured',
+        title: fa.title,
+        contentHtml: fa.contentHtml,
+        excerpt: fa.excerpt,
+        category: fa.category,
+        date: fa.publishDate,
+        modified: fa.modifiedDate || fa.publishDate,
+        hero: { src: '', alt: fa.title },
+        heroGradient: fa.gradient,
+        featured: fa,
+      };
+      setPost(rendered);
+      setLoading(false);
+      try { document.title = fa.title + ' | HackKnow Blog'; } catch { /* ignore */ }
+      try { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); } catch { window.scrollTo(0, 0); }
+      injectArticleSchema(slug, rendered);
+      if (fa.faq && fa.faq.length) injectFaqSchema(fa.faq);
+      return () => {
+        removeSchema('hk-article-ld');
+        removeSchema('hk-article-faq-ld');
+      };
+    }
+
+    // 2. WP-backed post — fetch as before.
     let alive = true;
     setLoading(true);
     setPost(null);
-    setRelated([]);
     const ctrl = new AbortController();
     const url = `${WP}/posts?slug=${encodeURIComponent(slug)}&_embed=wp:featuredmedia,wp:term`;
     fetch(url, { signal: ctrl.signal })
@@ -69,8 +171,18 @@ const BlogPostPage = () => {
         if (!alive) return;
         if (!arr || arr.length === 0) { setError('Article not found'); return; }
         const p = arr[0];
-        setPost(p);
-        setError(null);
+        const rendered: RenderedPost = {
+          source: 'wp',
+          title: decodeHtml(stripHtml(p.title.rendered)),
+          contentHtml: p.content.rendered,
+          excerpt: decodeHtml(stripHtml(p.excerpt.rendered)),
+          category: p._embedded?.['wp:term']?.[0]?.[0]?.name || 'Blog',
+          date: p.date,
+          modified: p.modified,
+          hero: pickHero(p),
+        };
+        setPost(rendered);
+        injectArticleSchema(slug, rendered);
         // Fetch related (same category, excluding self)
         const cat = p.categories?.[0];
         if (cat) {
@@ -79,14 +191,17 @@ const BlogPostPage = () => {
             if (rr.ok && alive) setRelated(await rr.json());
           } catch { /* ignore */ }
         }
-        // Update document title for browser tab (SSR also sets title server-side)
-        try { document.title = decodeHtml(stripHtml(p.title.rendered)) + ' | HackKnow Blog'; } catch { /* ignore */ }
-        // Scroll to top on load
+        try { document.title = rendered.title + ' | HackKnow Blog'; } catch { /* ignore */ }
         try { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); } catch { window.scrollTo(0, 0); }
       })
       .catch((e) => { if (alive && e.name !== 'AbortError') setError(e.message || 'Failed to load'); })
       .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; ctrl.abort(); };
+    return () => {
+      alive = false;
+      ctrl.abort();
+      removeSchema('hk-article-ld');
+      removeSchema('hk-article-faq-ld');
+    };
   }, [slug]);
 
   if (loading && !post) {
@@ -122,10 +237,6 @@ const BlogPostPage = () => {
     );
   }
 
-  const hero = pickHero(post);
-  const title = decodeHtml(stripHtml(post.title.rendered));
-  const category = post._embedded?.['wp:term']?.[0]?.[0];
-
   return (
     <div className="min-h-screen bg-hack-white">
       {/* Hero */}
@@ -134,29 +245,42 @@ const BlogPostPage = () => {
           <Link to="/blog" className="inline-flex items-center gap-2 text-hack-yellow hover:text-hack-orange transition-colors mb-6 text-sm">
             <ArrowLeft className="w-4 h-4" /> Back to Blog
           </Link>
-          {category && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {post.source === 'featured' && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-hack-yellow text-hack-black text-xs font-bold rounded-full">
+                <Star className="w-3 h-3" /> Featured
+              </span>
+            )}
             <Link
               to="/blog"
-              className="inline-flex items-center gap-1 px-3 py-1 bg-hack-yellow/20 text-hack-yellow text-xs font-bold rounded-full mb-4"
+              className="inline-flex items-center gap-1 px-3 py-1 bg-hack-yellow/20 text-hack-yellow text-xs font-bold rounded-full"
             >
-              <Tag className="w-3 h-3" /> {category.name}
+              <Tag className="w-3 h-3" /> {post.category}
             </Link>
-          )}
+          </div>
           <h1 className="font-display font-bold text-3xl sm:text-4xl lg:text-5xl mb-4 leading-tight">
-            {title}
+            {post.title}
           </h1>
           <div className="flex flex-wrap items-center gap-4 text-sm text-hack-white/60">
             <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" />{formatDate(post.date)}</span>
-            <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" />{readTime(post.content.rendered)}</span>
+            <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" />{readTime(post.contentHtml)}</span>
           </div>
         </div>
-        {hero.src && (
+        {post.hero.src ? (
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-0">
             <div className="aspect-[16/9] overflow-hidden rounded-t-3xl bg-hack-black/40">
-              <img src={hero.src} alt={hero.alt || title} className="w-full h-full object-cover" loading="eager" decoding="async" />
+              <img src={post.hero.src} alt={post.hero.alt || post.title} className="w-full h-full object-cover" loading="eager" decoding="async" />
             </div>
           </div>
-        )}
+        ) : post.heroGradient ? (
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-0">
+            <div className="aspect-[16/9] overflow-hidden rounded-t-3xl flex items-center justify-center" style={{ background: post.heroGradient }}>
+              <div className="text-hack-black/80 font-display font-bold text-2xl sm:text-3xl px-8 text-center">
+                {post.category}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Body */}
@@ -165,13 +289,29 @@ const BlogPostPage = () => {
           className="hk-blog-prose prose prose-lg max-w-none
                      prose-headings:font-display prose-headings:font-bold
                      prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
+                     prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
                      prose-p:text-hack-black/80 prose-p:leading-relaxed
                      prose-a:text-hack-magenta prose-a:font-semibold prose-a:no-underline hover:prose-a:underline
                      prose-strong:text-hack-black
                      prose-li:text-hack-black/80
                      prose-ol:list-decimal prose-ul:list-disc"
-          dangerouslySetInnerHTML={{ __html: post.content.rendered }}
+          dangerouslySetInnerHTML={{ __html: post.contentHtml }}
         />
+
+        {/* Featured-article FAQ section (visible) */}
+        {post.featured?.faq && post.featured.faq.length > 0 && (
+          <div className="mt-12">
+            <h2 className="font-display font-bold text-2xl mb-6">Frequently Asked Questions</h2>
+            <div className="space-y-3">
+              {post.featured.faq.map((item, i) => (
+                <details key={i} className="bg-white rounded-2xl border border-hack-black/5 p-5 open:shadow-sm">
+                  <summary className="font-bold text-hack-black cursor-pointer">{item.q}</summary>
+                  <p className="mt-3 text-hack-black/70 leading-relaxed">{item.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Share / CTA */}
         <div className="mt-12 p-6 lg:p-8 rounded-2xl bg-gradient-to-br from-hack-yellow/20 to-hack-magenta/10 border border-hack-yellow/30 text-center">
@@ -183,7 +323,7 @@ const BlogPostPage = () => {
         </div>
       </article>
 
-      {/* Related */}
+      {/* Related (only for WP posts; featured articles skip this) */}
       {related.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
           <h2 className="font-display font-bold text-2xl mb-6">More from the blog</h2>
