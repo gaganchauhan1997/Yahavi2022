@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, BadgePercent, BookOpen, ChevronRight, GraduationCap,
-  Heart, Home, Loader2, LogOut, Map, MessageSquare, Newspaper, Package,
-  ShieldCheck, ShoppingBag, Sparkles, Tag, User, UserPlus, X,
+  ArrowLeft, Award, BadgePercent, BookOpen, Brain, ChevronRight, GraduationCap,
+  Heart, HelpCircle, Home, Loader2, LogOut, Map, MessageSquare, Newspaper, Package,
+  PenLine, ShieldCheck, ShoppingBag, Sparkles, Store, Tag, User, UserPlus, X,
 } from 'lucide-react';
 import { fetchCourseCategories, type HKCategory } from '@/lib/hk-content';
 
@@ -141,6 +141,9 @@ function RootView({ onNav, onDrillIn, isAuthed }: { onNav: () => void; onDrillIn
       <DrillButton                  label="Shop"            icon={ShoppingBag} onClick={() => onDrillIn('shop')} />
       <DrillButton                  label="Courses"         icon={GraduationCap} onClick={() => onDrillIn('courses')} subtitle="Verified students = 6mo FREE" />
       <DrillItem to="/roadmaps"     label="Roadmaps"        icon={Map}         onClose={onNav} subtitle="roadmap.sh-style, neobrutal" />
+      <DrillItem to="/brainxercise" label="Brainxercise"    icon={Brain}       onClose={onNav} subtitle="Daily learning challenge"
+        rightBadge={<span className="px-1.5 py-0.5 bg-hack-yellow border border-hack-black rounded text-[10px] font-mono">DAILY</span>} />
+      <DrillItem to="/blog"         label="Blog"            icon={PenLine}     onClose={onNav} subtitle="258+ guides & tutorials" />
       <DrillItem to="/hacked-news"  label="Hacked News"     icon={Newspaper}   onClose={onNav} subtitle="Tools · championships · deadlines" />
       <DrillItem to="/mis-templates" label="MIS Templates"  icon={BadgePercent} onClose={onNav}
         rightBadge={<span className="px-1.5 py-0.5 bg-hack-yellow border border-hack-black rounded text-[10px] font-mono">90% OFF</span>} />
@@ -148,9 +151,13 @@ function RootView({ onNav, onDrillIn, isAuthed }: { onNav: () => void; onDrillIn
 
       <div className="my-3 border-t border-hack-black/10" />
 
-      <DrillItem to="/affiliate"    label="Earn — Affiliate" icon={Sparkles}   onClose={onNav} subtitle="Up to 88% commission" />
-      <DrillItem to="/about"        label="About"           icon={BookOpen}    onClose={onNav} />
-      <DrillItem to="/support"      label="Support"         icon={Tag}         onClose={onNav} />
+      <DrillItem to="/sponsor"          label="Sponsor"          icon={Award}       onClose={onNav} subtitle="Back creators · get featured" />
+      <DrillItem to="/become-a-vendor"  label="Become a Vendor"  icon={Store}       onClose={onNav} subtitle="Sell on HackKnow" />
+      <DrillItem to="/verify"           label="Get Verified"     icon={ShieldCheck} onClose={onNav} subtitle="Students · 6 months free" />
+      <DrillItem to="/affiliate"        label="Earn — Affiliate" icon={Sparkles}    onClose={onNav} subtitle="Up to 88% commission" />
+      <DrillItem to="/faq"              label="FAQ"              icon={HelpCircle}  onClose={onNav} />
+      <DrillItem to="/about"            label="About"            icon={BookOpen}    onClose={onNav} />
+      <DrillItem to="/support"          label="Support"          icon={Tag}         onClose={onNav} />
 
       <div className="my-3 border-t border-hack-black/10" />
 
