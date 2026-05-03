@@ -16,6 +16,20 @@ const POPULAR = [
 export default function NotFoundPage() {
   useEffect(() => {
     document.title = 'Page Not Found · HackKnow';
+    // SEO: tell crawlers not to index 404 routes (kills duplicate-content risk on typo URLs)
+    let robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    const created = !robots;
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.setAttribute('name', 'robots');
+      document.head.appendChild(robots);
+    }
+    const prev = robots.getAttribute('content');
+    robots.setAttribute('content', 'noindex, nofollow');
+    return () => {
+      if (created) robots?.remove();
+      else if (prev !== null) robots?.setAttribute('content', prev);
+    };
   }, []);
 
   return (

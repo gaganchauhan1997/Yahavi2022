@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { STORAGE_KEYS.ANN_BAR_DISMISSEDS } from '@/lib/storage-keys';
 import { Link } from 'react-router-dom';
 import { X, Zap } from 'lucide-react';
 
-const STORAGE_KEY = 'hk_ann_bar_dismissed_v2';
+// dismissal key sourced from central registry: STORAGE_KEYS.ANN_BAR_DISMISSEDS.ANN_BAR_DISMISSED
 const BAR_H = 36; // px
 
 function nextMidnightIST(): number {
@@ -19,7 +20,7 @@ function setBarHeightVar(px: number) {
 
 export default function AnnouncementBar() {
   const [dismissed, setDismissed] = useState<boolean>(() => {
-    try { return sessionStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; }
+    try { return sessionStorage.getItem(STORAGE_KEYS.ANN_BAR_DISMISSED) === '1'; } catch { return false; }
   });
   const [ms, setMs] = useState<number>(() => nextMidnightIST());
 
@@ -61,7 +62,7 @@ export default function AnnouncementBar() {
         </div>
         <button
           type="button"
-          onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch {}; setDismissed(true); }}
+          onClick={() => { try { sessionStorage.setItem(STORAGE_KEYS.ANN_BAR_DISMISSED, '1'); } catch {}; setDismissed(true); }}
           className="p-1 hover:bg-white/10 rounded shrink-0"
           aria-label="Dismiss announcement"
         >

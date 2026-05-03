@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { STORAGE_KEYS } from '@/lib/storage-keys';
 import { ShoppingBag, X } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 
@@ -52,7 +53,7 @@ export default function SocialProofToast() {
     // Wait until cookie-consent (accept OR decline) before starting — avoid overlay stacking.
     const consentDone = () => {
       try {
-        const v = localStorage.getItem('hackknow-cookie-consent');
+        const v = localStorage.getItem(STORAGE_KEYS.COOKIE_CONSENT);
         return v === 'accepted' || v === 'declined';
       } catch { return true; }
     };

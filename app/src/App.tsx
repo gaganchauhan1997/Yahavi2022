@@ -18,6 +18,7 @@ import { installFetchInterceptor } from './lib/fetch-interceptor';
 
 // HomePage loads eagerly (above-the-fold)
 import HomePage from './pages/HomePage';
+import RouteMetaManager from '@/components/RouteMetaManager';
 
 // All other pages load lazily (only when needed)
 const ShopPage            = lazy(() => import('./pages/ShopPage'));
@@ -125,6 +126,7 @@ function App() {
       <StoreProvider>
         <Router>
           <RouteTransition />
+          <RouteMetaManager />
           <YahaviAI />
           <AnnouncementBar />
           <Header />

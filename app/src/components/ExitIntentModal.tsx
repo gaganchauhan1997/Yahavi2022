@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { STORAGE_KEYS } from '@/lib/storage-keys';
 import { Gift, Loader2, Sparkles, X } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 
-const SEEN_KEY = 'hk_exit_modal_seen_v1';
 
 export default function ExitIntentModal() {
   const [open, setOpen] = useState(false);
@@ -14,7 +14,7 @@ export default function ExitIntentModal() {
 
   useEffect(() => {
     let already = false;
-    try { already = sessionStorage.getItem(SEEN_KEY) === '1'; } catch {}
+    try { already = sessionStorage.getItem(STORAGE_KEYS.EXIT_MODAL_SEEN) === '1'; } catch {}
     if (already) return;
 
     let mobileTimer: number | undefined;
@@ -22,7 +22,7 @@ export default function ExitIntentModal() {
     let armed = false;
 
     const trigger = () => {
-      try { sessionStorage.setItem(SEEN_KEY, '1'); } catch {}
+      try { sessionStorage.setItem(STORAGE_KEYS.EXIT_MODAL_SEEN, '1'); } catch {}
       setOpen(true);
       window.removeEventListener('mouseout', onMouseOut);
       if (mobileTimer) window.clearTimeout(mobileTimer);
@@ -43,7 +43,7 @@ export default function ExitIntentModal() {
     // Wait for cookie-consent (accept OR decline) before arming — never stack two overlays.
     const consentDone = () => {
       try {
-        const v = localStorage.getItem('hackknow-cookie-consent');
+        const v = localStorage.getItem(STORAGE_KEYS.COOKIE_CONSENT);
         return v === 'accepted' || v === 'declined';
       } catch { return true; }
     };
@@ -77,11 +77,11 @@ export default function ExitIntentModal() {
     setSubmitting(true);
     // Fallback: always remember the lead locally so we never lose it
     try {
-      const raw = localStorage.getItem('hk_local_leads_v1');
+      const raw = localStorage.getItem(STORAGE_KEYS.LEAD_FALLBACK);
       const arr = raw ? JSON.parse(raw) : [];
       if (Array.isArray(arr)) {
         arr.push({ email: email.trim(), source: 'exit-intent', at: new Date().toISOString() });
-        localStorage.setItem('hk_local_leads_v1', JSON.stringify(arr.slice(-50)));
+        localStorage.setItem(STORAGE_KEYS.LEAD_FALLBACK, JSON.stringify(arr.slice(-50)));
       }
     } catch { /* ignore quota */ }
     try {
