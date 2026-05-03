@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   X, ChevronRight, ChevronDown, Layout, FileSpreadsheet, Presentation,
-  Megaphone, BarChart3, Share2, Gift, Brain, GraduationCap, Map as MapIcon, ShieldCheck,
+  Megaphone, BarChart3, Share2, Gift, Brain, GraduationCap, Map as MapIcon, PenLine, ShieldCheck,
   Folder, FolderOpen, Loader2,
 } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
@@ -210,6 +210,7 @@ export default function CategorySidebar() {
                 { to: "/brainxercise", label: "Brainxercise", icon: <Brain className="w-5 h-5" />, badge: "DAILY" },
                 { to: "/courses",      label: "Courses",      icon: <GraduationCap className="w-5 h-5" />, badge: null },
                 { to: "/roadmaps",     label: "Roadmaps",     icon: <MapIcon className="w-5 h-5" />, badge: null },
+                { to: "/blog",         label: "Blog",         icon: <PenLine className="w-5 h-5" />, badge: "NEW" },
                 { to: "/verify",       label: "Verify",       icon: <ShieldCheck className="w-5 h-5" />, badge: null },
               ].map((item) => (
                 <Link
