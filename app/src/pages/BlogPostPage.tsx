@@ -158,6 +158,8 @@ const CTA_VARIANTS = [
     href: '/shop/excel-templates',
     bg: 'linear-gradient(135deg, #FFD60A 0%, #FF7700 100%)',
     fg: '#0B0B0F',
+    btnBg: '#0B0B0F',
+    btnFg: '#FFD60A',
   },
   {
     eyebrow: '⚡ Free productivity starter pack',
@@ -167,6 +169,8 @@ const CTA_VARIANTS = [
     href: '/shop/free-resources',
     bg: 'linear-gradient(135deg, #00D4FF 0%, #7C3AED 100%)',
     fg: '#FFFFFF',
+    btnBg: '#FFFFFF',
+    btnFg: '#0B0B0F',
   },
   {
     eyebrow: '💎 Founder bundle',
@@ -176,6 +180,8 @@ const CTA_VARIANTS = [
     href: '/shop/premium',
     bg: 'linear-gradient(135deg, #FF006E 0%, #FB5607 100%)',
     fg: '#FFFFFF',
+    btnBg: '#FFFFFF',
+    btnFg: '#FF006E',
   },
   {
     eyebrow: '🚀 Become a vendor',
@@ -185,6 +191,8 @@ const CTA_VARIANTS = [
     href: '/become-a-vendor',
     bg: 'linear-gradient(135deg, #06FFA5 0%, #00D4FF 100%)',
     fg: '#0B0B0F',
+    btnBg: '#0B0B0F',
+    btnFg: '#06FFA5',
   },
 ];
 
@@ -364,6 +372,7 @@ const BlogPostPage = () => {
       {/* Notion-style CSS extensions, scoped to .hk-blog-prose */}
       <style>{`
         .hk-progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #FFD60A, #FF006E, #00D4FF); z-index: 60; transition: width 120ms linear; box-shadow: 0 0 12px rgba(255, 0, 110, 0.4); }
+        .hk-blog-prose h2:focus, .hk-blog-prose h3:focus { outline: 2px solid #FFD60A; outline-offset: 4px; border-radius: 4px; }
         .hk-blog-prose h2 { position: relative; padding-left: 1rem; border-left: 6px solid #FFD60A; scroll-margin-top: 96px; }
         .hk-blog-prose h2::before { content: ''; position: absolute; left: -6px; top: 0; bottom: 0; width: 6px; background: linear-gradient(180deg, #FFD60A, #FF7700); border-radius: 3px; }
         .hk-blog-prose h3 { position: relative; padding-left: 0.75rem; border-left: 4px solid #00D4FF; scroll-margin-top: 96px; }
@@ -560,6 +569,10 @@ const BlogPostPage = () => {
                   <a
                     key={t.id}
                     href={'#' + t.id}
+                    onClick={() => {
+                      const el = document.getElementById(t.id);
+                      if (el) { el.setAttribute('tabindex', '-1'); setTimeout(() => el.focus({ preventScroll: true }), 250); }
+                    }}
                     className={`block pl-3 -ml-px py-1.5 text-sm border-l-2 transition-colors ${
                       activeToc === t.id
                         ? 'border-hack-magenta text-hack-magenta font-semibold'
@@ -674,7 +687,7 @@ const CtaCard = ({ variant }: { variant: CtaVariant }) => (
         <div className="font-display font-black text-xl sm:text-2xl leading-tight mb-1">{variant.title}</div>
         <div className="text-sm sm:text-base opacity-90 leading-relaxed">{variant.body}</div>
       </div>
-      <Link to={variant.href} className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-full font-bold whitespace-nowrap hover:opacity-90 transition-opacity shadow-md" style={{ background: variant.fg, color: variant.bg.includes('linear') ? (variant.fg === '#FFFFFF' ? '#0B0B0F' : '#0B0B0F') : variant.bg }}>
+      <Link to={variant.href} className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-full font-bold whitespace-nowrap hover:opacity-90 transition-opacity shadow-md" style={{ background: variant.btnBg, color: variant.btnFg }}>
         {variant.label} <ChevronRight className="w-4 h-4" />
       </Link>
     </div>
