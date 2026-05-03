@@ -1,138 +1,51 @@
-# HackKnow.com
+# HackKnow Monorepo
 
-Premium digital products marketplace, headless e-commerce, India.
-Live at **[https://www.hackknow.com](https://www.hackknow.com)**.
-
-> The official source code for HackKnow.com — a fully headless e-commerce
-> platform for premium digital templates, dashboards, marketing kits, and
-> learning resources.
-
----
-
-## Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 19 + Vite 6 + TypeScript + TailwindCSS, deployed on Google Compute Engine (Nginx) |
-| Backend | WordPress + WooCommerce on Hostinger (`shop.hackknow.com`, never exposed to the browser) |
-| Auth | Custom JWT (HMAC-SHA256 with `wp_salt('auth')`) + Google OAuth 2.0 token client |
-| Payments | Razorpay (live keys live in `wp-config.php`, never in the browser bundle) |
-| Reviews | WooCommerce comments API with one-review-per-purchased-product enforcement |
-| AI Assistant | Yahavi AI — multilingual chatbot with intent routing & cross-sell |
-| Repo | [github.com/gaganchauhan1997/Yahavi2022](https://github.com/gaganchauhan1997/Yahavi2022) |
-
----
+Production stack for **[hackknow.com](https://www.hackknow.com)** — India's premium digital products marketplace (Excel templates, PowerPoint decks, courses, dashboards, marketing kits).
 
 ## Architecture
 
 ```
-                 ┌────────────────────────────┐
- Browser ───────▶│ www.hackknow.com (GCE)     │
-                 │  React SPA + Nginx proxy   │
-                 └─────────────┬──────────────┘
-                               │  /wp-json/* /graphql/* /wp-content/*
-                               ▼
-                 ┌────────────────────────────┐
-                 │ shop.hackknow.com          │
-                 │ WordPress + WooCommerce    │
-                 │ (Hostinger, hidden)        │
-                 └────────────────────────────┘
+┌────────────────────┐    ┌────────────────────┐    ┌────────────────────┐
+│   www.hackknow.com │───▶│   GCE nginx (us-c1) │───▶│  shop.hackknow.com │
+│      (React SPA)   │    │  static + reverse  │    │  WordPress / WC    │
+└────────────────────┘    │  proxy /wp-json/*  │    │  (Hostinger)       │
+                          └────────────────────┘    └────────────────────┘
 ```
 
-The WordPress backend is **never** referenced from browser code. All API calls
-go to the same origin (`www.hackknow.com`) and are proxied server-side.
+## Repos
 
----
+This monorepo (pnpm workspaces):
 
-## Custom REST endpoints (namespace `hackknow/v1`)
+- `artifacts/api-server` — Express API server (Node/TS)
+- `artifacts/mockup-sandbox` — component preview server (Vite)
+- `lib/api-spec` — OpenAPI contract (source of truth)
+- `lib/api-client-react` — generated React Query hooks
+- `lib/api-zod` — generated Zod validators
+- `lib/db` — Drizzle schemas + migrations
 
-| Method | Path | Purpose |
-|---|---|---|
-| POST | `/auth/register` | Create WP user + return JWT |
-| POST | `/auth/login` | Email + password login |
-| POST | `/auth/google` | Google OAuth token exchange |
-| GET  | `/auth/me` | Hydrate current user |
-| POST | `/auth/forgot-password` | Send branded reset email with frontend link |
-| POST | `/auth/reset-password` | Verify key + change password |
-| GET  | `/wishlist` | List user wishlist (per-user `wp_usermeta`) |
-| POST | `/wishlist/toggle` | Add/remove product from wishlist |
-| GET  | `/my-orders` | Paid orders (`wc-completed`, `wc-processing`) |
-| GET  | `/my-downloads` | WooCommerce downloadable files |
-| POST | `/order` | Create a Razorpay order via WC |
-| POST | `/verify` | Verify payment + mark WC order paid |
-| GET  | `/products/{id}/reviews` | Approved reviews + average rating |
-| POST | `/products/{id}/reviews` | Submit a review (1 per purchase, unlimited on free products) |
-| DELETE | `/admin/reviews/{id}` | Admin: delete a review |
-| POST | `/admin/reviews/{id}/approve` | Admin: approve / hide a review |
-| GET  | `/admin/analytics` | KPIs: signups, orders, revenue, top products |
-| POST | `/chat` | Yahavi AI chatbot (intent routing) |
+The **React storefront** (the actual SPA at hackknow.com) is in a sibling repo and auto-deploys to GCE via webhook on push to `main`.
 
-All endpoints are protected against page caching via `X-LiteSpeed-Cache-Control`
-and `Cache-Control: no-store` headers.
+## Health & Audit
 
----
+- Every hour, GitHub Actions runs `.github/workflows/hk-overnight-audit.yml`, performing 11 production health checks. Reports land on the `audit-reports` branch.
+- Latest report: `https://github.com/gaganchauhan1997/Yahavi2022/blob/audit-reports/.audit/latest.md`
 
 ## Local development
 
 ```bash
-# 1. Clone
-git clone https://github.com/gaganchauhan1997/Yahavi2022.git
-cd Yahavi2022/app
-
-# 2. Install
-npm install
-
-# 3. Configure (optional, only for hitting prod backend in dev)
-cp .env.example .env.local
-# edit .env.local → VITE_WP_API_BASE=https://shop.hackknow.com
-
-# 4. Run
-npm run dev
+pnpm install
+pnpm --filter @workspace/api-server dev          # API on configured PORT
+pnpm --filter @workspace/mockup-sandbox dev      # component sandbox
+pnpm typecheck                                   # full repo typecheck
+pnpm --filter @workspace/api-spec run codegen    # regenerate hooks + zod
 ```
 
-The PHP backend plugin (`hackknow-checkout.php`) lives on Hostinger under
-`wp-content/mu-plugins/`.
+## Deploy
 
----
-
-## SEO
-
-- `robots.txt` — fully allows crawlers, disallows `/wp-admin` proxy paths
-- `sitemap.xml` — auto-generated, includes all public routes
-- Schema.org `Organization`, `WebSite`, and `Product` JSON-LD on every page
-- Open Graph + Twitter Card meta on every route
-- LCP-optimised hero image with WebP source + `fetchPriority="high"`
-
----
+- **API server**: `pnpm --filter @workspace/api-server build && publish via Replit deployment`
+- **Frontend**: push to `main` of the storefront repo → GCE webhook auto-deploys to `/var/www/hackknow/dist`
+- **WordPress mu-plugins**: SFTP upload to `domains/shop.hackknow.com/public_html/wp-content/mu-plugins/`
 
 ## License
 
-This project is released under the **MIT License** with a small attribution
-clause — see [`LICENSE`](LICENSE).
-
-You are free to use, modify, and redistribute the code (commercial use is
-allowed). The only requirement is that any public use must visibly credit:
-
-> **Created by Gagan Chauhan — HackKnow.com**
-> [github.com/gaganchauhan1997/Yahavi2022](https://github.com/gaganchauhan1997/Yahavi2022)
-
----
-
-## Credits
-
-Built with help from:
-- **OpenAI** — mentorship & ideation
-- **Anthropic Claude** — production-grade code generation
-- **Replit** — the place where this project survived its hardest moments
-- **Windsurf** — heavyweight debugging
-- **Google** — six-figure cloud-credit grant
-- **GitHub** — version control & collaboration
-
-Three humans kept watch over every commit and made sure the technology era
-keeps moving forward — so anyone, anywhere, can learn, ship, and pass it on.
-
----
-
-**Author:** Gagan Chauhan
-**Site:** [https://www.hackknow.com](https://www.hackknow.com)
-**Repo:** [https://github.com/gaganchauhan1997/Yahavi2022](https://github.com/gaganchauhan1997/Yahavi2022)
+MIT — see [LICENSE](./LICENSE).
