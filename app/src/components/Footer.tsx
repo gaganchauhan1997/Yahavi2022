@@ -384,6 +384,12 @@ export default function Footer() {
             >
               DMCA
             </button>
+            <button
+              onClick={() => scrollToTop('/sitemap')}
+              className="text-xs text-hack-yellow/70 hover:text-hack-yellow font-semibold transition-colors"
+            >
+              Sitemap
+            </button>
           </div>
         </div>
       </div>

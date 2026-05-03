@@ -56,6 +56,7 @@ const SponsorPage         = lazy(() => import('./pages/SponsorPage'));
 const WalletPage          = lazy(() => import('./pages/WalletPage'));
 const VendorApplyPage     = lazy(() => import('./pages/VendorApplyPage'));
 const BrainxerciseDetailPage = lazy(() => import('./pages/BrainxerciseDetailPage'));
+const SitemapPage         = lazy(() => import('./pages/SitemapPage'));
 import NotFoundPage from '@/pages/NotFoundPage';
 
 function PageLoader() {
@@ -186,6 +187,10 @@ function App() {
                 {/* First-party SSO bridge for ai.hackknow.com etc. */}
                 <Route path="/wallet"               element={<AuthGuard><WalletPage /></AuthGuard>} />
                 <Route path="/auth/sso-bridge"      element={<SSOBridgePage />} />
+
+                {/* Public, human-readable site map */}
+                <Route path="/sitemap"              element={<SitemapPage />} />
+                <Route path="/site-map"             element={<Navigate to="/sitemap" replace />} />
 
                 <Route path="*"                    element={<NotFoundPage />} />
               </Routes>
