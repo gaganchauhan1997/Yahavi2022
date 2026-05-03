@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Calendar, Clock, Tag, Star, ChevronRight, Users, Zap,
+  ArrowLeft, Calendar, Clock, Tag, Star, ChevronRight, ChevronDown, Users, Zap,
   Download, Sparkles, X, ListOrdered, Flame, ShieldCheck, TrendingUp,
 } from 'lucide-react';
 import { getFeaturedArticle, FEATURED_ARTICLES, type FeaturedArticle } from '@/content/featured-articles';
@@ -214,7 +214,6 @@ const BlogPostPage = () => {
   const [progress, setProgress] = useState(0);
   const [showStickyCta, setShowStickyCta] = useState(false);
   const [stickyDismissed, setStickyDismissed] = useState(false);
-  const [activeToc, setActiveToc] = useState<string>('');
   const articleRef = useRef<HTMLElement | null>(null);
 
   // ─── Data load (preserved logic) ─────────────────────────────────────
@@ -320,15 +319,6 @@ const BlogPostPage = () => {
     () => post ? buildTocAndAddIds(post.contentHtml) : { html: '', toc: [] },
     [post]
   );
-  useEffect(() => {
-    if (!post || !toc.length) return;
-    const obs = new IntersectionObserver((entries) => {
-      const visible = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visible[0]) setActiveToc(visible[0].target.id);
-    }, { rootMargin: '-100px 0px -60% 0px', threshold: 0.1 });
-    toc.forEach(t => { const el = document.getElementById(t.id); if (el) obs.observe(el); });
-    return () => obs.disconnect();
-  }, [post, toc]);
 
   // ─── Loading / error states ──────────────────────────────────────────
   if (loading && !post) {
@@ -462,25 +452,10 @@ const BlogPostPage = () => {
       </div>
 
       {/* TWO-COLUMN BODY: sticky TOC sidebar (desktop) + article */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14 grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-10">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
         <article ref={articleRef} className="min-w-0">
-          {/* Quick Summary Box — auto-built from first ≤4 H2s, visible on every article */}
-          {toc.length >= 3 && (
-            <div className="mb-8 rounded-2xl border-2 border-hack-yellow/40 bg-gradient-to-br from-hack-yellow/15 to-hack-orange/5 p-5 lg:p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-5 h-5 text-hack-orange" />
-                <span className="font-display font-bold text-sm uppercase tracking-wider text-hack-black/70">Quick Summary</span>
-              </div>
-              <ul className="space-y-1.5 text-sm sm:text-base text-hack-black/80">
-                {toc.slice(0, Math.min(5, toc.length)).map((t) => (
-                  <li key={t.id} className="flex items-start gap-2">
-                    <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0 text-hack-magenta" />
-                    <a href={'#' + t.id} className="hover:text-hack-magenta transition-colors leading-snug">{t.text}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* LibreChat-style collapsible Table of Contents */}
+          {toc.length > 1 && <TocDropdown items={toc} />}
 
           {/* Content rendered as segments split on <hr/>, with CTA cards every 3 segments */}
           <div className="hk-blog-prose prose prose-lg max-w-none
@@ -557,44 +532,6 @@ const BlogPostPage = () => {
           </div>
         </article>
 
-        {/* Sticky TOC sidebar — desktop only */}
-        {toc.length > 0 && (
-          <aside className="hidden lg:block">
-            <div className="sticky top-24">
-              <div className="text-xs font-bold uppercase tracking-wider text-hack-black/40 mb-3 flex items-center gap-1.5">
-                <ListOrdered className="w-3.5 h-3.5" /> On this page
-              </div>
-              <nav className="space-y-1 border-l-2 border-hack-black/10">
-                {toc.map((t) => (
-                  <a
-                    key={t.id}
-                    href={'#' + t.id}
-                    onClick={() => {
-                      const el = document.getElementById(t.id);
-                      if (el) { el.setAttribute('tabindex', '-1'); setTimeout(() => el.focus({ preventScroll: true }), 250); }
-                    }}
-                    className={`block pl-3 -ml-px py-1.5 text-sm border-l-2 transition-colors ${
-                      activeToc === t.id
-                        ? 'border-hack-magenta text-hack-magenta font-semibold'
-                        : 'border-transparent text-hack-black/60 hover:text-hack-black hover:border-hack-yellow'
-                    }`}
-                  >
-                    {t.text}
-                  </a>
-                ))}
-              </nav>
-
-              {/* Mini sidebar promo */}
-              <div className="mt-6 p-4 rounded-2xl bg-gradient-to-br from-hack-yellow/20 to-hack-orange/10 border border-hack-yellow/30">
-                <div className="text-xs font-bold text-hack-orange mb-1">⚡ READER OFFER</div>
-                <p className="text-sm text-hack-black/80 leading-snug mb-3">5 free templates. No signup. Instant download.</p>
-                <Link to="/shop/free-resources" className="inline-flex items-center gap-1 text-sm font-bold text-hack-magenta hover:text-hack-black transition-colors">
-                  Get them <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-          </aside>
-        )}
       </div>
 
       {/* Related — featured for featured posts; WP for WP posts */}
@@ -673,6 +610,61 @@ const BlogPostPage = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// ─── LibreChat-style collapsible Table of Contents ──────────────────────
+const TocDropdown = ({ items }: { items: { id: string; text: string }[] }) => {
+  const [open, setOpen] = useState(false);
+  const jumpTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.setAttribute('tabindex', '-1');
+    setTimeout(() => el.focus({ preventScroll: true }), 400);
+    setOpen(false);
+  };
+  return (
+    <div className="not-prose mb-10 rounded-2xl border border-hack-black/10 bg-hack-black/[0.03] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls="hk-toc-list"
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-hack-black/[0.05] transition-colors"
+      >
+        <span className="flex items-center gap-2.5 font-bold text-hack-black text-base">
+          <ListOrdered className="w-5 h-5 text-hack-magenta" />
+          Table of Contents
+          <span className="text-xs font-medium text-hack-black/40 ml-1">({items.length})</span>
+        </span>
+        <ChevronDown
+          className={`w-5 h-5 text-hack-black/60 flex-shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      <div
+        id="hk-toc-list"
+        className="grid transition-[grid-template-rows] duration-300 ease-out"
+        style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden">
+          <ol className="px-5 pb-4 pt-1 space-y-1 list-none">
+            {items.map((t, i) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => jumpTo(t.id)}
+                  className="w-full text-left flex items-start gap-3 py-2 px-2 -mx-2 rounded-lg text-sm sm:text-base text-hack-black/75 hover:text-hack-magenta hover:bg-hack-yellow/10 transition-colors"
+                >
+                  <span className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md bg-hack-black/5 text-xs font-bold text-hack-black/50 mt-0.5">{i + 1}</span>
+                  <span className="leading-snug pt-0.5">{t.text}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
     </div>
   );
 };
