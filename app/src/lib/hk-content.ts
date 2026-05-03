@@ -3,7 +3,7 @@
  * All endpoints live under /wp-json/hackknow/v1/* on shop.hackknow.com,
  * proxied through www.hackknow.com via nginx.
  */
-import { WP_REST_BASE } from './api-base';
+import { WP_REST_BASE, API_BASE } from './api-base';
 import { getAuthToken } from './auth-token';
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -259,10 +259,26 @@ export const fetchAllNews = async (limit = 50): Promise<HKNewsAllResp> => {
 };
 
 export const fetchVerifyStatus = () => authGet<HKVerifyMe>('/verify/me');
-export const submitVerify = (body: {
+export const submitVerify = async (body: {
   type: 'mis' | 'student';
   proof_type: 'linkedin' | 'id' | 'email' | 'other';
   proof_url?: string;
   proof_image_base64?: string;
   notes?: string;
-}) => authPost<{ ok: boolean; status: string }>('/verify', body);
+}): Promise<{ ok: boolean; status: string; message?: string }> => {
+  // NOTE: must NOT hit /wp-json/hackknow/v1/verify — that route is the
+  // Razorpay payment-signature callback. We have a dedicated, anonymous
+  // endpoint at /wp-json/hk/v1/get-verified (zz-hk-get-verified.php).
+  const r = await fetch(`${API_BASE}/wp-json/hk/v1/get-verified`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try { const j = await r.json(); if (j && j.message) msg = String(j.message); } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  return r.json();
+};
