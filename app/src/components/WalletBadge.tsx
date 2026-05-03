@@ -1,41 +1,53 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Coins } from "lucide-react";
-import { hkBadges } from "@/lib/hk-badges";
+import { yaviWallet } from "@/lib/yavi-wallet";
 import { isAuthenticated } from "@/lib/auth";
 
 /**
- * WalletBadge — small chip in header showing HackCoins balance.
- * Hidden when logged out. Click → /account/wallet.
+ * WalletBadge — header chip showing YAVI Token balance.
+ * Hidden when logged out OR when balance is unknown. Click → /wallet.
+ * Listens for `yavi:wallet:refresh` window events to live-update after a topup.
  */
 export default function WalletBadge() {
-  const [coins, setCoins] = useState<number | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const inFlight = useRef(false);
+
+  const refresh = async () => {
+    if (!isAuthenticated() || inFlight.current) return;
+    inFlight.current = true;
+    try {
+      const me = await yaviWallet.me();
+      setBalance(me.balance_yavi);
+    } catch {
+      /* swallow — keep last known value */
+    } finally {
+      inFlight.current = false;
+    }
+  };
 
   useEffect(() => {
-    if (!isAuthenticated()) return;
     let alive = true;
-    hkBadges
-      .me()
-      .then((b) => {
-        if (!alive) return;
-        if (b.logged_in && typeof b.wallet_coins === "number") setCoins(b.wallet_coins);
-      })
-      .catch(() => {});
+    refresh().finally(() => { if (!alive) setBalance(null); });
+    const onRefresh = () => { void refresh(); };
+    window.addEventListener("yavi:wallet:refresh", onRefresh);
     return () => {
       alive = false;
+      window.removeEventListener("yavi:wallet:refresh", onRefresh);
     };
   }, []);
 
-  if (coins === null) return null;
+  if (balance === null) return null;
 
   return (
     <Link
-      to="/account/wallet"
-      title={`${coins} HackCoins — click to redeem`}
+      to="/wallet"
+      title={`${balance} YAVI Tokens — click to top up`}
       className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 bg-hack-yellow border-2 border-hack-black rounded-full text-xs font-bold text-hack-black hover:shadow-[3px_3px_0_#000] hover:-translate-x-[1px] hover:-translate-y-[1px] transition-all"
     >
       <Coins className="w-3.5 h-3.5" />
-      <span className="font-mono">{coins.toLocaleString()}</span>
+      <span className="font-mono">{balance.toLocaleString("en-IN")}</span>
+      <span className="text-[10px] opacity-70">YAVI</span>
     </Link>
   );
 }
