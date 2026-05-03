@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { STORAGE_KEYS.ANN_BAR_DISMISSEDS } from '@/lib/storage-keys';
+import { STORAGE_KEYS } from '@/lib/storage-keys';
 import { Link } from 'react-router-dom';
 import { X, Zap } from 'lucide-react';
 
-// dismissal key sourced from central registry: STORAGE_KEYS.ANN_BAR_DISMISSEDS.ANN_BAR_DISMISSED
+// dismissal key sourced from central registry: STORAGE_KEYS.ANN_BAR_DISMISSED
 const BAR_H = 36; // px
 
 function nextMidnightIST(): number {
