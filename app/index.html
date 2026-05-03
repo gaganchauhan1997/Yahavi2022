@@ -149,8 +149,25 @@
       @keyframes hk-spin{to{transform:rotate(360deg)}}
       @media (prefers-reduced-motion:reduce){#hk-splash .ring{animation:none}}
     </style>
+
+    <!-- Google Tag Manager (env-driven; no-op if VITE_GTM_ID is empty) -->
+    <script>
+      (function() {
+        var gtmId = '%VITE_GTM_ID%';
+        if (!gtmId || gtmId === '%VITE_GTM_ID%' || gtmId.indexOf('GTM-') !== 0) return;
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
+        var f = document.getElementsByTagName('script')[0];
+        var j = document.createElement('script');
+        j.async = true;
+        j.src = 'https://www.googletagmanager.com/gtm.js?id=' + gtmId;
+        f.parentNode.insertBefore(j, f);
+      })();
+    </script>
+    <!-- End Google Tag Manager -->
   </head>
   <body>
+    <a href="#main-content" class="hk-skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;background:#FFD60A;color:#0A0A0A;padding:10px 16px;border-radius:6px;font-weight:600;text-decoration:none;z-index:2147483647;font-family:Inter,system-ui,sans-serif" onfocus="this.style.left='12px';this.style.top='12px';this.style.width='auto';this.style.height='auto'" onblur="this.style.left='-9999px';this.style.top='auto';this.style.width='1px';this.style.height='1px'">Skip to main content</a>
     <div id="root">
       <div id="hk-splash" role="status" aria-label="Loading HackKnow">
         <div class="logo">HackKnow</div>
