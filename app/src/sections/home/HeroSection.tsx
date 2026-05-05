@@ -35,13 +35,17 @@ export default function HeroSection() {
           <div className="absolute bottom-20 right-20 w-80 h-80 rounded-full bg-hack-magenta/20 blur-3xl" />
         </div>
 
-        {/* Phone Mockup */}
+        {/* Phone Mockup — desktop LCP */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="relative">
+            {/*
+              WebP is 99.5%+ supported. We point both <source> and <img src> at
+              the WebP so the legacy 980KB PNG is never requested at runtime.
+            */}
             <picture>
               <source srcSet="/images/hero/phone-mockup.webp" type="image/webp" />
               <img
-                src="/images/hero/phone-mockup.png"
+                src="/images/hero/phone-mockup.webp"
                 alt="Hackknow App"
                 width="380"
                 height="760"
@@ -79,17 +83,21 @@ export default function HeroSection() {
             <span className="block text-gradient">INSTANT IMPACT.</span>
           </h1>
 
-          {/* Mobile Phone Mockup — bigger but fitted */}
+          {/* Mobile Phone Mockup — MOBILE LCP. WebP only, eager, high priority. */}
           <div className="lg:hidden flex justify-end -mt-2 mb-4">
             <div className="relative">
-              <img
-                src="/images/hero/phone-mockup.png"
-                alt="Hackknow App"
-                width="200"
-                height="400"
-                className="w-[170px] sm:w-[200px] h-auto drop-shadow-2xl animate-float rounded-[1.75rem] border-[3px] border-hack-black"
-                loading="lazy"
-              />
+              <picture>
+                <source srcSet="/images/hero/phone-mockup.webp" type="image/webp" />
+                <img
+                  src="/images/hero/phone-mockup.webp"
+                  alt="Hackknow App"
+                  width="200"
+                  height="400"
+                  className="w-[170px] sm:w-[200px] h-auto drop-shadow-2xl animate-float rounded-[1.75rem] border-[3px] border-hack-black"
+                  fetchPriority="high"
+                  decoding="async"
+                />
+              </picture>
               <div className="absolute -bottom-3 -left-3 bg-hack-yellow text-hack-black px-2.5 py-1 rounded-lg font-display font-bold text-[10px] whitespace-nowrap border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A]">
                 10K+ Customers
               </div>
