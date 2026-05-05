@@ -193,7 +193,8 @@ export default function AboutPage() {
         : "Tap to hear the mentor's story";
 
   const mentor = founders[0];
-  const others = founders.slice(1);
+  const gourav = founders[2];
+  const others = [founders[1]];
 
   return (
     <div className="pt-28 pb-20 bg-hack-white">
@@ -354,6 +355,62 @@ export default function AboutPage() {
             </div>
           </section>
 
+          {/* ====================== GOURAV HERO BOX (static photo, NO audio) ====================== */}
+          {/* Replicates the Mentor visual packaging: comic-style frame, neo-brutal */}
+          {/* border + shadow, rotated badges, full-width portrait, separate bio column. */}
+          {/* Per owner directive: NO MP3 / "tap to hear" button — static image only. */}
+          <section
+            className="relative mb-16 rounded-3xl border-[3px] border-hack-black bg-white shadow-[10px_10px_0_0_#1A1A1A] overflow-hidden"
+            aria-label="Meet our AI Orchestration Lead — Gourav Balyan"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
+              {/* Photo column */}
+              <div className="relative lg:col-span-3 bg-gradient-to-br from-hack-orange/30 via-white to-green-400/20 p-4 sm:p-6">
+                {/* Comic-style "AI LEAD" badge */}
+                <span className="absolute -top-2 -left-2 z-20 bg-hack-orange text-hack-black font-display font-black text-xs sm:text-sm uppercase tracking-widest px-3 py-1.5 rounded-md border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A] -rotate-6">
+                  ★ AI Lead
+                </span>
+                <span className="absolute top-3 right-3 z-20 hidden sm:inline-flex items-center gap-1 bg-hack-yellow text-hack-black font-display font-black text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-md border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A] rotate-3">
+                  One Man, Unlimited Potential
+                </span>
+
+                {/* Static photo frame — neo-brutal, no audio interaction */}
+                <div className="relative mt-2 rounded-2xl overflow-hidden border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] bg-white">
+                  <img
+                    src="/gourav-balyan.webp"
+                    alt="Gourav Balyan — comic-style portrait, AI Orchestration Lead at HackKnow"
+                    className="block w-full h-auto select-none"
+                    width={896}
+                    height={1192}
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+
+              {/* Bio column */}
+              <div className="lg:col-span-2 p-6 lg:p-8 lg:border-l-[3px] border-hack-black bg-white">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-hack-orange font-bold">
+                  <gourav.Icon className="w-3.5 h-3.5" /> AI Orchestration Lead
+                </span>
+                <h2 className="font-display font-black text-2xl sm:text-3xl text-hack-black mt-2 leading-tight">
+                  {gourav.name}
+                </h2>
+                <p className="text-xs font-mono uppercase tracking-wider text-hack-black/60 mt-1">
+                  {gourav.role}
+                </p>
+                <p className="text-sm font-bold text-hack-black mt-4 italic border-l-[3px] border-hack-orange pl-3">
+                  “{gourav.tagline}”
+                </p>
+                <p className="text-sm text-hack-black/75 leading-relaxed mt-4">
+                  {gourav.bio}
+                </p>
+              </div>
+            </div>
+          </section>
+
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
             {stats.map((s) => (
@@ -374,10 +431,10 @@ export default function AboutPage() {
               <h2 className="font-display font-black text-3xl lg:text-4xl tracking-tight mb-3">
                 The Rest of the Team
               </h2>
-              <p className="text-hack-black/60">Two minds. One mission.</p>
+              <p className="text-hack-black/60">The mastermind behind every line of code.</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 gap-8 max-w-2xl mx-auto">
               {others.map((f) => (
                 <article
                   key={f.name}
