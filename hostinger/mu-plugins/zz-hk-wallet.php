@@ -181,44 +181,90 @@ function hk_wallet_append($args) {
  * Returns the Razorpay credentials the wallet plugin should use for
  * topup orders.
  *
- *   1. Prefer the dedicated `hk_wallet_keys` option if the admin has
- *      filled it in AND explicitly set enabled=true. This lets the owner
- *      use a SEPARATE Razorpay account for wallet topups vs. paid
- *      checkouts if they ever want to.
+ * Lookup order (mirrors zz-hackknow-payment-fix.php so wallet topups
+ * use the SAME live keys the paid checkout already uses — no admin
+ * action ever needed):
  *
- *   2. Otherwise FALL BACK to the WooCommerce Razorpay plugin's keys
- *      (`woocommerce_razorpay_settings`) — the same source the live
- *      paid-checkout flow at zz-hackknow-payment-fix.php uses. Single
- *      source of truth, zero admin action needed: if paid checkout
- *      works, wallet topups work too.
+ *   0. EXPLICIT OFF SHORT-CIRCUIT: if the dedicated `hk_wallet_keys`
+ *      option exists as an array AND has the `enabled` key explicitly
+ *      set to a falsy value, treat that as authoritative OFF and skip
+ *      every fallback. This lets the owner kill wallet topups
+ *      independently from paid checkout.
  *
- *   The fallback is read-only (only reads the WC option, never writes).
- *   We do NOT modify zz-hackknow-payment-fix.php or hackknow-checkout.php
- *   — standing rules respected.
+ *   1. EXPLICIT WALLET OVERRIDE: if `hk_wallet_keys` has enabled=true
+ *      AND non-empty key_id+key_secret, use those (lets owner run a
+ *      separate Razorpay account for wallet vs. paid checkout if ever
+ *      needed).
+ *
+ *   2. wp-config CONSTANTS: HACKKNOW_RAZORPAY_KEY_ID + (HACKKNOW_RAZORPAY_KEY_SECRET
+ *      or HACKKNOW_RAZORPAY_SECRET) — same constants payment-fix uses
+ *      at lines 1586-1588.
+ *
+ *   3. WC OPTION FALLBACK: woocommerce_razorpay_settings — same option
+ *      payment-fix falls through to at line 1592.
+ *
+ * Standing rules: this function only READS from the same sources
+ * payment-fix already uses. It NEVER writes them and NEVER modifies
+ * zz-hackknow-payment-fix.php or hackknow-checkout.php.
  */
 function hk_wallet_keys() {
-    // Tier 1: dedicated wallet keys (explicit owner override)
     $o = get_option(HK_WALLET_OPT_KEYS, []);
-    if (!is_array($o)) $o = [];
-    $key_id     = (string)($o['key_id'] ?? '');
-    $key_secret = (string)($o['key_secret'] ?? '');
-    $enabled    = !empty($o['enabled']);
-    if ($enabled && $key_id !== '' && $key_secret !== '') {
+    $is_array = is_array($o);
+
+    // Tier 0 — EXPLICIT OFF short-circuit. If admin saved
+    // hk_wallet_keys with enabled=false (any falsy value) we honour it
+    // and refuse to fall back. This is the architect-flagged invariant.
+    if ($is_array && array_key_exists('enabled', $o) && empty($o['enabled'])) {
         return [
-            'key_id'     => $key_id,
-            'key_secret' => $key_secret,
-            'enabled'    => true,
-            'source'     => 'hk_wallet_keys',
+            'key_id'     => '',
+            'key_secret' => '',
+            'enabled'    => false,
+            'source'     => 'explicit_off',
         ];
     }
 
-    // Tier 2: fall back to the WooCommerce Razorpay plugin keys
+    // Tier 1 — explicit wallet override (separate Razorpay account)
+    if ($is_array) {
+        $key_id     = (string)($o['key_id'] ?? '');
+        $key_secret = (string)($o['key_secret'] ?? '');
+        if (!empty($o['enabled']) && $key_id !== '' && $key_secret !== '') {
+            return [
+                'key_id'     => $key_id,
+                'key_secret' => $key_secret,
+                'enabled'    => true,
+                'source'     => 'hk_wallet_keys',
+            ];
+        }
+    }
+
+    // Tier 2 — wp-config constants (where the LIVE keys actually live
+    // on this server; payment-fix uses these at 1586-1588).
+    $kid  = '';
+    $ksec = '';
+    if (defined('HACKKNOW_RAZORPAY_KEY_ID')) {
+        $kid = (string) HACKKNOW_RAZORPAY_KEY_ID;
+    }
+    if (defined('HACKKNOW_RAZORPAY_KEY_SECRET')) {
+        $ksec = (string) HACKKNOW_RAZORPAY_KEY_SECRET;
+    } elseif (defined('HACKKNOW_RAZORPAY_SECRET')) {
+        $ksec = (string) HACKKNOW_RAZORPAY_SECRET;
+    }
+    if ($kid !== '' && $ksec !== '') {
+        return [
+            'key_id'     => $kid,
+            'key_secret' => $ksec,
+            'enabled'    => true,
+            'source'     => 'wp_config_constants',
+        ];
+    }
+
+    // Tier 3 — WooCommerce Razorpay plugin option fallback
     $wc = get_option('woocommerce_razorpay_settings', []);
     if (is_array($wc)) {
         $wc_key    = (string)($wc['key_id'] ?? '');
         $wc_secret = (string)($wc['key_secret'] ?? '');
-        $wc_on     = isset($wc['enabled']) && ($wc['enabled'] === 'yes' || $wc['enabled'] === true);
-        if ($wc_on && $wc_key !== '' && $wc_secret !== '') {
+        $wc_on     = isset($wc['enabled']) ? ($wc['enabled'] === 'yes' || $wc['enabled'] === true) : true;
+        if ($wc_key !== '' && $wc_secret !== '' && $wc_on) {
             return [
                 'key_id'     => $wc_key,
                 'key_secret' => $wc_secret,
@@ -228,11 +274,10 @@ function hk_wallet_keys() {
         }
     }
 
-    // Neither configured — return the empty/disabled shape the rest of
-    // the file already understands.
+    // Nothing configured anywhere → disabled.
     return [
-        'key_id'     => $key_id,
-        'key_secret' => $key_secret,
+        'key_id'     => '',
+        'key_secret' => '',
         'enabled'    => false,
         'source'     => 'none',
     ];
