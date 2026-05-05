@@ -136,7 +136,11 @@ function hk_free_order_create( WP_REST_Request $req ) {
             $undeliverable[] = $product->get_name() . " (#$pid no file)";
             continue;
         }
-        $resolved[] = [ 'product' => $product, 'qty' => $qty ];
+        // FREE-PRODUCT INVARIANT (server-side authoritative): one digital
+        // file = one download permission row. Hard-cap qty=1 regardless
+        // of what the client sent. Prevents the My-Downloads-shows-N-copies
+        // bug where a stale cart with quantity>1 would multiply rows.
+        $resolved[] = [ 'product' => $product, 'qty' => 1 ];
     }
 
     if ( ! empty( $not_free ) ) {
@@ -152,6 +156,52 @@ function hk_free_order_create( WP_REST_Request $req ) {
     if ( empty( $resolved ) ) {
         return new WP_Error( 'bad_request', 'No valid items in cart.', [ 'status' => 400 ] );
     }
+
+    // ── 4b. De-dupe resolved list by product_id (defence in depth) ───
+    //   The client already de-dupes, but treat that as untrusted. If two
+    //   items in the resolved list refer to the same product, collapse to
+    //   one — guarantees one product → one download row.
+    $resolved_unique = [];
+    $seen_pids = [];
+    foreach ( $resolved as $r ) {
+        $pid = (int) $r['product']->get_id();
+        if ( in_array( $pid, $seen_pids, true ) ) { continue; }
+        $seen_pids[] = $pid;
+        $resolved_unique[] = $r;
+    }
+    $resolved = $resolved_unique;
+
+    // ── 4c. Per-(user, product) 10s idempotency lock ──────────────────
+    //   Independent from the cart-fingerprint lock above. That one stops
+    //   the same user from submitting the same exact cart twice; this
+    //   one stops the same user from generating duplicate download
+    //   permissions for any single product within 10s, regardless of
+    //   what other items were in the cart. If a previous request granted
+    //   product #123 to user U and a new request comes in within 10s
+    //   that ALSO contains #123, we skip #123 in the new order — the
+    //   user already has it. If every item is locked, we return 409.
+    $kept = [];
+    $skipped = [];
+    foreach ( $resolved as $r ) {
+        $pid = (int) $r['product']->get_id();
+        $dup_key = 'hk_free_dup_' . $uid . '_' . $pid;
+        if ( get_transient( $dup_key ) ) {
+            $skipped[] = $r['product']->get_name() . " (#$pid recently granted)";
+            continue;
+        }
+        // Stamp the lock immediately — even if the order creation later
+        // fails, holding the lock for 10s is acceptable (user can retry
+        // after 10s; transients auto-expire so no cleanup job needed).
+        set_transient( $dup_key, time(), 10 );
+        $kept[] = $r;
+    }
+    if ( empty( $kept ) ) {
+        if ( isset( $lock_key ) ) { delete_transient( $lock_key ); }
+        return new WP_Error( 'already_granted',
+            'You were just granted these downloads. Refresh "My Downloads" to see them.',
+            [ 'status' => 409, 'skipped' => $skipped ] );
+    }
+    $resolved = $kept;
 
     // ── 5. Create the order, attach items, set billing ─────────────────
     try {
@@ -200,6 +250,14 @@ function hk_free_order_create( WP_REST_Request $req ) {
         ] );
     } catch ( Throwable $e ) {
         if ( isset( $lock_key ) ) { delete_transient( $lock_key ); }
+        // Release per-product locks too — failed attempt should not block
+        // a legitimate retry for 10s.
+        if ( ! empty( $kept ) ) {
+            foreach ( $kept as $r ) {
+                $pid = (int) $r['product']->get_id();
+                delete_transient( 'hk_free_dup_' . $uid . '_' . $pid );
+            }
+        }
         error_log( '[hk-free-order] EXCEPTION: ' . $e->getMessage() );
         return new WP_Error( 'server_error', 'Could not complete the free order. Please try again.', [ 'status' => 500 ] );
     }

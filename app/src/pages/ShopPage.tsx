@@ -282,16 +282,18 @@ export default function ShopPage() {
             </p>
           </div>
 
+          {/* YAVI Token balance — placed below page title, above category filters */}
+          <div className="mb-6 flex justify-start">
+            <WalletBadge variant="inline" />
+          </div>
+
           <div className="flex gap-8">
             <aside className="hidden w-64 shrink-0 lg:block">
               <div className="sticky top-28">
                 <div className="mb-6 flex items-center justify-between">
                   <h3 className="font-display font-bold">Filters</h3>
                   <SlidersHorizontal className="h-4 w-4" />
-                
-          {/* T3 — global wallet badge */}
-          <WalletBadge variant="header" />
-          </div>
+                </div>
 
                 <div className="mb-8">
                   <h4 className="mb-3 text-xs font-mono uppercase tracking-widest text-hack-black/50">

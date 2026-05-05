@@ -50,7 +50,7 @@ const founders: Founder[] = [
     Icon: Code2,
   },
   {
-    name: "Aarav (AI Orchestration Lead)",
+    name: "Gourav Balyan (AI Orchestration Lead)",
     role: "12th-Grade Dropout • AI Orchestration Expert",
     tagline: "Wants to revolutionize the world through AI talent.",
     bio:

@@ -70,10 +70,21 @@ export default function FreeCheckoutButton({
 
     // Freeze cart snapshot immediately — request will use this frozen
     // payload regardless of any concurrent mutation attempts.
-    const itemsSnapshot = state.cart.map((ci) => ({
-      product_id: Number(ci.product.id),
-      quantity:   Math.max(1, ci.quantity),
-    }));
+    //
+    // FREE-PRODUCT INVARIANT: every free download is exactly one digital
+    // file. Quantity > 1 is meaningless (and causes WooCommerce's
+    // grant_download_permissions to grant N rows, surfacing as duplicate
+    // entries on the My Downloads page). We dedupe by product_id and
+    // hard-cap quantity to 1 on the client; the server enforces the
+    // same invariant as the authoritative guard.
+    const seenIds = new Set<number>();
+    const itemsSnapshot: { product_id: number; quantity: number }[] = [];
+    for (const ci of state.cart) {
+      const pid = Number(ci.product.id);
+      if (!pid || seenIds.has(pid)) continue;
+      seenIds.add(pid);
+      itemsSnapshot.push({ product_id: pid, quantity: 1 });
+    }
 
     setSubmitting(true);
     try {
