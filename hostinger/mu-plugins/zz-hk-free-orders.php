@@ -25,6 +25,48 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
+/**
+ * Ensure the dedicated free-grant reservation table exists.
+ *
+ * Created once via dbDelta on init when the schema-version option
+ * doesn't match. The table has a UNIQUE KEY on (user_id, product_id),
+ * giving us a true atomic CAS primitive: INSERT IGNORE returns
+ * affected_rows=1 if we won the race, 0 if another worker already
+ * reserved this (user, product). No lock-then-check race window
+ * possible — the InnoDB unique-key constraint IS the lock.
+ *
+ * Schema:
+ *   id          PK auto-increment (audit trail)
+ *   user_id     BIGINT  the WP user
+ *   product_id  BIGINT  the WC product
+ *   granted_at  DATETIME when the reservation was won
+ *   order_id    BIGINT  the WC order_id once the order is committed
+ *                       (NULL while in flight; stamped after
+ *                       update_status('completed') in the same request)
+ *   UNIQUE KEY uniq_uid_pid (user_id, product_id)
+ */
+function hk_free_ensure_grants_table() {
+    global $wpdb;
+    $opt = 'hk_free_grants_schema_v1';
+    if ( get_option( $opt ) === '1' ) return;
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    $charset_collate = $wpdb->get_charset_collate();
+    $table = $wpdb->prefix . 'hk_free_grants';
+    $sql = "CREATE TABLE {$table} (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id BIGINT UNSIGNED NOT NULL,
+        product_id BIGINT UNSIGNED NOT NULL,
+        granted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        order_id BIGINT UNSIGNED DEFAULT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_uid_pid (user_id, product_id),
+        KEY idx_order (order_id)
+    ) {$charset_collate};";
+    dbDelta( $sql );
+    update_option( $opt, '1', false );
+}
+add_action( 'init', 'hk_free_ensure_grants_table', 1 );
+
 add_action( 'rest_api_init', function () {
     register_rest_route( 'hackknow/v1', '/order-free', [
         'methods'  => 'POST',
@@ -171,76 +213,67 @@ function hk_free_order_create( WP_REST_Request $req ) {
     }
     $resolved = $resolved_unique;
 
-    // ── 4c. ABSOLUTE IDEMPOTENCY — DB check inside MySQL session lock ─
+    // ── 4c. ABSOLUTE IDEMPOTENCY — atomic INSERT IGNORE on reservation row
     //
-    //   The earlier transient-based lock leaked dup grants under true
-    //   concurrent load (two PHP workers both miss the transient in the
-    //   same microsecond, both add_product, both grant a permission row).
+    //   Architect-flagged race window (corrected here): the prior
+    //   GET_LOCK + COUNT(*) approach released the MySQL session lock
+    //   BEFORE wc_create_order ran the actual permission insert. Two
+    //   workers could both pass the COUNT check (locks serialize but
+    //   the row insert happens AFTER the lock release), then both
+    //   create orders, both grant permissions for the same
+    //   (user, product) — duplicate downloads + duplicate emails.
     //
-    //   This block is the bulletproof replacement:
+    //   This block uses InnoDB's UNIQUE KEY constraint as the atomic
+    //   compare-and-swap primitive. The reservation table
+    //   {prefix}hk_free_grants has UNIQUE KEY (user_id, product_id).
+    //   For each requested product:
     //
-    //     1. For each product the user is requesting, acquire a real
-    //        MySQL session lock via GET_LOCK('hk_g_{uid}_{pid}', 5).
-    //        GET_LOCK is a true distributed mutex (named, namespaced
-    //        per MySQL connection) — concurrent PHP workers on the same
-    //        DB serialize on it. Wait up to 5s.
+    //     1. INSERT IGNORE INTO {prefix}hk_free_grants (user_id, product_id, granted_at)
+    //        VALUES (%d, %d, NOW())
     //
-    //     2. INSIDE the lock, query the AUTHORITATIVE WooCommerce table
-    //        wp_woocommerce_downloadable_product_permissions to see if
-    //        the user ALREADY has at least one permission row for this
-    //        product. If yes → skip the product entirely. The user
-    //        already owns it; granting again is a duplicate.
+    //     2. If $wpdb->rows_affected === 1 → we won the race, this
+    //        worker owns the grant. Proceed to add_product / create order.
     //
-    //     3. RELEASE_LOCK — the lock auto-releases anyway when the PHP
-    //        request ends, but we release explicitly to free the slot.
+    //     3. If $wpdb->rows_affected === 0 → row already exists. ANOTHER
+    //        worker already reserved (or has previously granted) this
+    //        (user, product). Skip this product entirely — the other
+    //        worker will create the permission row.
     //
-    //   Locks are held only for the duration of one SELECT — single-
-    //   digit milliseconds. Order creation happens AFTER all locks are
-    //   released, so locks never overlap with the WC add_product call.
-    //   This is safe because the add_product call itself is what would
-    //   create the row we're checking — and we eliminate any product
-    //   that already has a row before we ever call add_product.
+    //   The reservation IS the lock. There is no window between check
+    //   and write — InnoDB enforces the unique-key constraint at the
+    //   row level, atomically. Two concurrent INSERT IGNOREs from
+    //   different workers cannot both succeed.
     //
-    //   If, after the dedupe loop, $kept is empty → all requested
-    //   products are already owned. Return 200 OK with already_granted
-    //   flag (NOT an error). Frontend treats this as a success path:
-    //   "you already own these — refresh My Downloads".
+    //   On order-creation failure, the catch block below DELETEs our
+    //   winning reservations (where order_id IS NULL, i.e. still
+    //   in-flight) so a legitimate retry can re-acquire them. On
+    //   success, the order_id column is stamped after
+    //   update_status('completed') for audit.
     global $wpdb;
-    $perm_table = $wpdb->prefix . 'woocommerce_downloadable_product_permissions';
+    $grants_table = $wpdb->prefix . 'hk_free_grants';
 
     $kept = [];
     $skipped = [];
+    $reserved_pids = [];   // pids THIS worker successfully reserved
     foreach ( $resolved as $r ) {
         $pid = (int) $r['product']->get_id();
 
-        // 1. Acquire MySQL session lock (5s max wait)
-        $lock_name = 'hk_g_' . $uid . '_' . $pid;
-        $got_lock = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT GET_LOCK(%s, 5)", $lock_name
+        // ATOMIC compare-and-swap via UNIQUE KEY constraint
+        $wpdb->query( $wpdb->prepare(
+            "INSERT IGNORE INTO {$grants_table} (user_id, product_id, granted_at)
+             VALUES (%d, %d, %s)",
+            $uid, $pid, current_time( 'mysql', 1 )
         ) );
-        if ( $got_lock !== 1 ) {
-            // Lock contention — another worker is processing the SAME
-            // (user, product) right now. Treat as duplicate to be safe;
-            // the other worker will grant the permission.
-            $skipped[] = $r['product']->get_name() . " (#$pid concurrent grant in progress)";
-            continue;
-        }
 
-        try {
-            // 2. Authoritative DB check
-            $exists = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$perm_table}
-                  WHERE user_id = %d AND product_id = %d",
-                $uid, $pid
-            ) );
-            if ( $exists > 0 ) {
-                $skipped[] = $r['product']->get_name() . " (#$pid already granted)";
-            } else {
-                $kept[] = $r;
-            }
-        } finally {
-            // 3. Always release the lock
-            $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+        if ( (int) $wpdb->rows_affected === 1 ) {
+            // We won the race for this (user, product)
+            $reserved_pids[] = $pid;
+            $kept[] = $r;
+        } else {
+            // Either we previously granted it OR a concurrent worker
+            // just won the race. Either way: SKIP — the user owns
+            // (or is about to own) this product.
+            $skipped[] = $r['product']->get_name() . " (#$pid already reserved)";
         }
     }
 
@@ -248,7 +281,7 @@ function hk_free_order_create( WP_REST_Request $req ) {
         if ( isset( $lock_key ) ) { delete_transient( $lock_key ); }
         // 200 OK with already_granted flag — frontend treats this as a
         // SUCCESS path (no error toast). The user already owns these
-        // downloads; the order they tried to create would be a duplicate.
+        // downloads (we hold reservation rows for every requested item).
         return new WP_REST_Response( [
             'ok'              => true,
             'already_granted' => true,
@@ -285,6 +318,21 @@ function hk_free_order_create( WP_REST_Request $req ) {
         $order->update_status( 'completed', 'HackKnow free order — auto-granted at ' . current_time( 'mysql' ) );
         $order->save();
 
+        // Stamp the just-created order_id onto our reservation rows so
+        // they are no longer eligible for catch-block rollback. order_id
+        // stays NULL between INSERT IGNORE (step 4c) and this line so
+        // the rollback can safely DELETE only un-stamped (in-flight) rows.
+        if ( ! empty( $reserved_pids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $reserved_pids ), '%d' ) );
+            $params = array_merge( [ (int) $order->get_id(), $uid ], $reserved_pids );
+            $wpdb->query( $wpdb->prepare(
+                "UPDATE {$grants_table} SET order_id = %d
+                  WHERE user_id = %d AND product_id IN ({$placeholders})
+                    AND order_id IS NULL",
+                $params
+            ) );
+        }
+
         // ── 8. Build the download list to return + email ───────────────
         $downloads = hk_free_collect_downloads( $order );
 
@@ -305,9 +353,20 @@ function hk_free_order_create( WP_REST_Request $req ) {
         ] );
     } catch ( Throwable $e ) {
         if ( isset( $lock_key ) ) { delete_transient( $lock_key ); }
-        // Note: per-product MySQL session locks were already released
-        // in the dedupe loop's finally block above; nothing to clean up
-        // here. The DB check is the source of truth.
+        // Roll back the reservation rows this worker won so a legitimate
+        // retry can re-acquire them. order_id IS NULL guarantees we only
+        // delete still-in-flight reservations (never a successfully-stamped
+        // grant from a parallel worker that already committed).
+        if ( ! empty( $reserved_pids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $reserved_pids ), '%d' ) );
+            $params = array_merge( [ $uid ], $reserved_pids );
+            $wpdb->query( $wpdb->prepare(
+                "DELETE FROM {$grants_table}
+                  WHERE user_id = %d AND product_id IN ({$placeholders})
+                    AND order_id IS NULL",
+                $params
+            ) );
+        }
         error_log( '[hk-free-order] EXCEPTION: ' . $e->getMessage() );
         return new WP_Error( 'server_error', 'Could not complete the free order. Please try again.', [ 'status' => 500 ] );
     }
