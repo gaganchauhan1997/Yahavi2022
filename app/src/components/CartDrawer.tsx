@@ -5,9 +5,24 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import FreeCheckoutButton from "@/components/FreeCheckoutButton";
+
+function detectFreeOnly(items: { product: { isFree?: boolean; price?: unknown } }[]): boolean {
+  if (items.length === 0) return false;
+  return items.every(({ product }) => {
+    if (product.isFree === true) return true;
+    if (typeof product.price === "number" && product.price === 0) return true;
+    if (typeof product.price === "string") {
+      const cleaned = product.price.replace(/[^\d.]/g, "");
+      if (cleaned === "" || parseFloat(cleaned) === 0) return true;
+    }
+    return false;
+  });
+}
 
 export default function CartDrawer() {
   const { state, dispatch, cartTotal, cartCount } = useStore();
+  const isFreeOnly = detectFreeOnly(state.cart);
 
   return (
     <Sheet
@@ -123,22 +138,31 @@ export default function CartDrawer() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-hack-black/60">Subtotal</span>
                 <span className="font-display font-bold text-lg">
-                  ₹{cartTotal.toFixed(2)}
+                  {isFreeOnly ? "Free" : `₹${cartTotal.toFixed(2)}`}
                 </span>
               </div>
               <p className="text-xs text-hack-black/50">
-                Taxes calculated at checkout.
+                {isFreeOnly
+                  ? "All items are free — no payment required."
+                  : "Taxes calculated at checkout."}
               </p>
               <Separator />
-              <Link
-                to="/checkout"
-                onClick={() => dispatch({ type: "TOGGLE_CART" })}
-                className="block"
-              >
-                <Button className="w-full bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full h-12 font-medium">
-                  Checkout
-                </Button>
-              </Link>
+
+              {/* T4 — dynamic smart cart routing inside the drawer too */}
+              {isFreeOnly ? (
+                <FreeCheckoutButton onAfterCheckout={() => dispatch({ type: "TOGGLE_CART" })} />
+              ) : (
+                <Link
+                  to="/checkout"
+                  onClick={() => dispatch({ type: "TOGGLE_CART" })}
+                  className="block"
+                >
+                  <Button className="w-full bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full h-12 font-medium">
+                    Checkout
+                  </Button>
+                </Link>
+              )}
+
               <button
                 onClick={() => dispatch({ type: "TOGGLE_CART" })}
                 className="w-full text-center text-sm text-hack-black/60 hover:text-hack-black transition-colors"

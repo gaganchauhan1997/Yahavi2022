@@ -1,254 +1,235 @@
-import { useEffect, useRef, useState } from "react";
-import { Coins, Plus, History as HistoryIcon, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Coins, Loader2, ArrowDownToLine, ArrowUpFromLine, Sparkles, Plus, RefreshCw } from "lucide-react";
 import { yaviWallet, loadRazorpay, type WalletMe, type WalletLedgerRow } from "@/lib/yavi-wallet";
-import { isAuthenticated, getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { toast } from "sonner";
 
-interface RzpResponse {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-}
-
-interface RzpOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  prefill?: { email?: string; name?: string };
-  theme?: { color?: string };
-  handler: (resp: RzpResponse) => void;
-  modal?: { ondismiss?: () => void };
-}
-
-type RazorpayCtor = new (opts: RzpOptions) => { open: () => void };
-
-const TIERS: Array<{ inr: number; yavi: number; bonus: string }> = [
-  { inr: 100, yavi: 150, bonus: "+50% bonus" },
-  { inr: 200, yavi: 300, bonus: "+50% bonus" },
-  { inr: 500, yavi: 750, bonus: "+50% bonus · best value" },
+/* ── 1:1 PARITY TIERS ────────────────────────────────────────────────────────
+ * Strict 1 YAVI Token = 1 Rupee. No bonus. Pay ₹100 → receive 100 YAVI.
+ * (Earlier the wallet promoted +50% bonus tiers; the owner has standardised
+ * on true 1:1 parity for transparent gateway pricing.)
+ * ───────────────────────────────────────────────────────────────────────── */
+const TIERS: Array<{ inr: number; yavi: number; label: string }> = [
+  { inr: 100, yavi: 100, label: "Starter" },
+  { inr: 200, yavi: 200, label: "Plus" },
+  { inr: 500, yavi: 500, label: "Pro" },
 ];
 
-function fmtWhen(iso: string) {
-  if (!iso) return "";
-  const d = new Date(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z"));
-  if (isNaN(d.getTime())) return iso;
+type RzpHandlerArg = { razorpay_order_id?: string; razorpay_payment_id: string; razorpay_signature: string };
+type RzpOptions = {
+  key: string; amount: number; currency: string; name: string; description: string;
+  order_id: string; prefill?: { name?: string; email?: string };
+  notes?: Record<string, string>; theme?: { color?: string };
+  handler: (response: RzpHandlerArg) => void;
+  modal?: { ondismiss?: () => void };
+};
+type RzpInstance = { open: () => void };
+type RzpCtor = new (opts: RzpOptions) => RzpInstance;
+
+function fmtRel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
 
-function rowLabel(r: WalletLedgerRow) {
+function rowLabel(r: WalletLedgerRow): string {
   if (r.note) return r.note;
   if (r.type === "topup") return `Topup ₹${r.amount_paise / 100}`;
-  if (r.type === "admin_credit") return "Bonus credit";
-  if (r.type === "admin_debit") return "Adjustment";
+  if (r.type === "spend") return "Purchase";
+  if (r.type === "refund") return "Refund";
   return r.type;
 }
 
 /**
- * WalletPanel — reusable wallet UI block (no page chrome).
- * Renders balance card + 3 topup tier buttons + recent activity table.
- * Used by both /wallet (standalone page) and /account/wallet (account section).
+ * WalletPanel — balance + 3 strict 1:1 topup tiers + recent activity.
+ * Renders both at /wallet and inside any dashboard slot. Authentication
+ * is enforced by the parent page (WalletPage redirects to /login).
  */
 export default function WalletPanel() {
   const [me, setMe] = useState<WalletMe | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
-
-  const isMounted = useRef(true);
-
-  useEffect(() => {
-    isMounted.current = true;
-    if (!isAuthenticated()) { setLoading(false); return () => { isMounted.current = false; }; }
-    yaviWallet.me()
-      .then((d) => { if (isMounted.current) setMe(d); })
-      .catch((e) => { if (isMounted.current) toast.error((e as Error).message || "Failed to load wallet"); })
-      .finally(() => { if (isMounted.current) setLoading(false); });
-    return () => { isMounted.current = false; };
-  }, []);
 
   const refresh = async () => {
     try {
-      const d = await yaviWallet.me();
-      if (isMounted.current) setMe(d);
-      window.dispatchEvent(new Event("yavi:wallet:refresh"));
-    } catch { /* ignore */ }
+      setError(null);
+      const data = await yaviWallet.me();
+      setMe(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load wallet");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const startTopup = async (inr: number) => {
-    if (busy !== null) return;
+  useEffect(() => { void refresh(); }, []);
+
+  const handleTopup = async (inr: number) => {
     setBusy(inr);
     try {
-      const order = await yaviWallet.createOrder(inr);
       await loadRazorpay();
-      const Rzp = (window as Window & { Razorpay?: RazorpayCtor }).Razorpay;
-      if (!Rzp) throw new Error("Razorpay failed to load");
-
+      const order = await yaviWallet.createOrder(inr);
+      const w = window as Window & { Razorpay?: RzpCtor };
+      if (!w.Razorpay) throw new Error("Razorpay failed to load");
       const user = getCurrentUser();
-      const opts: RzpOptions = {
+      const rzp = new w.Razorpay({
         key: order.key_id,
         amount: order.amount_paise,
-        currency: order.currency,
+        currency: "INR",
         name: order.name || "HackKnow",
-        description: order.description,
+        description: order.description || `Wallet topup • ${order.tokens_to_credit} YAVI`,
         order_id: order.order_id,
-        prefill: { email: order.prefill_email || user?.email, name: user?.name },
-        theme: { color: "#FFB800" },
+        prefill: { name: user?.name, email: order.prefill_email || user?.email },
+        theme: { color: "#FFD700" },
         handler: async (resp) => {
           try {
-            const v = await yaviWallet.verify({
-              razorpay_order_id: resp.razorpay_order_id,
+            const verify = await yaviWallet.verify({
+              razorpay_order_id: resp.razorpay_order_id ?? order.order_id,
               razorpay_payment_id: resp.razorpay_payment_id,
               razorpay_signature: resp.razorpay_signature,
-              amount_inr: inr,
+              amount_inr: order.amount_inr,
             });
-            if (v.duplicate) {
-              toast.message("Payment already credited", { description: `Balance: ${v.balance_yavi} YAVI` });
+            if (verify.duplicate) {
+              toast.success("Topup already credited.");
             } else {
-              toast.success(`+${v.credited_yavi} YAVI credited`, { description: `New balance: ${v.balance_yavi} YAVI` });
+              toast.success(`+${verify.credited_yavi} YAVI credited to your wallet.`);
             }
+            window.dispatchEvent(new Event("yavi:wallet:refresh"));
             await refresh();
           } catch (e) {
-            if (isMounted.current) {
-              toast.error("Payment received but credit failed. Contact support with your payment ID.", {
-                description: (e as Error).message,
-              });
-            }
+            toast.error(e instanceof Error ? e.message : "Verification failed");
           } finally {
-            if (isMounted.current) setBusy(null);
+            setBusy(null);
           }
         },
-        modal: { ondismiss: () => { if (isMounted.current) setBusy(null); } },
-      };
-
-      new Rzp(opts).open();
+        modal: { ondismiss: () => setBusy(null) },
+      });
+      rzp.open();
     } catch (e) {
-      if (isMounted.current) {
-        toast.error((e as Error).message || "Could not start payment");
-        setBusy(null);
-      }
+      toast.error(e instanceof Error ? e.message : "Could not start topup");
+      setBusy(null);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-[40vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-hack-yellow border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (!me) {
-    return (
-      <div className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-8 text-center">
-        <p className="text-hack-black/70">Please log in to view your wallet.</p>
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-hack-black/60" />
       </div>
     );
   }
 
-  const topupEnabled = me.topup_enabled;
+  if (error || !me) {
+    return (
+      <div className="rounded-2xl border-2 border-hack-black/10 bg-white p-6 text-center">
+        <p className="text-hack-black/70 mb-4">{error || "Wallet unavailable"}</p>
+        <button onClick={() => { setLoading(true); void refresh(); }}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-hack-black text-hack-white text-sm">
+          <RefreshCw className="w-4 h-4" /> Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl lg:text-3xl font-display font-bold text-hack-black">YAVI Wallet</h2>
-
       {/* Balance card */}
-      <section className="bg-hack-black text-hack-white border-[3px] border-hack-black rounded-3xl p-6 sm:p-8 shadow-[5px_5px_0_#FFB800]">
+      <div className="rounded-3xl border-[3px] border-hack-black bg-hack-yellow shadow-[6px_6px_0_#000] p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="font-mono uppercase tracking-widest text-[11px] text-hack-yellow mb-2">Your YAVI balance</p>
-            <div className="flex items-baseline gap-3">
-              <span className="font-display font-extrabold text-5xl sm:text-6xl tabular-nums">
-                {me.balance_yavi.toLocaleString("en-IN")}
-              </span>
-              <span className="font-mono text-sm text-hack-yellow">YAVI</span>
+            <div className="flex items-center gap-2 mb-1">
+              <Coins className="w-5 h-5" />
+              <span className="text-xs font-bold uppercase tracking-wider">YAVI Wallet</span>
             </div>
-            <p className="text-xs text-hack-white/60 mt-1">1 YAVI = ₹1 · use towards purchases</p>
+            <div className="font-display font-bold text-4xl sm:text-5xl tabular-nums">
+              {me.balance_yavi.toLocaleString("en-IN")}
+              <span className="text-lg font-medium text-hack-black/60 ml-2">YAVI</span>
+            </div>
+            <div className="text-xs text-hack-black/60 mt-1.5 flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              1 YAVI Token = ₹1 (1:1 parity)
+            </div>
           </div>
-          <Coins className="w-12 h-12 text-hack-yellow opacity-80" aria-hidden />
+          <button onClick={() => void refresh()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-hack-black text-hack-white text-xs font-bold">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
         </div>
-      </section>
+      </div>
 
-      {/* Topup tiers */}
-      <section className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-6">
-        <h3 className="font-display font-bold text-xl mb-1 flex items-center gap-2">
-          <Plus className="w-5 h-5" /> Recharge wallet
-        </h3>
-        <p className="text-sm text-hack-black/60 mb-4">
-          Pick a tier — every topup includes a 50% bonus.
-          <span className="inline-flex items-center gap-1 ml-2 text-xs"><ShieldCheck className="w-3.5 h-3.5" /> Razorpay-secured</span>
-        </p>
-
-        {!topupEnabled && (
-          <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 text-amber-900 text-sm mb-4">
-            Topups are temporarily disabled by the admin. Please check back soon.
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      {/* Topup tiers — true 1:1, no bonus */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-display font-bold text-lg">Top up your wallet</h2>
+          <span className="text-xs text-hack-black/60">Pay any amount, receive the same in YAVI.</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {TIERS.map((t) => {
             const isBusy = busy === t.inr;
-            const disabled = !topupEnabled || busy !== null;
             return (
               <button
                 key={t.inr}
-                onClick={() => startTopup(t.inr)}
-                disabled={disabled}
+                disabled={busy !== null}
+                onClick={() => void handleTopup(t.inr)}
                 className="text-left p-5 rounded-2xl border-[3px] border-hack-black bg-[#fffbea] shadow-[4px_4px_0_#000] hover:shadow-[2px_2px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[4px_4px_0_#000] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
               >
-                <div className="font-mono text-xs uppercase tracking-widest text-hack-black/50 mb-1">Pay</div>
-                <div className="font-display font-extrabold text-3xl">₹{t.inr}</div>
-                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-hack-yellow border-2 border-hack-black rounded-full font-bold text-sm">
-                  <Coins className="w-3.5 h-3.5" />{t.yavi} YAVI
+                <div className="text-xs font-bold uppercase tracking-wider text-hack-black/60">{t.label}</div>
+                <div className="mt-2 font-display font-black text-3xl">₹{t.inr}</div>
+                <div className="mt-1 flex items-center gap-1.5 text-sm font-medium">
+                  <Coins className="w-4 h-4" />
+                  {t.yavi} YAVI
                 </div>
-                <div className="text-[11px] text-hack-magenta font-bold uppercase tracking-wider mt-2">{t.bonus}</div>
-                {isBusy && <div className="text-xs text-hack-black/60 mt-3">Opening Razorpay…</div>}
+                <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold">
+                  {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  {isBusy ? "Opening Razorpay…" : "Top up"}
+                </div>
               </button>
             );
           })}
         </div>
-      </section>
+      </div>
 
-      {/* History */}
-      <section className="bg-white rounded-2xl border-[3px] border-hack-black shadow-[5px_5px_0_#000] p-6">
-        <h3 className="font-display font-bold text-xl mb-3 flex items-center gap-2">
-          <HistoryIcon className="w-5 h-5" /> Recent activity
-        </h3>
-        {me.recent.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-hack-black/20 bg-[#fffbea] p-8 text-center text-hack-black/60 text-sm">
-            No wallet activity yet. Add your first tokens above.
-          </div>
-        ) : (
-          <div className="overflow-x-auto -mx-2">
+      {/* Recent activity */}
+      <div>
+        <h2 className="font-display font-bold text-lg mb-3">Recent activity</h2>
+        <div className="rounded-2xl border-2 border-hack-black/10 bg-white overflow-hidden">
+          {me.recent.length === 0 ? (
+            <div className="p-8 text-center text-sm text-hack-black/60">
+              No activity yet. Top up to get started.
+            </div>
+          ) : (
             <table className="w-full text-sm">
-              <thead className="bg-hack-yellow border-b-[3px] border-hack-black">
-                <tr>
-                  <th className="text-left px-3 py-2 font-bold text-xs uppercase tracking-wider whitespace-nowrap">When</th>
-                  <th className="text-left px-3 py-2 font-bold text-xs uppercase tracking-wider">Note</th>
-                  <th className="text-right px-3 py-2 font-bold text-xs uppercase tracking-wider">Δ YAVI</th>
-                  <th className="text-right px-3 py-2 font-bold text-xs uppercase tracking-wider hidden sm:table-cell">Balance</th>
+              <thead className="bg-hack-black/5">
+                <tr className="text-left text-xs uppercase tracking-wider text-hack-black/60">
+                  <th className="px-4 py-3">When</th>
+                  <th className="px-4 py-3">Activity</th>
+                  <th className="px-4 py-3 text-right">Change</th>
+                  <th className="px-4 py-3 text-right">Balance</th>
                 </tr>
               </thead>
               <tbody>
-                {me.recent.map((r) => (
-                  <tr key={r.id} className="border-b border-hack-black/10 last:border-0">
-                    <td className="px-3 py-2 text-hack-black/70 text-xs whitespace-nowrap">{fmtWhen(r.created_at)}</td>
-                    <td className="px-3 py-2">{rowLabel(r)}</td>
-                    <td className={`px-3 py-2 text-right font-mono font-bold tabular-nums ${r.delta_yavi >= 0 ? "text-green-700" : "text-red-700"}`}>
-                      {r.delta_yavi > 0 ? "+" : ""}{r.delta_yavi}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums text-hack-black/60 hidden sm:table-cell">{r.balance_after}</td>
-                  </tr>
-                ))}
+                {me.recent.map((r) => {
+                  const positive = r.delta_yavi > 0;
+                  return (
+                    <tr key={r.id} className="border-t border-hack-black/5">
+                      <td className="px-4 py-3 text-hack-black/70 whitespace-nowrap">{fmtRel(r.created_at)}</td>
+                      <td className="px-4 py-3">{rowLabel(r)}</td>
+                      <td className={`px-4 py-3 text-right tabular-nums font-mono ${positive ? "text-green-600" : "text-red-600"}`}>
+                        <span className="inline-flex items-center gap-1">
+                          {positive ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
+                          {positive ? "+" : ""}{r.delta_yavi}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-mono">{r.balance_after}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          </div>
-        )}
-      </section>
-
-      <p className="text-[11px] text-hack-black/40 text-center">
-        All wallet transactions are recorded in an immutable ledger. Payments processed by Razorpay. 1 YAVI = ₹1.
-      </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

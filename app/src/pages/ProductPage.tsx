@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WP_REST_BASE } from "@/lib/api-base";
+import WalletBadge from "@/components/WalletBadge";
 
 interface HKPreview { url: string; open_in: 'newtab' | 'iframe'; }
 
@@ -273,6 +274,10 @@ export default function ProductPage() {
               )}
 
               <div className="flex items-baseline gap-3 mb-6">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs text-hack-black/50 uppercase tracking-wider font-bold">Your wallet:</span>
+                  <WalletBadge variant="compact" />
+                </div>
                 {product.isFree ? (
                   <span className="font-display font-bold text-3xl lg:text-4xl text-green-600">
                     Free

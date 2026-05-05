@@ -9,6 +9,7 @@ import { useAvailabilityMap, isProductDeliverable } from "@/lib/product-availabi
 const categories = _allCategories.filter((c) => !isHiddenCat(c.slug));
 
 import { useDocumentMeta } from '@/lib/useDocumentMeta';
+import WalletBadge from "@/components/WalletBadge";
 const PRODUCTS_PER_PAGE = 12;
 
 /* ── Numbered Pagination Component ─────────────────────────────────────── */
@@ -287,7 +288,10 @@ export default function ShopPage() {
                 <div className="mb-6 flex items-center justify-between">
                   <h3 className="font-display font-bold">Filters</h3>
                   <SlidersHorizontal className="h-4 w-4" />
-                </div>
+                
+          {/* T3 — global wallet badge */}
+          <WalletBadge variant="header" />
+          </div>
 
                 <div className="mb-8">
                   <h4 className="mb-3 text-xs font-mono uppercase tracking-widest text-hack-black/50">

@@ -2,9 +2,30 @@ import { Link } from "react-router-dom";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { Button } from "@/components/ui/button";
+import WalletBadge from "@/components/WalletBadge";
+import FreeCheckoutButton from "@/components/FreeCheckoutButton";
+
+/* ── Free-only detection (single source of truth) ──────────────────────────
+ * Cart is "free-only" when EVERY line item is marked free OR has a numeric
+ * price of 0. The server independently re-validates this in /order-free,
+ * so even a tampered client cannot get paid items via the free path.
+ * ─────────────────────────────────────────────────────────────────────── */
+function detectFreeOnly(items: { product: { isFree?: boolean; price?: unknown } }[]): boolean {
+  if (items.length === 0) return false;
+  return items.every(({ product }) => {
+    if (product.isFree === true) return true;
+    if (typeof product.price === "number" && product.price === 0) return true;
+    if (typeof product.price === "string") {
+      const cleaned = product.price.replace(/[^\d.]/g, "");
+      if (cleaned === "" || parseFloat(cleaned) === 0) return true;
+    }
+    return false;
+  });
+}
 
 export default function CartPage() {
   const { state, dispatch, cartTotal, cartCount } = useStore();
+  const isFreeOnly = detectFreeOnly(state.cart);
 
   if (state.cart.length === 0) {
     return (
@@ -36,9 +57,12 @@ export default function CartPage() {
     <div className="pt-28 pb-20">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
-          <h1 className="font-display font-bold text-3xl lg:text-4xl mb-8">
-            Shopping Cart ({cartCount})
-          </h1>
+          <div className="flex items-center justify-between gap-4 flex-wrap mb-8">
+            <h1 className="font-display font-bold text-3xl lg:text-4xl">
+              Shopping Cart ({cartCount})
+            </h1>
+            <WalletBadge variant="inline" />
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Cart Items */}
@@ -116,7 +140,7 @@ export default function CartPage() {
                         </button>
                       </div>
                       <span className="font-display font-bold">
-                        {item.product.price ?? 'Free'}
+                        {item.product.isFree ? "Free" : (item.product.price ?? "Free")}
                       </span>
                     </div>
                   </div>
@@ -135,7 +159,9 @@ export default function CartPage() {
                     <span className="text-hack-black/60">
                       Subtotal ({cartCount} items)
                     </span>
-                    <span className="font-medium">₹{cartTotal.toFixed(2)}</span>
+                    <span className="font-medium">
+                      {isFreeOnly ? "Free" : `₹${cartTotal.toFixed(2)}`}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-hack-black/60">Discount</span>
@@ -146,16 +172,23 @@ export default function CartPage() {
                   <div className="flex items-center justify-between">
                     <span className="font-display font-bold">Total</span>
                     <span className="font-display font-bold text-xl">
-                      ₹{cartTotal.toFixed(2)}
+                      {isFreeOnly ? "Free" : `₹${cartTotal.toFixed(2)}`}
                     </span>
                   </div>
                 </div>
-                <Link to="/checkout" className="block">
-                  <Button className="w-full h-12 bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full font-bold gap-2">
-                    Proceed to Checkout
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
+
+                {/* T4 — dynamic smart cart routing */}
+                {isFreeOnly ? (
+                  <FreeCheckoutButton />
+                ) : (
+                  <Link to="/checkout" className="block">
+                    <Button className="w-full h-12 bg-hack-black text-hack-white hover:bg-hack-black/80 rounded-full font-bold gap-2">
+                      Proceed to Checkout
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                )}
+
                 <Link
                   to="/shop"
                   className="block text-center text-sm text-hack-black/60 hover:text-hack-black transition-colors mt-4"
