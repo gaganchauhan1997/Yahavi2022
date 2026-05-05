@@ -378,14 +378,44 @@ export default function AboutPage() {
               <p className="text-hack-black/60">The mastermind behind every line of code.</p>
             </div>
 
+            <div className="grid grid-cols-1 gap-8 max-w-2xl mx-auto">
+              {others.map((f) => (
+                <article
+                  key={f.name}
+                  className={`bg-white rounded-3xl border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_0_#1A1A1A] transition-all overflow-hidden`}
+                >
+                  <div className={`relative h-48 bg-gradient-to-br ${f.accent} flex items-center justify-center border-b-[3px] border-hack-black`}>
+                    <span className="font-display font-black text-7xl text-white drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)]">
+                      {f.initials}
+                    </span>
+                    <div className="absolute top-3 right-3 bg-white rounded-lg p-2 border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A]">
+                      <f.Icon className="w-5 h-5 text-hack-black" strokeWidth={2.5} />
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="font-display font-black text-xl mb-1">{f.name}</h3>
+                    <p className="text-xs font-mono uppercase tracking-wider text-hack-magenta mb-3 font-bold">
+                      {f.role}
+                    </p>
+                    <p className="text-sm font-bold text-hack-black/85 mb-3 italic">
+                      “{f.tagline}”
+                    </p>
+                    <p className="text-sm text-hack-black/70 leading-relaxed">{f.bio}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+
             {/* ====================== GOURAV HERO BOX (static photo, NO audio) ====================== */}
             {/* Replicates the Mentor visual packaging: comic-style frame, neo-brutal */}
             {/* border + shadow, rotated badges, full-width portrait, separate bio column. */}
             {/* Per owner directive: NO MP3 / "tap to hear" button — static image only. */}
-            {/* Repositioned 2026-05-05 — now sits BELOW the "Rest of the Team" heading */}
-            {/* and ABOVE the standard team grid (DeadMan). Design + responsiveness untouched. */}
+            {/* Repositioned 2026-05-05 (v2) — now sits BELOW the team grid (DeadMan) as the */}
+            {/* closing flourish of "The Rest of the Team" section. mb-12→mb-0 (last child of */}
+            {/* the mb-20 wrapper, no double gap before "Our Story") + added mt-12 to keep the */}
+            {/* visual breathing room above it. Design + responsiveness untouched. */}
             <section
-              className="relative mb-12 rounded-3xl border-[3px] border-hack-black bg-white shadow-[10px_10px_0_0_#1A1A1A] overflow-hidden"
+              className="relative mt-12 mb-0 rounded-3xl border-[3px] border-hack-black bg-white shadow-[10px_10px_0_0_#1A1A1A] overflow-hidden"
               aria-label="Meet our AI Orchestration Lead — Gourav Balyan"
             >
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
@@ -435,34 +465,6 @@ export default function AboutPage() {
                 </div>
               </div>
             </section>
-
-            <div className="grid grid-cols-1 gap-8 max-w-2xl mx-auto">
-              {others.map((f) => (
-                <article
-                  key={f.name}
-                  className={`bg-white rounded-3xl border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_0_#1A1A1A] transition-all overflow-hidden`}
-                >
-                  <div className={`relative h-48 bg-gradient-to-br ${f.accent} flex items-center justify-center border-b-[3px] border-hack-black`}>
-                    <span className="font-display font-black text-7xl text-white drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)]">
-                      {f.initials}
-                    </span>
-                    <div className="absolute top-3 right-3 bg-white rounded-lg p-2 border-[2px] border-hack-black shadow-[2px_2px_0_0_#1A1A1A]">
-                      <f.Icon className="w-5 h-5 text-hack-black" strokeWidth={2.5} />
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <h3 className="font-display font-black text-xl mb-1">{f.name}</h3>
-                    <p className="text-xs font-mono uppercase tracking-wider text-hack-magenta mb-3 font-bold">
-                      {f.role}
-                    </p>
-                    <p className="text-sm font-bold text-hack-black/85 mb-3 italic">
-                      “{f.tagline}”
-                    </p>
-                    <p className="text-sm text-hack-black/70 leading-relaxed">{f.bio}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
           </div>
 
           {/* Story */}
