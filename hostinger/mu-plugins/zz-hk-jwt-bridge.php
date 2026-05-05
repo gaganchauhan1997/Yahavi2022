@@ -22,10 +22,32 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 add_filter( 'determine_current_user', function ( $user_id ) {
-    // Only act inside REST requests targeting /hk/v1/*
+    // Only act inside genuine REST requests. The REST_REQUEST constant
+    // is defined exclusively by rest_api_loaded() before dispatch, so
+    // gating on it eliminates any chance of this filter firing on
+    // admin / front-end pages whose query string merely contains
+    // "/wp-json/hk/v1/" or "rest_route=/hk/v1/" as a parameter value.
+    if ( ! defined( 'REST_REQUEST' ) || ! REST_REQUEST ) {
+        return $user_id;
+    }
+
+    // Resolve the actual REST route from the parsed URL, not raw
+    // substring matching. Handles both pretty permalinks
+    // (/wp-json/hk/v1/wallet/me) and the ugly fallback
+    // (/index.php?rest_route=/hk/v1/wallet/me).
     $uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
-    if ( strpos( $uri, '/wp-json/hk/v1/' ) === false
-      && strpos( $uri, 'rest_route=/hk/v1/' ) === false ) {
+    $parts = wp_parse_url( $uri );
+    $path  = isset( $parts['path'] )  ? (string) $parts['path']  : '';
+    $query = isset( $parts['query'] ) ? (string) $parts['query'] : '';
+    $route = '';
+    if ( strpos( $path, '/wp-json/' ) === 0 ) {
+        $route = substr( $path, strlen( '/wp-json' ) );  // -> /hk/v1/wallet/me
+    } elseif ( $query ) {
+        $qa = array();
+        wp_parse_str( $query, $qa );
+        if ( ! empty( $qa['rest_route'] ) ) { $route = (string) $qa['rest_route']; }
+    }
+    if ( strpos( $route, '/hk/v1/' ) !== 0 ) {
         return $user_id;
     }
 
