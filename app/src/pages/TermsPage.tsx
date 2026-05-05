@@ -58,7 +58,7 @@ const TermsPage = () => {
             <ul className="space-y-2 text-hack-black/80">
               <li>• Provide accurate registration details and keep them up to date.</li>
               <li>• Keep your password confidential — every action under your account is your responsibility.</li>
-              <li>• Notify us immediately at <a href="mailto:support@hackknow.com" className="text-hack-magenta">support@hackknow.com</a> of any unauthorised use.</li>
+              <li>• Notify us immediately at <a href="mailto:team@hackknow.com" className="text-hack-magenta">team@hackknow.com</a> of any unauthorised use.</li>
               <li>• One person, one free account. Multiple accounts created to abuse coupons may be merged or terminated.</li>
             </ul>
           </section>
@@ -180,7 +180,7 @@ const TermsPage = () => {
               occasionally produce inaccurate or incomplete answers. Treat its responses as guidance,
               not legal, financial or professional advice. For binding decisions (refunds, billing,
               copyright complaints) always rely on the relevant policy page or contact a human at
-              support@hackknow.com.
+              team@hackknow.com.
             </p>
             <p className="text-hack-black/80 mb-3">
               <strong>Chat storage &amp; retention.</strong> Your conversations with Yahavi AI are
@@ -198,7 +198,7 @@ const TermsPage = () => {
               wiped and the next message starts a fresh session, but our server-side copy of the
               earlier conversation is preserved. If you would like the server-side copy permanently
               deleted under your DPDP Act, 2023 right to erasure, email
-              <a className="font-semibold underline" href="mailto:support@hackknow.com"> support@hackknow.com </a>
+              <a className="font-semibold underline" href="mailto:team@hackknow.com"> team@hackknow.com </a>
               from the same address you used on the site and we will action it within 30 days.
               Coupon codes entered in chat are validated in real time against our store but not
               applied until you add them at the checkout page.
@@ -260,7 +260,7 @@ const TermsPage = () => {
             </h2>
             <div className="font-mono text-sm text-hack-black/80 space-y-1">
               <p>HackKnow — Grievance Officer</p>
-              <p>Email: <a href="mailto:legal@hackknow.com" className="text-hack-magenta">legal@hackknow.com</a> (cc: <a href="mailto:support@hackknow.com" className="text-hack-magenta">support@hackknow.com</a>)</p>
+              <p>Email: <a href="mailto:legal@hackknow.com" className="text-hack-magenta">legal@hackknow.com</a> (cc: <a href="mailto:team@hackknow.com" className="text-hack-magenta">team@hackknow.com</a>)</p>
               <p>Phone: <a href="tel:+918796018700" className="text-hack-magenta">+91 87960 18700</a></p>
               <p>Address: Delhi, India</p>
             </div>

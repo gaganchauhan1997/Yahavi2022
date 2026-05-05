@@ -26,7 +26,7 @@ WordPress's default `wp_mail()` falls back to PHP `mail()`, which Gmail
 silently drops or marks as spam because the messages have no DKIM signature
 and the envelope sender doesn't match the `From:` header. To fix this we
 switch PHPMailer onto authenticated SMTP through the real
-`support@hackknow.com` Hostinger mailbox.
+`team@hackknow.com` Hostinger mailbox.
 
 Add these to `wp-config.php` on Hostinger (chmod 600, OUTSIDE
 `public_html/`, never commit):
@@ -34,16 +34,16 @@ Add these to `wp-config.php` on Hostinger (chmod 600, OUTSIDE
 ```php
 define('HACKKNOW_SMTP_HOST', 'smtp.hostinger.com');
 define('HACKKNOW_SMTP_PORT', 465);
-define('HACKKNOW_SMTP_USER', 'support@hackknow.com');
+define('HACKKNOW_SMTP_USER', 'team@hackknow.com');
 define('HACKKNOW_SMTP_PASS', '<mailbox password from Hostinger panel>');
 // Optional overrides
 // define('HACKKNOW_SMTP_SECURE', 'ssl');           // 'ssl' for 465, 'tls' for 587
-// define('HACKKNOW_MAIL_FROM',   'support@hackknow.com');
+// define('HACKKNOW_MAIL_FROM',   'team@hackknow.com');
 // define('HACKKNOW_MAIL_FROM_NAME', 'HackKnow');
 ```
 
 The mailbox password comes from **Hostinger panel → Emails →
-support@hackknow.com → Reset password**.
+team@hackknow.com → Reset password**.
 
 ### Verify
 
@@ -51,7 +51,7 @@ support@hackknow.com → Reset password**.
 2. Tail `/home/u828497513/.logs/mail.log` — outbound entries should show the
    SMTP handoff (not a local PHP `mail()` pickup).
 3. In Gmail, open the message → "Show original": confirm
-   `spf=pass`, `dkim=pass`, and `From: HackKnow <support@hackknow.com>`.
+   `spf=pass`, `dkim=pass`, and `From: HackKnow <team@hackknow.com>`.
 4. If `HACKKNOW_SMTP_*` are missing, the plugin keeps working but falls
    back to PHP `mail()`, and Gmail will likely drop the message.
 

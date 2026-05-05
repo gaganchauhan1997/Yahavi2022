@@ -161,7 +161,7 @@ app/
 - 30-day download expiry: downloads expire 30 days after order completion date
 
 ### 3. Contact Details (updated everywhere)
-- Email: support@hackknow.com
+- Email: team@hackknow.com
 - Phone: +91 87960 18700
 - Files: Footer.tsx, ContactPage.tsx, SupportPage.tsx
 

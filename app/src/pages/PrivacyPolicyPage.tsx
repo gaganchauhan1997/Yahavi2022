@@ -65,7 +65,7 @@ const PrivacyPolicyPage = () => {
               <li>• <strong>Account details:</strong> name, email, password (hashed), optional phone, profile photo.</li>
               <li>• <strong>Order details:</strong> billing name, billing/email address, country, order items, amount, invoice/GST number where applicable.</li>
               <li>• <strong>Payment metadata:</strong> we never see your full card / UPI PIN. Razorpay returns only a transaction ID, last-4 digits and approval status.</li>
-              <li>• <strong>Support / chat data:</strong> messages you send to support@hackknow.com or to Yahavi AI, including the language you wrote in.</li>
+              <li>• <strong>Support / chat data:</strong> messages you send to team@hackknow.com or to Yahavi AI, including the language you wrote in.</li>
               <li>• <strong>Device & usage data:</strong> IP address, browser, OS, device type, pages visited, timestamps, referring URL.</li>
               <li>• <strong>Marketing opt-ins:</strong> only if you subscribe to our newsletter or check the marketing-consent box at checkout.</li>
             </ul>
@@ -189,7 +189,7 @@ const PrivacyPolicyPage = () => {
               <a href="mailto:privacy@hackknow.com" className="text-hack-magenta hover:text-hack-orange">
                 privacy@hackknow.com
               </a>{" "}
-              (cc: support@hackknow.com). We will respond within 30 days.
+              (cc: team@hackknow.com). We will respond within 30 days.
             </p>
           </section>
 

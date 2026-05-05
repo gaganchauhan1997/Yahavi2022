@@ -243,11 +243,11 @@ export default function SupportPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <a
-                href="mailto:support@hackknow.com"
+                href="mailto:team@hackknow.com"
                 className="inline-flex items-center gap-2 px-7 py-3.5 bg-hack-yellow text-hack-black rounded-full font-bold hover:bg-hack-yellow/90 transition-colors"
               >
                 <Mail className="w-4 h-4" />
-                support@hackknow.com
+                team@hackknow.com
               </a>
               <a
                 href="tel:+918796018700"

@@ -142,7 +142,7 @@ const RefundPolicyPage = () => {
             <ol className="space-y-4 text-hack-black/70 mb-8">
               <li className="flex items-start gap-3">
                 <span className="w-8 h-8 rounded-full bg-hack-black text-white flex items-center justify-center text-sm font-bold shrink-0">1</span>
-                <span>Contact our support team at <a href="mailto:support@hackknow.com" className="text-hack-magenta hover:text-hack-orange">support@hackknow.com</a></span>
+                <span>Contact our support team at <a href="mailto:team@hackknow.com" className="text-hack-magenta hover:text-hack-orange">team@hackknow.com</a></span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="w-8 h-8 rounded-full bg-hack-black text-white flex items-center justify-center text-sm font-bold shrink-0">2</span>
@@ -205,7 +205,7 @@ const RefundPolicyPage = () => {
             <div className="bg-hack-black rounded-2xl p-6 lg:p-8 text-white text-center">
               <h2 className="font-display font-bold text-xl mb-3">Questions About Refunds?</h2>
               <p className="text-white/60 mb-4">
-                Email <a href="mailto:support@hackknow.com" className="text-hack-yellow">support@hackknow.com</a> or call <a href="tel:+918796018700" className="text-hack-yellow">+91 87960 18700</a>.
+                Email <a href="mailto:team@hackknow.com" className="text-hack-yellow">team@hackknow.com</a> or call <a href="tel:+918796018700" className="text-hack-yellow">+91 87960 18700</a>.
               </p>
               <Link
                 to="/contact"

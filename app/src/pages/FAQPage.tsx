@@ -41,7 +41,7 @@ const faqs = [
       },
       {
         q: 'What is your refund policy?',
-        a: 'Because our products are instantly downloadable digital files, refunds are limited. However, if a download is broken, the file is corrupted, or the product is materially different from the description, contact support@hackknow.com within 7 days and we will refund or replace it. See our full Refund Policy for details.'
+        a: 'Because our products are instantly downloadable digital files, refunds are limited. However, if a download is broken, the file is corrupted, or the product is materially different from the description, contact team@hackknow.com within 7 days and we will refund or replace it. See our full Refund Policy for details.'
       }
     ]
   },

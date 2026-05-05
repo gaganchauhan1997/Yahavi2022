@@ -29,7 +29,7 @@ KEY PAGE PATHS (always link users with the EXACT path)
 /privacy, /terms, /refund-policy, /dmca
 
 CONTACT
-- Email: support@hackknow.com
+- Email: team@hackknow.com
 - Phone: +91 87960 18700
 - Address: Delhi, India
 - WhatsApp / contact form: /contact

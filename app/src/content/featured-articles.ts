@@ -309,7 +309,7 @@ export const FEATURED_ARTICLES: FeaturedArticle[] = [
       { q: 'Do you offer free Excel templates?',
         a: 'Yes — we maintain a curated library of 100+ free resources at /shop/free-resources. These are good starting points; the paid catalogue covers India-specific and integrated dashboards.' },
       { q: 'What if a paid template does not work for me?',
-        a: 'If the template is materially different from its description or has a technical defect, contact support@hackknow.com within 7 days for a refund or replacement. See /refund-policy for details.' }
+        a: 'If the template is materially different from its description or has a technical defect, contact team@hackknow.com within 7 days for a refund or replacement. See /refund-policy for details.' }
     ],
   },
 
