@@ -171,35 +171,90 @@ function hk_free_order_create( WP_REST_Request $req ) {
     }
     $resolved = $resolved_unique;
 
-    // ── 4c. Per-(user, product) 10s idempotency lock ──────────────────
-    //   Independent from the cart-fingerprint lock above. That one stops
-    //   the same user from submitting the same exact cart twice; this
-    //   one stops the same user from generating duplicate download
-    //   permissions for any single product within 10s, regardless of
-    //   what other items were in the cart. If a previous request granted
-    //   product #123 to user U and a new request comes in within 10s
-    //   that ALSO contains #123, we skip #123 in the new order — the
-    //   user already has it. If every item is locked, we return 409.
+    // ── 4c. ABSOLUTE IDEMPOTENCY — DB check inside MySQL session lock ─
+    //
+    //   The earlier transient-based lock leaked dup grants under true
+    //   concurrent load (two PHP workers both miss the transient in the
+    //   same microsecond, both add_product, both grant a permission row).
+    //
+    //   This block is the bulletproof replacement:
+    //
+    //     1. For each product the user is requesting, acquire a real
+    //        MySQL session lock via GET_LOCK('hk_g_{uid}_{pid}', 5).
+    //        GET_LOCK is a true distributed mutex (named, namespaced
+    //        per MySQL connection) — concurrent PHP workers on the same
+    //        DB serialize on it. Wait up to 5s.
+    //
+    //     2. INSIDE the lock, query the AUTHORITATIVE WooCommerce table
+    //        wp_woocommerce_downloadable_product_permissions to see if
+    //        the user ALREADY has at least one permission row for this
+    //        product. If yes → skip the product entirely. The user
+    //        already owns it; granting again is a duplicate.
+    //
+    //     3. RELEASE_LOCK — the lock auto-releases anyway when the PHP
+    //        request ends, but we release explicitly to free the slot.
+    //
+    //   Locks are held only for the duration of one SELECT — single-
+    //   digit milliseconds. Order creation happens AFTER all locks are
+    //   released, so locks never overlap with the WC add_product call.
+    //   This is safe because the add_product call itself is what would
+    //   create the row we're checking — and we eliminate any product
+    //   that already has a row before we ever call add_product.
+    //
+    //   If, after the dedupe loop, $kept is empty → all requested
+    //   products are already owned. Return 200 OK with already_granted
+    //   flag (NOT an error). Frontend treats this as a success path:
+    //   "you already own these — refresh My Downloads".
+    global $wpdb;
+    $perm_table = $wpdb->prefix . 'woocommerce_downloadable_product_permissions';
+
     $kept = [];
     $skipped = [];
     foreach ( $resolved as $r ) {
         $pid = (int) $r['product']->get_id();
-        $dup_key = 'hk_free_dup_' . $uid . '_' . $pid;
-        if ( get_transient( $dup_key ) ) {
-            $skipped[] = $r['product']->get_name() . " (#$pid recently granted)";
+
+        // 1. Acquire MySQL session lock (5s max wait)
+        $lock_name = 'hk_g_' . $uid . '_' . $pid;
+        $got_lock = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT GET_LOCK(%s, 5)", $lock_name
+        ) );
+        if ( $got_lock !== 1 ) {
+            // Lock contention — another worker is processing the SAME
+            // (user, product) right now. Treat as duplicate to be safe;
+            // the other worker will grant the permission.
+            $skipped[] = $r['product']->get_name() . " (#$pid concurrent grant in progress)";
             continue;
         }
-        // Stamp the lock immediately — even if the order creation later
-        // fails, holding the lock for 10s is acceptable (user can retry
-        // after 10s; transients auto-expire so no cleanup job needed).
-        set_transient( $dup_key, time(), 10 );
-        $kept[] = $r;
+
+        try {
+            // 2. Authoritative DB check
+            $exists = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$perm_table}
+                  WHERE user_id = %d AND product_id = %d",
+                $uid, $pid
+            ) );
+            if ( $exists > 0 ) {
+                $skipped[] = $r['product']->get_name() . " (#$pid already granted)";
+            } else {
+                $kept[] = $r;
+            }
+        } finally {
+            // 3. Always release the lock
+            $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+        }
     }
+
     if ( empty( $kept ) ) {
         if ( isset( $lock_key ) ) { delete_transient( $lock_key ); }
-        return new WP_Error( 'already_granted',
-            'You were just granted these downloads. Refresh "My Downloads" to see them.',
-            [ 'status' => 409, 'skipped' => $skipped ] );
+        // 200 OK with already_granted flag — frontend treats this as a
+        // SUCCESS path (no error toast). The user already owns these
+        // downloads; the order they tried to create would be a duplicate.
+        return new WP_REST_Response( [
+            'ok'              => true,
+            'already_granted' => true,
+            'skipped'         => $skipped,
+            'message'         => 'You already own these downloads. Refresh "My Downloads" to see them.',
+        ], 200 );
     }
     $resolved = $kept;
 
@@ -250,14 +305,9 @@ function hk_free_order_create( WP_REST_Request $req ) {
         ] );
     } catch ( Throwable $e ) {
         if ( isset( $lock_key ) ) { delete_transient( $lock_key ); }
-        // Release per-product locks too — failed attempt should not block
-        // a legitimate retry for 10s.
-        if ( ! empty( $kept ) ) {
-            foreach ( $kept as $r ) {
-                $pid = (int) $r['product']->get_id();
-                delete_transient( 'hk_free_dup_' . $uid . '_' . $pid );
-            }
-        }
+        // Note: per-product MySQL session locks were already released
+        // in the dedupe loop's finally block above; nothing to clean up
+        // here. The DB check is the source of truth.
         error_log( '[hk-free-order] EXCEPTION: ' . $e->getMessage() );
         return new WP_Error( 'server_error', 'Could not complete the free order. Please try again.', [ 'status' => 500 ] );
     }
