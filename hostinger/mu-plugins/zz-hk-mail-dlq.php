@@ -54,16 +54,38 @@ add_action( 'hackknow_free_order_completed', function ( $order_id, $uid, $contex
     hk_dlq_send( $payload );
 }, 10, 3 );
 
-/* ── 2. Send wrapper — single try, on failure enqueue ────────────────── */
+/* ── 2. Send wrapper — sent-flag check + single try, on failure enqueue ─
+ *   Idempotency model: each order carries a meta `_hk_dlq_sent_at` flag
+ *   set on the FIRST successful wp_mail(). All subsequent retries
+ *   (whether scheduled before the success or queued by another path)
+ *   short-circuit when they see this flag, so the same email is never
+ *   sent twice — even if a stale wp_schedule_single_event fires later.
+ */
 function hk_dlq_send( array $p ): void {
+    $oid = (int) ( $p['order_id'] ?? 0 );
+
+    // Idempotency check — already delivered?
+    if ( $oid > 0 ) {
+        $already = get_post_meta( $oid, '_hk_dlq_sent_at', true );
+        if ( $already ) {
+            hk_dlq_clear_pending( $oid );
+            error_log( '[hk-dlq] SKIP order #' . $oid . ' — already delivered at ' . $already );
+            return;
+        }
+    }
+
     try {
         $sent = wp_mail( $p['to'], $p['subject'], $p['body'], $p['headers'] );
         if ( ! $sent ) {
             throw new Exception( 'wp_mail returned false' );
         }
-        // Success — make sure no stale DLQ row lingers for this order.
-        hk_dlq_clear_pending( (int) $p['order_id'] );
-        error_log( '[hk-dlq] order #' . $p['order_id'] . ' delivered to ' . $p['to'] . ' on attempt ' . $p['attempt'] );
+        // Stamp the order so future retries become no-ops.
+        if ( $oid > 0 ) {
+            update_post_meta( $oid, '_hk_dlq_sent_at', current_time( 'mysql' ) );
+            update_post_meta( $oid, '_hk_dlq_sent_to', (string) $p['to'] );
+        }
+        hk_dlq_clear_pending( $oid );
+        error_log( '[hk-dlq] order #' . $oid . ' delivered to ' . $p['to'] . ' on attempt ' . $p['attempt'] );
     } catch ( Throwable $e ) {
         hk_dlq_enqueue( $p, $e->getMessage() );
     }
@@ -85,7 +107,18 @@ function hk_dlq_enqueue( array $p, string $reason ): void {
     $next['last_reason'] = $reason;
     $next['next_at']     = time() + $delay;
 
-    wp_schedule_single_event( $next['next_at'], 'hk_dlq_retry', [ $next ] );
+    // Dedupe — if a retry is already scheduled for this order at any
+    // future time, don't pile on. wp_next_scheduled returns the timestamp
+    // of the next matching event or false. We key by order_id so multiple
+    // queue paths cannot create competing crons for the same order.
+    $existing = wp_next_scheduled( 'hk_dlq_retry', [ $next ] );
+    // Note: WP keys cron events by hash(hook + args). Since `next` always
+    // has a fresh attempt+next_at, we must also do an order-level guard
+    // separately by walking pending — covered by the sent-flag idempotency
+    // in hk_dlq_send which makes duplicate fires harmless no-ops.
+    if ( ! $existing ) {
+        wp_schedule_single_event( $next['next_at'], 'hk_dlq_retry', [ $next ] );
+    }
     hk_dlq_persist_pending( $next );
     error_log( '[hk-dlq] enqueued order #' . $p['order_id'] . ' attempt=' . $next['attempt'] . ' delay=' . $delay . 's reason=' . $reason );
 }

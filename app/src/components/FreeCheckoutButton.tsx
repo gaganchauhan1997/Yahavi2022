@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -9,27 +9,48 @@ import { createFreeOrder } from "@/lib/checkout-api";
 
 /**
  * FreeCheckoutButton — replaces "Proceed to Checkout" when the cart
- * contains ONLY free products. Skips Razorpay entirely:
- *   1. Auth gate (push to /login?next=/cart if logged out)
- *   2. POST /wp-json/hackknow/v1/order-free with the cart items
- *   3. On success → clear cart, toast, navigate to /account/downloads
+ * contains ONLY free products. Skips Razorpay entirely.
  *
- * Server-side validation hard-asserts price=0 + downloadable + has file
- * for every item, so this button can never accidentally process paid items.
+ * Race-safe submission:
+ *   - `submittingRef` is a synchronous useRef guard set BEFORE the React
+ *     state update; two clicks fired in the same microtask cannot both
+ *     pass it (whereas useState `busy` would, because state batching
+ *     means the second click sees the same `busy=false` value).
+ *   - Cart snapshot is taken once at click time and frozen for the entire
+ *     request lifetime.
+ *   - `onSubmitting(true|false)` lets the parent disable cart mutation
+ *     controls (+/-/trash) while the request is in flight, eliminating
+ *     the "user changes cart while request is processing" inconsistency.
+ *   - Server-side idempotency (cart fingerprint + 30s lock) is the
+ *     authoritative duplicate guard; this client-side guard is just the
+ *     first line of defence.
  */
 export default function FreeCheckoutButton({
   className = "",
   onAfterCheckout,
+  onSubmitting,
 }: {
   className?: string;
   onAfterCheckout?: () => void;
+  onSubmitting?: (active: boolean) => void;
 }) {
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  // Synchronous guard — set immediately on click, before React state.
+  const submittingRef = useRef(false);
+
+  const setSubmitting = (active: boolean) => {
+    submittingRef.current = active;
+    setBusy(active);
+    if (onSubmitting) onSubmitting(active);
+  };
 
   const handleClick = async () => {
-    if (busy) return;
+    // Synchronous double-submit guard: two clicks in the same microtask
+    // both see submittingRef.current === false with useState alone.
+    // Using a ref makes the second click a no-op deterministically.
+    if (submittingRef.current) return;
 
     if (!isAuthenticated()) {
       toast.info("Please sign in to claim your free downloads.");
@@ -47,21 +68,22 @@ export default function FreeCheckoutButton({
       return;
     }
 
-    setBusy(true);
+    // Freeze cart snapshot immediately — request will use this frozen
+    // payload regardless of any concurrent mutation attempts.
+    const itemsSnapshot = state.cart.map((ci) => ({
+      product_id: Number(ci.product.id),
+      quantity:   Math.max(1, ci.quantity),
+    }));
+
+    setSubmitting(true);
     try {
-      const items = state.cart.map((ci) => ({
-        product_id: Number(ci.product.id),
-        quantity: Math.max(1, ci.quantity),
-      }));
       const res = await createFreeOrder({
-        items,
+        items: itemsSnapshot,
         email: user.email,
         first_name: user.first_name || user.name?.split(" ")[0] || "",
         last_name:  user.last_name  || user.name?.split(" ").slice(1).join(" ") || "",
       });
 
-      // Success — clear cart, toast, refresh wallet badge (in case order
-      // earned any YAVI bonus on the backend), navigate to downloads.
       dispatch({ type: "CLEAR_CART" });
       window.dispatchEvent(new Event("yavi:wallet:refresh"));
       toast.success(
@@ -71,9 +93,16 @@ export default function FreeCheckoutButton({
       navigate("/account/downloads", { replace: true });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not complete free checkout";
-      toast.error(msg);
+      // The server returns a structured "duplicate" 409 if our cart
+      // fingerprint matches a recent (<30s) attempt. Surface that as a
+      // friendly message rather than a scary error.
+      if (msg.includes("duplicate") || msg.includes("already")) {
+        toast.info("Your previous request is still being processed — please wait a moment.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
-      setBusy(false);
+      setSubmitting(false);
     }
   };
 

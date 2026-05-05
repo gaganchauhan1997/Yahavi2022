@@ -66,6 +66,29 @@ function hk_free_order_create( WP_REST_Request $req ) {
         return new WP_Error( 'no_woocommerce', 'Store is not available right now.', [ 'status' => 503 ] );
     }
 
+    // ── 2b. Idempotency lock (server-side dedupe) ─────────────────────
+    //   Computes a SHA1 of (user_id + sorted cart fingerprint) and uses
+    //   set_transient as a 30-second mutex. A second click that reaches
+    //   here within 30s while the first request is still processing —
+    //   even if the React ref-guard somehow lets it through — gets a
+    //   409 immediately, not a second order. The transient auto-expires
+    //   so we never need a cleanup job.
+    $items_for_fp = $req->get_param( 'items' );
+    if ( is_array( $items_for_fp ) ) {
+        $fp_input = array_map( function ( $i ) {
+            return absint( $i['product_id'] ?? 0 ) . 'x' . max( 1, absint( $i['quantity'] ?? 1 ) );
+        }, $items_for_fp );
+        sort( $fp_input );
+        $fingerprint = sha1( $uid . '|' . implode( ',', $fp_input ) );
+        $lock_key    = 'hk_free_lock_' . $fingerprint;
+        if ( get_transient( $lock_key ) ) {
+            return new WP_Error( 'duplicate_request',
+                'A previous identical request is still being processed. Please wait a few seconds.',
+                [ 'status' => 409 ] );
+        }
+        set_transient( $lock_key, time(), 30 );  // 30s mutex
+    }
+
     // ── 3. Validate input shape ────────────────────────────────────────
     $items = $req->get_param( 'items' );
     if ( ! is_array( $items ) || empty( $items ) ) {
@@ -167,6 +190,7 @@ function hk_free_order_create( WP_REST_Request $req ) {
             'downloads' => $downloads,
         ] );
 
+        if ( isset( $lock_key ) ) { delete_transient( $lock_key ); }
         return rest_ensure_response( [
             'ok'           => true,
             'wc_order_id'  => $order->get_id(),
@@ -175,6 +199,7 @@ function hk_free_order_create( WP_REST_Request $req ) {
             'downloads'    => $downloads,
         ] );
     } catch ( Throwable $e ) {
+        if ( isset( $lock_key ) ) { delete_transient( $lock_key ); }
         error_log( '[hk-free-order] EXCEPTION: ' . $e->getMessage() );
         return new WP_Error( 'server_error', 'Could not complete the free order. Please try again.', [ 'status' => 500 ] );
     }

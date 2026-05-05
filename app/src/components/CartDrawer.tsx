@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
@@ -11,11 +12,16 @@ function detectFreeOnly(items: { product: { isFree?: boolean; price?: unknown } 
   if (items.length === 0) return false;
   return items.every(({ product }) => {
     if (product.isFree === true) return true;
-    if (typeof product.price === "number" && product.price === 0) return true;
+    if (typeof product.price === "number") return product.price === 0;
     if (typeof product.price === "string") {
+      // Hardened: must contain at least one digit AND parse to 0.
+      // Rejects "", "N/A", "Contact", "TBD", etc. — those are not "free",
+      // they are "unknown price" and must go through paid checkout.
       const cleaned = product.price.replace(/[^\d.]/g, "");
-      if (cleaned === "" || parseFloat(cleaned) === 0) return true;
+      if (!/\d/.test(cleaned)) return false;
+      return parseFloat(cleaned) === 0;
     }
+    // null / undefined / object price → unknown, NOT free
     return false;
   });
 }
@@ -23,6 +29,7 @@ function detectFreeOnly(items: { product: { isFree?: boolean; price?: unknown } 
 export default function CartDrawer() {
   const { state, dispatch, cartTotal, cartCount } = useStore();
   const isFreeOnly = detectFreeOnly(state.cart);
+  const [cartLocked, setCartLocked] = useState(false);
 
   return (
     <Sheet
@@ -96,7 +103,8 @@ export default function CartDrawer() {
                               quantity: item.quantity - 1,
                             })
                           }
-                          className="w-7 h-7 rounded-full border border-hack-black/20 flex items-center justify-center hover:bg-hack-black/5 transition-colors"
+                          disabled={cartLocked}
+                          className="w-7 h-7 rounded-full border border-hack-black/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center hover:bg-hack-black/5 transition-colors"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
@@ -111,7 +119,8 @@ export default function CartDrawer() {
                               quantity: item.quantity + 1,
                             })
                           }
-                          className="w-7 h-7 rounded-full border border-hack-black/20 flex items-center justify-center hover:bg-hack-black/5 transition-colors"
+                          disabled={cartLocked}
+                          className="w-7 h-7 rounded-full border border-hack-black/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center hover:bg-hack-black/5 transition-colors"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -122,7 +131,8 @@ export default function CartDrawer() {
                               productId: item.product.id,
                             })
                           }
-                          className="ml-auto p-2 text-hack-black/40 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                          disabled={cartLocked}
+                          className="ml-auto p-2 text-hack-black/40 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
                           aria-label="Remove item"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -150,7 +160,7 @@ export default function CartDrawer() {
 
               {/* T4 — dynamic smart cart routing inside the drawer too */}
               {isFreeOnly ? (
-                <FreeCheckoutButton onAfterCheckout={() => dispatch({ type: "TOGGLE_CART" })} />
+                <FreeCheckoutButton onAfterCheckout={() => dispatch({ type: "TOGGLE_CART" })} onSubmitting={setCartLocked} />
               ) : (
                 <Link
                   to="/checkout"
