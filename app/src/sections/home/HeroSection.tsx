@@ -91,8 +91,8 @@ export default function HeroSection() {
                 <img
                   src="/images/hero/phone-mockup.webp"
                   alt="Hackknow App"
-                  width="200"
-                  height="400"
+                  width="170"
+                  height="340"
                   className="w-[170px] sm:w-[200px] h-auto drop-shadow-2xl animate-float rounded-[1.75rem] border-[3px] border-hack-black"
                   fetchPriority="high"
                   decoding="async"
