@@ -244,16 +244,22 @@ export default function AboutPage() {
                   aria-pressed={voiceState === "playing"}
                   className="group relative block w-full overflow-hidden rounded-2xl border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] hover:shadow-[3px_3px_0_0_#1A1A1A] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all duration-150 cursor-pointer"
                 >
-                  <img
-                    src="/manish-mentor.jpg"
-                    alt="Manish Kumar Singh — comic-style travel collage with the caption One Life, Many Stories, Endless Memories"
-                    className="block w-full h-auto select-none"
-                    width={1024}
-                    height={945}
-                    loading="eager"
-                    decoding="async"
-                    draggable={false}
-                  />
+                  <picture>
+                    {/* Mobile: 640w webp ~120 KB; Desktop: 1024w webp ~239 KB; JPG fallback for ancient browsers */}
+                    <source media="(max-width: 639px)" type="image/webp" srcSet="/manish-mentor-640.webp" />
+                    <source type="image/webp" srcSet="/manish-mentor.webp" />
+                    <img
+                      src="/manish-mentor.jpg"
+                      alt="Manish Kumar Singh — comic-style travel collage with the caption One Life, Many Stories, Endless Memories"
+                      className="block w-full h-auto select-none"
+                      width={1024}
+                      height={945}
+                      loading="eager"
+                      decoding="async"
+                      fetchPriority="high"
+                      draggable={false}
+                    />
+                  </picture>
 
                   {/* Speaker overlay — bottom-right chip */}
                   <span
@@ -431,17 +437,20 @@ export default function AboutPage() {
 
                   {/* Static photo frame — neo-brutal, no audio interaction */}
                   <div className="relative mt-2 rounded-2xl overflow-hidden border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] bg-white">
-                    <img
-                      src="/gourav-balyan.webp"
-                      alt="Gourav Balyan — comic-style portrait, AI Orchestration Lead at HackKnow"
-                      className="block w-full h-auto select-none"
-                      width={896}
-                      height={1192}
-                      loading="eager"
-                      decoding="async"
-                      fetchPriority="high"
-                      draggable={false}
-                    />
+                    <picture>
+                      {/* Mobile: 640w webp ~83 KB; Desktop: 896w webp ~133 KB. Below-fold → lazy. */}
+                      <source media="(max-width: 639px)" type="image/webp" srcSet="/gourav-balyan-640.webp" />
+                      <img
+                        src="/gourav-balyan.webp"
+                        alt="Gourav Balyan — comic-style portrait, AI Orchestration Lead at HackKnow"
+                        className="block w-full h-auto select-none"
+                        width={896}
+                        height={1192}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                      />
+                    </picture>
                   </div>
                 </div>
 
