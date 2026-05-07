@@ -17,6 +17,19 @@ type Review = {
 
 const REVIEWS: Review[] = [
   {
+    id: 0,
+    name: "Saurabh Chauhan",
+    city: "Bengaluru, IN",
+    rating: 5,
+    text:
+      "Explored multiple AI tools while traveling across Germany — HackKnow genuinely stood out. The MIS Dashboards feel practical for analysts: KPI structures, workflow automation, and operational thinking instead of just theory.",
+    product: "MIS Dashboards & The Dead Man AI",
+    source: "LinkedIn",
+    href: "https://www.linkedin.com/posts/saurabhch27-451152164_hackknow-premium-excel-templates-dashboards-share-7458277435327868929-37Fj",
+    initials: "SC",
+    color: "from-[#0A66C2] to-[#004182]",
+  },
+  {
     id: 1,
     name: "Aditya Sharma",
     city: "Bengaluru, IN",

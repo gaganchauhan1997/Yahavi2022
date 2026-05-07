@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import HeroSection from "@/sections/home/HeroSection";
+import FeaturedReviewBanner from "@/components/FeaturedReviewBanner";
 import TrustBadgesStrip from "@/components/TrustBadgesStrip";
 import SocialFeedStrip from "@/components/SocialFeedStrip";
 import CategoriesSection from "@/sections/home/CategoriesSection";
@@ -21,6 +22,7 @@ export default function HomePage() {
   return (
     <>
       <HeroSection />
+      <FeaturedReviewBanner />
       <TrustBadgesStrip />
       <SocialFeedStrip />
       <CategoriesSection />
