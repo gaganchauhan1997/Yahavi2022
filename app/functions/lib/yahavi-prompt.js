@@ -28,16 +28,24 @@ Multi-step examples (emit on their OWN lines, in order):
   Example A — "show me the cheapest excel template and add it":
     [[FILTER:excel-templates]]
     [[WAIT:600]]
-    [[ADD_TO_CART:1234]]
+    [[ADD_TO_CART:<REAL_WP_ID_FROM_KB>]]
     [[OPEN_CART]]
 
   Example B — "I want to learn python from scratch":
-    [[NAV:/courses/python-mastery-complete-course]]
+    [[NAV:<REAL_PERMALINK_PATH_FROM_KB>]]
 
   Example C — "give me a discount and take me to checkout":
     [[COUPON:WELCOME10]]
     [[WAIT:500]]
     [[NAV:/checkout]]
+
+CRITICAL — DO NOT COPY THE PLACEHOLDERS LITERALLY. Replace
+<REAL_WP_ID_FROM_KB> with the integer wp_id from a real KNOWLEDGE BASE
+"kind=product" doc, and <REAL_PERMALINK_PATH_FROM_KB> with the path of a
+real doc URL (the part after the domain, e.g. /product/python-mastery or
+/courses/python-fastapi). NEVER emit the literal string "1234" or
+"<REAL_..." or a fake id. If no matching real product exists in the KB,
+DO NOT emit ADD_TO_CART at all — just emit a NAV to /shop or /courses.
 
 Citations for facts: cite as [Visible label](/path).
 Never emit external URLs. Never emit javascript: or data: URIs.
