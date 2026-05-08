@@ -195,15 +195,33 @@ async function callLLM({ systemPrompt, history, userMessage, modelKey, env }) {
       content: String(m.text || m.message || '').slice(0, 4000),
     });
   }
-  // Belt-and-suspenders: when the user wrote in a non-Latin script (Devanagari,
-  // Tamil, Telugu, Bengali, Gujarati, Arabic), append an explicit translate-then-
-  // reply directive at the user-message level. Smaller models (Llama 8B) sometimes
-  // ignore the system-prompt language rule when the in-context user message is in
-  // another script — this in-message reminder fixes that without hurting English UX.
-  const userIsNonLatin = /[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0600-\u06FF]/.test(userMessage);
-  const finalUserMessage = userIsNonLatin
-    ? `${userMessage}\n\n[SYSTEM REMINDER: The user wrote the above in a non-English script. Understand their intent, then reply in clear English (Latin alphabet) only. Do NOT echo any non-Latin characters.]`
-    : userMessage;
+  // Per-turn language directive — detect the user's script and instruct the
+  // model loudly to MIRROR it. Without this, Llama 70B has a strong English
+  // bias and switches the user away from Devanagari/Tamil/etc. mid-thread.
+  const SCRIPT_RANGES = [
+    { name: 'Devanagari Hindi', label: 'Devanagari Hindi (हिन्दी, script: Devanagari)', re: /[\u0900-\u097F]/ },
+    { name: 'Bengali',          label: 'Bengali (বাংলা)',                                 re: /[\u0980-\u09FF]/ },
+    { name: 'Gurmukhi Punjabi', label: 'Punjabi (ਪੰਜਾਬੀ, script: Gurmukhi)',              re: /[\u0A00-\u0A7F]/ },
+    { name: 'Gujarati',         label: 'Gujarati (ગુજરાતી)',                              re: /[\u0A80-\u0AFF]/ },
+    { name: 'Oriya',            label: 'Oriya (ଓଡ଼ିଆ)',                                   re: /[\u0B00-\u0B7F]/ },
+    { name: 'Tamil',            label: 'Tamil (தமிழ்)',                                   re: /[\u0B80-\u0BFF]/ },
+    { name: 'Telugu',           label: 'Telugu (తెలుగు)',                                 re: /[\u0C00-\u0C7F]/ },
+    { name: 'Kannada',          label: 'Kannada (ಕನ್ನಡ)',                                 re: /[\u0C80-\u0CFF]/ },
+    { name: 'Malayalam',        label: 'Malayalam (മലയാളം)',                              re: /[\u0D00-\u0D7F]/ },
+    { name: 'Urdu',             label: 'Urdu (اُردُو, script: Arabic)',                  re: /[\u0600-\u06FF]/ },
+  ];
+  const matchedScript = SCRIPT_RANGES.find(s => s.re.test(userMessage));
+  // Hinglish detector: Latin script with common Hindi tokens.
+  const HINGLISH_TOKENS = /\b(bhai|aap|aapko|aapke|mujhe|mera|tumhara|tum|tumhe|kaise|chahiye|sasta|sabse|kar|karo|karna|karte|hai|hain|hoga|nahi|kya|kyu|kyun|kyon|abhi|theek|thik|matlab|samjha|samjhi|jaldi|wala|waali|daalo|daal|kholo|raha|rahi|hum|humein|humare|toh|paas|liye|kuch|bilkul|sakte|sakta|sakti|maine|kahan|yahan|wahan|mein|me|jee)\b/i;
+  let langInstruction;
+  if (matchedScript) {
+    langInstruction = `[LANGUAGE DIRECTIVE — MUST FOLLOW EXACTLY: The user wrote the message above in ${matchedScript.label}. Your ENTIRE reply MUST be written in ${matchedScript.name}, using the same script the user used. Do NOT switch to English. Keep ONLY brand/technical terms (Excel, PowerPoint, Python, WordPress, FastAPI, checkout, cart) and action markers ([[NAV:...]], [[ADD_TO_CART:...]], etc.) in English Latin. Everything else — greetings, sentences, explanations, your reply to "who created you" — MUST be in ${matchedScript.name}.]`;
+  } else if (HINGLISH_TOKENS.test(userMessage)) {
+    langInstruction = `[LANGUAGE DIRECTIVE — MUST FOLLOW EXACTLY: The user wrote in casual Hinglish (Latin script with Hindi words). Your ENTIRE reply MUST be in Hinglish — Latin script, friendly Hindi-English mix, "aap" / "bhai" tone. Keep ONLY brand/technical terms (Excel, PowerPoint, Python, WordPress, FastAPI, checkout, cart) and action markers in pure English. Do NOT reply in pure English.]`;
+  } else {
+    langInstruction = `[LANGUAGE DIRECTIVE: The user wrote in English. Reply in clear English.]`;
+  }
+  const finalUserMessage = `${userMessage}\n\n${langInstruction}`;
   messages.push({ role: 'user', content: finalUserMessage });
 
   // ---- PATH 1: Cloudflare Workers AI (preferred — free, no Google) ----
@@ -239,7 +257,7 @@ async function callLLM({ systemPrompt, history, userMessage, modelKey, env }) {
         parts: [{ text: String(m.text || m.message || '').slice(0, 4000) }],
       });
     }
-    contents.push({ role: 'user', parts: [{ text: userMessage }] });
+    contents.push({ role: 'user', parts: [{ text: finalUserMessage }] });
     const body = {
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents,
