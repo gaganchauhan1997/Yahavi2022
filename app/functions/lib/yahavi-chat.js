@@ -287,6 +287,23 @@ function pathFromPermalink(url) {
   try { return new URL(url).pathname; } catch { return null; }
 }
 
+// Strip any [[ADD_TO_CART:<id>]] whose id is not one of the real wp_ids in
+// the grounding docs we just supplied to the model. This is a hard guard
+// against Llama parroting placeholder ids from the prompt example
+// (e.g. "1234") or hallucinating fake ones.
+function sanitiseActionMarkers(text, groundingDocs) {
+  const validIds = new Set(
+    (groundingDocs || [])
+      .filter(d => d && d.kind === 'product' && d.wp_id)
+      .map(d => String(d.wp_id))
+  );
+  return String(text || '').replace(/\[\[\s*ADD_TO_CART\s*:\s*([^\]]+?)\s*\]\]/gi, (full, idArg) => {
+    const id = String(idArg).trim();
+    if (validIds.has(id)) return full; // keep as-is
+    return ''; // drop fake/unknown id
+  });
+}
+
 // ---------- Public handler ----------
 
 export async function handleYahaviChat(request, env) {
@@ -316,8 +333,9 @@ export async function handleYahaviChat(request, env) {
       systemPrompt, history, userMessage: message, modelKey, env,
     });
 
+    const safeText = sanitiseActionMarkers(text, groundingDocs);
     return jsonResponse(200, {
-      reply: text,
+      reply: safeText,
       suggestions: buildSuggestions(groundingDocs),
       products: buildProducts(groundingDocs),
       grounding: groundingDocs.map(d => ({ id: d.id, title: d.title })),
