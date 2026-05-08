@@ -16,7 +16,12 @@ function pickModel(message, history) {
   const wc    = (message || '').trim().split(/\s+/).length;
   const turns = (history || []).length;
   const reasoning = /\b(compare|difference|vs\.?|versus|why|recommend|which is better|which one|tradeoff|pros and cons|kaunsa behtar)\b/i.test(message || '');
-  // For Workers AI: 70B for genuine reasoning, 8B otherwise (faster + cheaper).
+  // Llama 3.1 8B is weak at instruction-following for non-Latin scripts (it tends
+  // to mirror the user's Devanagari/Tamil/etc. despite the English-only persona).
+  // Promote to Llama 3.3 70B for any non-Latin script — stronger instruction
+  // adherence, well within the Workers AI free tier for our traffic.
+  const hasNonLatin = /[^\u0000-\u024F\s]/.test(message || '');
+  if (hasNonLatin) return 'cf:llama-70b';
   if ((reasoning && wc >= 25) || wc >= 80 || turns >= 16) return 'cf:llama-70b';
   return 'cf:llama-8b';
 }
@@ -193,7 +198,16 @@ async function callLLM({ systemPrompt, history, userMessage, modelKey, env }) {
       content: String(m.text || m.message || '').slice(0, 4000),
     });
   }
-  messages.push({ role: 'user', content: userMessage });
+  // Belt-and-suspenders: when the user wrote in a non-Latin script (Devanagari,
+  // Tamil, Telugu, Bengali, Gujarati, Arabic), append an explicit translate-then-
+  // reply directive at the user-message level. Smaller models (Llama 8B) sometimes
+  // ignore the system-prompt language rule when the in-context user message is in
+  // another script — this in-message reminder fixes that without hurting English UX.
+  const userIsNonLatin = /[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0600-\u06FF]/.test(userMessage);
+  const finalUserMessage = userIsNonLatin
+    ? `${userMessage}\n\n[SYSTEM REMINDER: The user wrote the above in a non-English script. Understand their intent, then reply in clear English (Latin alphabet) only. Do NOT echo any non-Latin characters.]`
+    : userMessage;
+  messages.push({ role: 'user', content: finalUserMessage });
 
   // ---- PATH 1: Cloudflare Workers AI (preferred — free, no Google) ----
   if (env.AI && modelKey.startsWith('cf:')) {
