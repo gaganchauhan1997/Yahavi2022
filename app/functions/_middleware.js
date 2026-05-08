@@ -1,58 +1,57 @@
-// Cloudflare Pages middleware — reverse-proxy WordPress backend paths.
-// Replaces the role GCE nginx played: same-origin proxy from the SPA at
-// hackknow.com to WP REST/GraphQL on shop.hackknow.com.
+// Cloudflare Pages middleware — reverse-proxy WordPress backend paths,
+// AND intercept POST /wp-json/hackknow/v1/chat to serve Yahavi AI v2 from the
+// edge (Vertex AI Search RAG + Gemini 2.5). When GCP_SA_JSON secret is unset
+// or the AI call fails, transparently falls back to the WP chat endpoint.
 //
 // Why a Function (not _redirects)? CF Pages _redirects with status 200 rewrites
 // silently drop POST/PUT/DELETE — they only work for GET. The login form does
 // POST /wp-json/hackknow/v1/auth/login → 405 without this proxy.
 
-const WP_HOST = "https://shop.hackknow.com";
+import { handleYahaviChat } from './lib/yahavi-chat.js';
 
-// Paths that must be proxied to WordPress (everything else falls through to SPA).
+const WP_HOST   = "https://shop.hackknow.com";
+const CHAT_PATH = "/wp-json/hackknow/v1/chat";
+
 const PROXY_PREFIXES = [
-  "/wp-json/",
-  "/wp-admin",      // covers /wp-admin and /wp-admin/*
-  "/wp-content/",
-  "/wp-includes/",
-  "/wp-login.php",
-  "/graphql",       // covers /graphql and /graphql/*
-  "/xmlrpc.php",
+  "/wp-json/", "/wp-admin", "/wp-content/", "/wp-includes/",
+  "/wp-login.php", "/graphql", "/xmlrpc.php",
 ];
 
 function shouldProxy(pathname) {
   for (const p of PROXY_PREFIXES) {
-    if (pathname === p) return true;
-    if (pathname.startsWith(p)) return true;
-    // trailing-slash-tolerant match
+    if (pathname === p || pathname.startsWith(p)) return true;
     if (p.endsWith("/") && pathname === p.slice(0, -1)) return true;
   }
   return false;
 }
 
 export const onRequest = async (context) => {
-  const { request, next } = context;
+  const { request, next, env } = context;
   const url = new URL(request.url);
 
-  if (!shouldProxy(url.pathname)) {
-    // Not a WordPress path — let CF Pages serve the static SPA (or _redirects rules).
-    return next();
+  // ---- Yahavi v2 intercept: POST chat → run RAG+Gemini at the edge ----
+  if (request.method === "POST" && url.pathname === CHAT_PATH) {
+    try {
+      // Clone the body once so we can fall back to WP if the AI path errors.
+      const cloned = request.clone();
+      return await handleYahaviChat(cloned, env);
+    } catch (err) {
+      // not_configured (no GCP_SA_JSON) or AI_FAILED → proxy to WP unchanged.
+      console.warn("yahavi_v2_fallback_to_wp:", err && err.code, err && err.message);
+      // Fall through to the standard WP proxy below.
+    }
   }
 
-  // Build the upstream URL — preserve path + query verbatim.
-  const upstream = new URL(url.pathname + url.search, WP_HOST);
+  if (!shouldProxy(url.pathname)) return next();
 
-  // Clone request with new URL. The Headers from the original request are
-  // preserved (Authorization, Content-Type, Cookie, etc).
+  const upstream = new URL(url.pathname + url.search, WP_HOST);
   const proxyReq = new Request(upstream.toString(), {
     method: request.method,
     headers: request.headers,
     body: request.body,
     redirect: "manual",
   });
-
-  // Override Host so WordPress / LiteSpeed receive the right vhost.
   proxyReq.headers.set("host", "shop.hackknow.com");
-  // Pass real client IP (CF already sets cf-connecting-ip; mirror for WP plugins).
   const clientIp = request.headers.get("cf-connecting-ip");
   if (clientIp) proxyReq.headers.set("x-forwarded-for", clientIp);
   proxyReq.headers.set("x-forwarded-host", url.hostname);
@@ -68,22 +67,17 @@ export const onRequest = async (context) => {
     );
   }
 
-  // Pass response through. Mutate headers to keep cookies usable on hackknow.com.
   const respHeaders = new Headers(upstreamResp.headers);
-  // Strip any Set-Cookie Domain= attribute targeting shop.hackknow.com so the
-  // cookie is set on hackknow.com (current visited host) instead.
   const setCookies = upstreamResp.headers.getAll
     ? upstreamResp.headers.getAll("set-cookie")
     : (upstreamResp.headers.get("set-cookie") ? [upstreamResp.headers.get("set-cookie")] : []);
   if (setCookies && setCookies.length) {
     respHeaders.delete("set-cookie");
     for (const c of setCookies) {
-      // Drop "Domain=shop.hackknow.com" so it falls back to current host.
       const cleaned = c.replace(/;\s*Domain=[^;]+/i, "");
       respHeaders.append("set-cookie", cleaned);
     }
   }
-
   return new Response(upstreamResp.body, {
     status: upstreamResp.status,
     statusText: upstreamResp.statusText,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, Fragment } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Bot, Send, X, Sparkles, ShoppingBag, Tag, ThumbsUp, ThumbsDown } from "lucide-react";
-import { WP_REST_BASE } from "@/lib/api-base";
+import { API_BASE, WP_REST_BASE } from "@/lib/api-base";
 import { getAuthToken } from "@/lib/auth";
 
 type Suggestion = { label: string; href: string };
@@ -93,21 +93,46 @@ function getSessionId(): string {
  * Markers are parsed defensively — if Yahavi forgets the closing brackets or
  * uses a non-relative path, we just ignore them and show the raw text.
  */
-function parseChatActions(raw: string): { cleanText: string; navTarget: string | null } {
-  if (!raw) return { cleanText: raw, navTarget: null };
+type ChatActions = {
+  cleanText: string;
+  navTarget: string | null;
+  addToCartIds: number[];
+  openCart: boolean;
+  couponCode: string | null;
+  filterSlug: string | null;
+};
+
+function parseChatActions(raw: string): ChatActions {
+  if (!raw) {
+    return { cleanText: raw, navTarget: null, addToCartIds: [],
+             openCart: false, couponCode: null, filterSlug: null };
+  }
   const navTargets: string[] = [];
+  const addToCartIds: number[] = [];
+  let openCart = false;
+  let couponCode: string | null = null;
+  let filterSlug: string | null = null;
+
   const cleanText = raw
-    .replace(/\[\[\s*NAV\s*:\s*(\/[^\]\s]*)\s*\]\]/gi, (_full, path: string) => {
-      navTargets.push(path);
+    .replace(/\[\[\s*NAV\s*:\s*(\/[^\]\s]*)\s*\]\]/gi, (_f, p: string) => { navTargets.push(p); return ""; })
+    .replace(/\[\[\s*ADD_TO_CART\s*:\s*(\d{1,9})\s*\]\]/gi, (_f, id: string) => {
+      const n = Number(id); if (n > 0 && n < 1e9) addToCartIds.push(n); return "";
+    })
+    .replace(/\[\[\s*OPEN_CART\s*\]\]/gi, () => { openCart = true; return ""; })
+    .replace(/\[\[\s*COUPON\s*:\s*([A-Z0-9_-]{2,32})\s*\]\]/gi, (_f, c: string) => {
+      // Only accept first coupon Yahavi emits — defence against runaway codes.
+      if (!couponCode) couponCode = c.toUpperCase();
       return "";
+    })
+    .replace(/\[\[\s*FILTER\s*:\s*([a-z0-9-]{1,64})\s*\]\]/gi, (_f, s: string) => {
+      if (!filterSlug) filterSlug = s; return "";
     })
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  // If Yahavi emitted multiple nav markers in one reply (rare), honour the LAST one
-  // because that's almost always her final call-to-action.
+  // If Yahavi emitted multiple NAV markers (rare), honour the LAST one — usually the final CTA.
   const navTarget = navTargets.length > 0 ? navTargets[navTargets.length - 1] : null;
-  return { cleanText, navTarget };
+  return { cleanText, navTarget, addToCartIds, openCart, couponCode, filterSlug };
 }
 
 export default function YahaviChat() {
@@ -217,8 +242,8 @@ export default function YahaviChat() {
         data = await callChat(q, true);
       }
       const rawReply = data.reply || data.text || "I'm here — could you rephrase that? My link to the knowledge base hiccupped for a second.";
-      // Strip and execute any [[NAV:/path]] markers Yahavi embedded.
-      const { cleanText, navTarget } = parseChatActions(rawReply);
+      // Strip and execute any embedded action markers Yahavi emitted.
+      const { cleanText, navTarget, addToCartIds, openCart, couponCode, filterSlug } = parseChatActions(rawReply);
       const botMsg: ChatMsg = {
         id: typeof data.bot_message_id === "number" ? data.bot_message_id : undefined,
         role: "bot",
@@ -246,11 +271,45 @@ export default function YahaviChat() {
 
       setMessages((m) => [...m, botMsg]);
 
-      // Honour any [[NAV:/path]] action Yahavi embedded — close the chat panel
-      // and route the user there after a short delay so they can read her
-      // message first. Only relative in-app paths are accepted (parser already
-      // enforces this) so there's no risk of an open redirect.
-      if (navTarget) {
+      // ── Action markers — fire side effects (cart, coupon, filter, nav) ──
+      // ADD_TO_CART: WC Store API (cart-token cookie carries the cart context).
+      if (addToCartIds.length > 0) {
+        addToCartIds.slice(0, 3).forEach((pid) => {
+          fetch(`${API_BASE}/wp-json/wc/store/v1/cart/add-item`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ id: pid, quantity: 1 }),
+          }).then(() => {
+            // Tell the rest of the app to re-fetch cart count.
+            window.dispatchEvent(new CustomEvent("hackknow:cart-changed", { detail: { reason: "yahavi_add", id: pid } }));
+          }).catch(() => { /* swallow — best-effort, user can retry */ });
+        });
+      }
+      // COUPON: apply via WC Store API. Defence-in-depth: parser already validates [A-Z0-9_-]{2,32}.
+      if (couponCode) {
+        fetch(`${API_BASE}/wp-json/wc/store/v1/cart/apply-coupon`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ code: couponCode }),
+        }).then(() => {
+          window.dispatchEvent(new CustomEvent("hackknow:cart-changed", { detail: { reason: "yahavi_coupon", code: couponCode } }));
+        }).catch(() => { /* swallow */ });
+      }
+      // OPEN_CART: dispatch a custom event the cart drawer listens for.
+      if (openCart) {
+        window.dispatchEvent(new CustomEvent("hackknow:open-cart", { detail: { source: "yahavi" } }));
+      }
+      // FILTER: nav to /shop with category filter — overrides navTarget for this turn.
+      if (filterSlug) {
+        setTimeout(() => {
+          setOpen(false);
+          navigate(`/shop/${encodeURIComponent(filterSlug)}`);
+        }, 800);
+      }
+      // NAV: only honour if no FILTER won — the filter IS a nav.
+      if (navTarget && !filterSlug) {
         setTimeout(() => {
           setOpen(false);
           navigate(navTarget);
