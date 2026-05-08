@@ -86,60 +86,143 @@ function getSessionId(): string {
 }
 
 /**
- * Yahavi can embed automation markers in her replies that the chat client
- * will execute, then strip from the visible text. Currently supported:
- *   [[NAV:/checkout]]              → after the message renders, navigate the
- *                                    user to the given path (any in-app route).
- * Markers are parsed defensively — if Yahavi forgets the closing brackets or
- * uses a non-relative path, we just ignore them and show the raw text.
+ * Yahavi can embed automation markers in her replies. We now parse ALL
+ * markers in source order into a single sequential queue, so she can chain
+ * a multi-step user journey in one reply (e.g. FILTER → WAIT → ADD_TO_CART
+ * → OPEN_CART). The runner executes them with a small default gap so the
+ * user can perceive each step.
+ *
+ * Supported markers:
+ *   [[NAV:/path]]              in-app navigation (allowlist enforced)
+ *   [[ADD_TO_CART:product_id]] WC Store API cart add
+ *   [[OPEN_CART]]              open cart drawer (custom event)
+ *   [[COUPON:CODE]]            WC Store API coupon apply
+ *   [[FILTER:category-slug]]   navigate to /shop/<slug>
+ *   [[WAIT:ms]]                explicit pause (200–2500 ms)
  */
-type ChatActions = {
-  cleanText: string;
-  navTarget: string | null;
-  addToCartIds: number[];
-  openCart: boolean;
-  couponCode: string | null;
-  filterSlug: string | null;
-};
+type ChatAction =
+  | { kind: "nav"; path: string }
+  | { kind: "add_to_cart"; id: number }
+  | { kind: "open_cart" }
+  | { kind: "coupon"; code: string }
+  | { kind: "filter"; slug: string }
+  | { kind: "wait"; ms: number };
+
+type ChatActions = { cleanText: string; queue: ChatAction[] };
+
+const NAV_ALLOWED = /^\/(?:shop(?:\/|$)|product(?:\/|$)|courses?(?:\/|$)|roadmaps?(?:\/|$)|blog(?:\/|$)|about|community|support|contact|faq|affiliate|cart|checkout|account\/orders|refund-policy|terms|privacy|login|signup|$)/;
+// Single regex matches every supported marker so we can preserve source order.
+const MARKER_RE = /\[\[\s*(NAV|ADD_TO_CART|OPEN_CART|COUPON|FILTER|WAIT)\s*(?::\s*([^\]]*?))?\s*\]\]/gi;
 
 function parseChatActions(raw: string): ChatActions {
-  if (!raw) {
-    return { cleanText: raw, navTarget: null, addToCartIds: [],
-             openCart: false, couponCode: null, filterSlug: null };
-  }
-  const navTargets: string[] = [];
-  const addToCartIds: number[] = [];
-  let openCart = false;
-  let couponCode: string | null = null;
-  let filterSlug: string | null = null;
+  if (!raw) return { cleanText: raw, queue: [] };
 
-  // Defence-in-depth NAV allowlist — even if Yahavi is prompt-injected, she can
-  // only navigate to user-facing storefront paths. Blocks /wp-admin, /wp-login,
-  // /wp-content, /account/settings, /account/billing, etc.
-  const NAV_ALLOWED = /^\/(?:shop(?:\/|$)|product(?:\/|$)|courses?(?:\/|$)|roadmaps?(?:\/|$)|blog(?:\/|$)|about|community|support|contact|faq|affiliate|cart|checkout|account\/orders|refund-policy|terms|privacy|login|signup|$)/;
+  const queue: ChatAction[] = [];
+  let couponSeen = false;
   const cleanText = raw
-    .replace(/\[\[\s*NAV\s*:\s*(\/[^\]\s]*)\s*\]\]/gi, (_f, p: string) => {
-      if (NAV_ALLOWED.test(p)) navTargets.push(p);
+    .replace(MARKER_RE, (_f, kindRaw: string, argRaw: string | undefined) => {
+      const kind = String(kindRaw || "").toUpperCase();
+      const arg = String(argRaw || "").trim();
+      switch (kind) {
+        case "NAV": {
+          if (NAV_ALLOWED.test(arg)) queue.push({ kind: "nav", path: arg });
+          break;
+        }
+        case "ADD_TO_CART": {
+          const n = Number(arg);
+          if (Number.isFinite(n) && n > 0 && n < 1e9 && /^\d{1,9}$/.test(arg)) {
+            // Cap total adds per reply to 5 — defence-in-depth.
+            const adds = queue.filter((q) => q.kind === "add_to_cart").length;
+            if (adds < 5) queue.push({ kind: "add_to_cart", id: n });
+          }
+          break;
+        }
+        case "OPEN_CART": queue.push({ kind: "open_cart" }); break;
+        case "COUPON": {
+          if (couponSeen) break; // one coupon per reply max
+          if (/^[A-Z0-9_-]{2,32}$/i.test(arg)) {
+            queue.push({ kind: "coupon", code: arg.toUpperCase() });
+            couponSeen = true;
+          }
+          break;
+        }
+        case "FILTER": {
+          if (/^[a-z0-9-]{1,64}$/i.test(arg)) queue.push({ kind: "filter", slug: arg.toLowerCase() });
+          break;
+        }
+        case "WAIT": {
+          const ms = Math.max(200, Math.min(2500, Number(arg) || 0));
+          if (ms >= 200) queue.push({ kind: "wait", ms });
+          break;
+        }
+      }
       return "";
-    })
-    .replace(/\[\[\s*ADD_TO_CART\s*:\s*(\d{1,9})\s*\]\]/gi, (_f, id: string) => {
-      const n = Number(id); if (n > 0 && n < 1e9) addToCartIds.push(n); return "";
-    })
-    .replace(/\[\[\s*OPEN_CART\s*\]\]/gi, () => { openCart = true; return ""; })
-    .replace(/\[\[\s*COUPON\s*:\s*([A-Z0-9_-]{2,32})\s*\]\]/gi, (_f, c: string) => {
-      // Only accept first coupon Yahavi emits — defence against runaway codes.
-      if (!couponCode) couponCode = c.toUpperCase();
-      return "";
-    })
-    .replace(/\[\[\s*FILTER\s*:\s*([a-z0-9-]{1,64})\s*\]\]/gi, (_f, s: string) => {
-      if (!filterSlug) filterSlug = s; return "";
     })
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  // If Yahavi emitted multiple NAV markers (rare), honour the LAST one — usually the final CTA.
-  const navTarget = navTargets.length > 0 ? navTargets[navTargets.length - 1] : null;
-  return { cleanText, navTarget, addToCartIds, openCart, couponCode, filterSlug };
+
+  return { cleanText, queue };
+}
+
+// Sequential action runner. Default 700ms gap between non-WAIT actions so the
+// user can perceive each step (cart adds, drawer opening, page transitions).
+async function runActionQueue(
+  queue: ChatAction[],
+  ctx: { navigate: (p: string) => void; setOpen: (v: boolean) => void; apiBase: string }
+): Promise<void> {
+  if (!queue.length) return;
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+  let drawerClosed = false;
+  let navHappened = false;
+
+  for (let i = 0; i < queue.length; i++) {
+    const a = queue[i];
+    const prev = i > 0 ? queue[i - 1] : null;
+    // Insert default 700ms gap between actions (skip after explicit WAIT).
+    if (i > 0 && (!prev || prev.kind !== "wait")) await sleep(700);
+
+    try {
+      if (a.kind === "wait") { await sleep(a.ms); continue; }
+
+      if (a.kind === "add_to_cart") {
+        await fetch(`${ctx.apiBase}/wp-json/wc/store/v1/cart/add-item`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ id: a.id, quantity: 1 }),
+        }).catch(() => { /* swallow — user can retry */ });
+        window.dispatchEvent(new CustomEvent("hackknow:cart-changed", { detail: { reason: "yahavi_add", id: a.id } }));
+        continue;
+      }
+
+      if (a.kind === "coupon") {
+        await fetch(`${ctx.apiBase}/wp-json/wc/store/v1/cart/apply-coupon`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ code: a.code }),
+        }).catch(() => { /* swallow */ });
+        window.dispatchEvent(new CustomEvent("hackknow:cart-changed", { detail: { reason: "yahavi_coupon", code: a.code } }));
+        continue;
+      }
+
+      if (a.kind === "open_cart") {
+        window.dispatchEvent(new CustomEvent("hackknow:open-cart", { detail: { source: "yahavi" } }));
+        continue;
+      }
+
+      if (a.kind === "filter" || a.kind === "nav") {
+        if (!drawerClosed) { ctx.setOpen(false); drawerClosed = true; }
+        const target = a.kind === "filter" ? `/shop/${encodeURIComponent(a.slug)}` : a.path;
+        ctx.navigate(target);
+        navHappened = true;
+        continue;
+      }
+    } catch { /* swallow individual step errors so the queue keeps going */ }
+  }
+  // Suppress unused-var lint if no nav happened — kept for future extension.
+  void navHappened;
 }
 
 export default function YahaviChat() {
@@ -259,7 +342,7 @@ export default function YahaviChat() {
       }
       const rawReply = data.reply || data.text || "I'm here — could you rephrase that? My link to the knowledge base hiccupped for a second.";
       // Strip and execute any embedded action markers Yahavi emitted.
-      const { cleanText, navTarget, addToCartIds, openCart, couponCode, filterSlug } = parseChatActions(rawReply);
+      const { cleanText, queue } = parseChatActions(rawReply);
       const botMsg: ChatMsg = {
         id: typeof data.bot_message_id === "number" ? data.bot_message_id : undefined,
         role: "bot",
@@ -308,49 +391,16 @@ export default function YahaviChat() {
         }).catch(() => { /* swallow — best-effort */ });
       }
 
-      // ── Action markers — fire side effects (cart, coupon, filter, nav) ──
-      // ADD_TO_CART: WC Store API (cart-token cookie carries the cart context).
-      if (addToCartIds.length > 0) {
-        addToCartIds.slice(0, 3).forEach((pid) => {
-          fetch(`${API_BASE}/wp-json/wc/store/v1/cart/add-item`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ id: pid, quantity: 1 }),
-          }).then(() => {
-            // Tell the rest of the app to re-fetch cart count.
-            window.dispatchEvent(new CustomEvent("hackknow:cart-changed", { detail: { reason: "yahavi_add", id: pid } }));
-          }).catch(() => { /* swallow — best-effort, user can retry */ });
-        });
-      }
-      // COUPON: apply via WC Store API. Defence-in-depth: parser already validates [A-Z0-9_-]{2,32}.
-      if (couponCode) {
-        fetch(`${API_BASE}/wp-json/wc/store/v1/cart/apply-coupon`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ code: couponCode }),
-        }).then(() => {
-          window.dispatchEvent(new CustomEvent("hackknow:cart-changed", { detail: { reason: "yahavi_coupon", code: couponCode } }));
-        }).catch(() => { /* swallow */ });
-      }
-      // OPEN_CART: dispatch a custom event the cart drawer listens for.
-      if (openCart) {
-        window.dispatchEvent(new CustomEvent("hackknow:open-cart", { detail: { source: "yahavi" } }));
-      }
-      // FILTER: nav to /shop with category filter — overrides navTarget for this turn.
-      if (filterSlug) {
+      // ── Action queue — execute every emitted marker in source order ──
+      // Yahavi can chain multiple markers (e.g. FILTER → WAIT → ADD_TO_CART
+      // → OPEN_CART) in a single reply; we run them sequentially with a brief
+      // gap so the user perceives each step of the journey.
+      if (queue.length > 0) {
+        // Initial 600ms so the user sees the bot reply before the page jumps.
         setTimeout(() => {
-          setOpen(false);
-          navigate(`/shop/${encodeURIComponent(filterSlug)}`);
-        }, 800);
-      }
-      // NAV: only honour if no FILTER won — the filter IS a nav.
-      if (navTarget && !filterSlug) {
-        setTimeout(() => {
-          setOpen(false);
-          navigate(navTarget);
-        }, 1200);
+          runActionQueue(queue, { navigate, setOpen, apiBase: API_BASE })
+            .catch(() => { /* swallow — best-effort */ });
+        }, 600);
       }
     } catch {
       setMessages((m) => [...m, {

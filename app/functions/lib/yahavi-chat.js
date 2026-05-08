@@ -12,18 +12,15 @@ import { buildSystemPrompt } from './yahavi-prompt.js';
 const WP_HOST = 'https://shop.hackknow.com';
 
 // ---------- Smart routing (model selection) ----------
-function pickModel(message, history) {
-  const wc    = (message || '').trim().split(/\s+/).length;
-  const turns = (history || []).length;
-  const reasoning = /\b(compare|difference|vs\.?|versus|why|recommend|which is better|which one|tradeoff|pros and cons|kaunsa behtar)\b/i.test(message || '');
-  // Llama 3.1 8B is weak at instruction-following for non-Latin scripts (it tends
-  // to mirror the user's Devanagari/Tamil/etc. despite the English-only persona).
-  // Promote to Llama 3.3 70B for any non-Latin script — stronger instruction
-  // adherence, well within the Workers AI free tier for our traffic.
-  const hasNonLatin = /[^\u0000-\u024F\s]/.test(message || '');
-  if (hasNonLatin) return 'cf:llama-70b';
-  if ((reasoning && wc >= 25) || wc >= 80 || turns >= 16) return 'cf:llama-70b';
-  return 'cf:llama-8b';
+function pickModel(_message, _history) {
+  // Always use Llama 3.3 70B fp8-fast as the primary brain. The 70B model is
+  // dramatically better at instruction-following — critical now that Yahavi
+  // can chain multiple action markers (NAV + ADD_TO_CART + OPEN_CART + FILTER)
+  // in a single reply and execute them as a sequenced user journey. The 8B
+  // model frequently dropped or reordered markers; the 70B does not.
+  // Free tier (10k neurons/day) handles HackKnow current traffic comfortably.
+  // The 8B model is retained as an in-callLLM retry path if 70B errors.
+  return 'cf:llama-70b';
 }
 
 const MODEL_MAP = {
@@ -211,19 +208,23 @@ async function callLLM({ systemPrompt, history, userMessage, modelKey, env }) {
 
   // ---- PATH 1: Cloudflare Workers AI (preferred — free, no Google) ----
   if (env.AI && modelKey.startsWith('cf:')) {
-    const cfModel = MODEL_MAP[modelKey];
-    try {
-      const r = await env.AI.run(cfModel, {
-        messages,
-        max_tokens: 1024,
-        temperature: 0.7,
-      });
+    const tryModel = async (key) => {
+      const cfModel = MODEL_MAP[key];
+      const r = await env.AI.run(cfModel, { messages, max_tokens: 1024, temperature: 0.7 });
       const text = (r && (r.response || r.result?.response || r.output_text)) || '';
       return { text: String(text).trim(), usage: { promptTokenCount: 0, candidatesTokenCount: 0 } };
+    };
+    try {
+      return await tryModel(modelKey);
     } catch (err) {
-      // Fall through to Gemini if Workers AI fails AND Gemini key present
+      // 70B can hit transient capacity errors on free tier; retry on 8B once.
+      console.warn('workers_ai_primary_failed:', err && err.message);
+      if (modelKey !== 'cf:llama-8b') {
+        try { return await tryModel('cf:llama-8b'); }
+        catch (err2) { console.warn('workers_ai_secondary_failed:', err2 && err2.message); }
+      }
+      // Final fallback: Gemini (if configured).
       if (!env.GEMINI_API_KEY) throw new Error(`workers_ai_failed:${err.message || err}`);
-      console.warn('workers_ai_failed_falling_to_gemini:', err.message);
     }
   }
 

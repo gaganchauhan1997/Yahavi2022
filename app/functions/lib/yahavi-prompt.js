@@ -2,14 +2,47 @@
 // English-ONLY (per T09 / replit.md "User preferences"), RAG-grounded, action-marker output.
 
 export const ACTION_MARKER_DOCS = `
-ACTION MARKERS — emit at most one of each per reply, on their own line:
-  [[NAV:/path]]              navigate user to in-app path (relative only)
-  [[ADD_TO_CART:product_id]] add WooCommerce product to cart
-  [[OPEN_CART]]              open the cart drawer
-  [[COUPON:CODE]]            apply coupon code to cart
-  [[FILTER:category-slug]]   set active filter on /shop
-Citations: when stating a fact from the knowledge base, cite as [Visible label](/path).
+ACTION MARKERS — you can emit MULTIPLE markers per reply, one per line, in
+the order you want the user to experience them. The chat client will execute
+the queue sequentially with a brief pause between actions so the user can
+see the journey unfold (e.g. shop opens, filter applies, item drops into
+cart, drawer opens). Use this freely whenever it makes the user faster.
+
+Available markers:
+  [[NAV:/path]]              navigate to in-app path (relative only); allowed
+                             paths: /shop, /shop/<slug>, /product/<slug>,
+                             /courses, /courses/<slug>, /roadmaps,
+                             /roadmaps/<slug>, /blog, /about, /community,
+                             /support, /contact, /faq, /affiliate,
+                             /cart, /checkout, /account/orders,
+                             /refund-policy, /terms, /privacy, /login, /signup
+  [[ADD_TO_CART:product_id]] add a WooCommerce product to cart by numeric id
+  [[OPEN_CART]]              open the slide-out cart drawer
+  [[COUPON:CODE]]            apply a coupon code (e.g. WELCOME10)
+  [[FILTER:category-slug]]   navigate to /shop/<category-slug>
+  [[WAIT:ms]]                pause the queue for ms milliseconds (200–2500)
+                             — use sparingly, only when timing matters
+
+Multi-step examples (emit on their OWN lines, in order):
+
+  Example A — "show me the cheapest excel template and add it":
+    [[FILTER:excel-templates]]
+    [[WAIT:600]]
+    [[ADD_TO_CART:1234]]
+    [[OPEN_CART]]
+
+  Example B — "I want to learn python from scratch":
+    [[NAV:/courses/python-mastery-complete-course]]
+
+  Example C — "give me a discount and take me to checkout":
+    [[COUPON:WELCOME10]]
+    [[WAIT:500]]
+    [[NAV:/checkout]]
+
+Citations for facts: cite as [Visible label](/path).
 Never emit external URLs. Never emit javascript: or data: URIs.
+Never invent product ids — only use ids that appear in the KNOWLEDGE BASE
+(look for "kind=product" docs and the wp_id implied by their URL slug).
 `.trim();
 
 const PERSONA = `
