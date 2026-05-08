@@ -237,7 +237,16 @@ export default function YahaviChat() {
             session_id: sid,
           }),
         });
-        return r.json().catch(() => ({})) as Promise<Partial<ChatMsg> & { reply?: string; bot_message_id?: number; deduped?: boolean }>;
+        return r.json().catch(() => ({})) as Promise<Partial<ChatMsg> & {
+          reply?: string;
+          bot_message_id?: number;
+          deduped?: boolean;
+          // v2 (edge AI) fields — present only when CF Pages Function answered.
+          model_used?: string;
+          tokens_in?: number;
+          tokens_out?: number;
+          grounding?: Array<{ id: string; title: string; kind?: string }>;
+        }>;
       };
 
       let data = await callChat(q);
