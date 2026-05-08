@@ -1,0 +1,8 @@
+{
+  "name": "audit-stub",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "mkdir -p dist && cp public/index.html dist/index.html"
+  }
+}
