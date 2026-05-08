@@ -1,19 +1,5 @@
-# Cloudflare Pages — proxy WordPress backend (preserves POST, headers, body, query)
-# Replaces the role GCE nginx played: same-origin proxy from frontend to WP REST.
+# Cloudflare Pages — SPA fallback only.
+# WordPress proxy (POST + GET) is handled by app/functions/_middleware.js
+# because _redirects 200 rewrites silently drop POST/PUT/DELETE.
 
-# WP REST API (auth, woo store, wc, hackknow custom routes)
-/wp-json/*       https://shop.hackknow.com/wp-json/:splat       200
-
-# WP GraphQL endpoint
-/graphql         https://shop.hackknow.com/graphql              200
-/graphql/*       https://shop.hackknow.com/graphql/:splat       200
-
-# Legacy /wp-admin (WP backend admin)  — owner can direct-link from emails
-/wp-admin/*      https://shop.hackknow.com/wp-admin/:splat      200
-/wp-login.php    https://shop.hackknow.com/wp-login.php         200
-
-# WordPress media uploads (if any product images served via WP)
-/wp-content/*    https://shop.hackknow.com/wp-content/:splat    200
-
-# SPA fallback — keep LAST so /wp-json/* etc match first
-/*               /index.html                                    200
+/*    /index.html    200
