@@ -17,15 +17,19 @@ const items = [
 
 export default function MobileBottomBar() {
   const location = useLocation();
+  // Normalise: strip trailing slash so `/account/profile/` matches `/account/profile`
+  const path = location.pathname.length > 1
+    ? location.pathname.replace(/\/+$/, '')
+    : location.pathname;
 
   const isItemActive = (to: string) => {
-    if (to === '/') return location.pathname === '/';
+    if (to === '/') return path === '/';
     if (to === '/account') {
-      // Dashboards = /account exactly OR sub-sections except /profile
-      return location.pathname === '/account' ||
-        (location.pathname.startsWith('/account/') && location.pathname !== '/account/profile');
+      // Dashboards = /account exactly OR sub-sections, but NOT /account/profile family
+      if (path === '/account/profile' || path.startsWith('/account/profile/')) return false;
+      return path === '/account' || path.startsWith('/account/');
     }
-    return location.pathname === to || location.pathname.startsWith(to + '/');
+    return path === to || path.startsWith(to + '/');
   };
 
   return (
