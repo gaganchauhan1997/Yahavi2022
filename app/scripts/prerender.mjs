@@ -551,6 +551,403 @@ async function prerenderNoindexRoute(tmpl, routePath, label, { navFooter }) {
   }));
 }
 
+
+// ─── STATIC PAGES — title/description/H1/body for each indexable static route ─
+// Every entry here gets a fully-rendered HTML snapshot with unique title +
+// meta description + body content + JSON-LD. Without this, /about /blog /faq
+// etc. served the homepage shell to Googlebot → "Duplicate, Google chose
+// different canonical" → 383 not-indexed in Search Console.
+const STATIC_PAGES_META = {
+  '/about': {
+    title: 'About HackKnow — India\u2019s Trusted Digital Templates Marketplace',
+    description: 'Learn about HackKnow: founded by The Dead Man, we ship 233+ premium Excel dashboards, PowerPoint decks, website templates, and career courses to 10,000+ Indian professionals. Instant download, lifetime license.',
+    h1: 'About HackKnow',
+    body: (cats, products) => `
+      <h2>Our story</h2>
+      <p>HackKnow is an India-first digital templates marketplace founded by The Dead Man. We help freelancers, startups, MSMEs, and corporate teams skip hours of design and analytics busywork with production-ready Excel dashboards, PowerPoint decks, website templates, marketing kits, and career-track courses.</p>
+      <h2>What you get</h2>
+      <ul>
+        <li><strong>${products.length}+ digital products</strong> across <strong>${cats.length} categories</strong></li>
+        <li>Instant download after checkout — no waiting, no shipping</li>
+        <li>Lifetime license — buy once, use forever, on any number of projects</li>
+        <li>Razorpay-secured payments, GST invoices, INR pricing</li>
+        <li>Free updates whenever a template ships v2/v3</li>
+      </ul>
+      <h2>Why teams choose HackKnow</h2>
+      <p>Every template ships with sample data, a ReadMe, and a one-click "Make a Copy" workflow. Our courses are recorded by working professionals, not generic instructors. We&apos;re backed by The Dead Man and a small senior team.</p>
+      <p><a href="${SITE}/shop">Browse all templates</a> · <a href="${SITE}/courses">See premium courses</a> · <a href="${SITE}/contact">Contact us</a></p>`,
+    ld: () => ({
+      '@context': 'https://schema.org',
+      '@type': 'AboutPage',
+      name: 'About HackKnow',
+      url: `${SITE}/about`,
+      mainEntity: ORG_LD,
+    }),
+  },
+  '/contact': {
+    title: 'Contact HackKnow — Get in Touch with Our Support Team',
+    description: 'Email support@hackknow.com or use our contact form. We respond to every paid customer within 24 hours, 7 days a week. Refund queries, technical help, custom template requests — we read every message.',
+    h1: 'Contact HackKnow',
+    body: () => `
+      <h2>Get in touch</h2>
+      <p>Need help with a template, refund, or custom design request? Reach out and our team will respond within <strong>24 hours</strong> on business days.</p>
+      <ul>
+        <li><strong>Customer support:</strong> <a href="mailto:support@hackknow.com">support@hackknow.com</a></li>
+        <li><strong>Refunds &amp; billing:</strong> <a href="mailto:billing@hackknow.com">billing@hackknow.com</a></li>
+        <li><strong>Partnerships:</strong> <a href="mailto:partners@hackknow.com">partners@hackknow.com</a></li>
+        <li><strong>Address:</strong> HackKnow, India (remote-first, GST-registered)</li>
+      </ul>
+      <h2>Common quick links</h2>
+      <ul>
+        <li><a href="${SITE}/faq">Frequently asked questions</a></li>
+        <li><a href="${SITE}/refund-policy">Refund policy</a></li>
+        <li><a href="${SITE}/support">Self-service help center</a></li>
+      </ul>`,
+    ld: () => ({
+      '@context': 'https://schema.org',
+      '@type': 'ContactPage',
+      name: 'Contact HackKnow',
+      url: `${SITE}/contact`,
+      mainEntity: ORG_LD,
+    }),
+  },
+  '/support': {
+    title: 'HackKnow Support — Help Center, FAQs & Account Recovery',
+    description: 'Self-service help for HackKnow customers. Download issues, license questions, account recovery, payment problems, refund requests — solved fast. Email support@hackknow.com or read our help articles.',
+    h1: 'HackKnow Support',
+    body: () => `
+      <h2>How we help</h2>
+      <ul>
+        <li><a href="${SITE}/account">Re-download a previous purchase</a></li>
+        <li><a href="${SITE}/forgot-password">Reset your password</a></li>
+        <li><a href="${SITE}/refund-policy">Request a refund (within 7 days)</a></li>
+        <li><a href="${SITE}/faq">Frequently asked questions</a></li>
+        <li><a href="mailto:support@hackknow.com">Email customer support</a> — replies within 24 hours</li>
+      </ul>
+      <h2>License &amp; usage</h2>
+      <p>Every HackKnow purchase comes with a <strong>lifetime, single-buyer commercial license</strong>. Use the template on unlimited personal and client projects. Reselling the template file itself is not allowed.</p>`,
+  },
+  '/faq': {
+    title: 'HackKnow FAQ — Pricing, Licensing, Refunds & Download Help',
+    description: 'Answers to the questions our customers ask most. How do I download? What\u2019s included with each license? What\u2019s the refund window? Can I use templates for client work? Are GST invoices provided?',
+    h1: 'Frequently Asked Questions',
+    body: () => {
+      const FAQS = [
+        ['How do I download a template after I buy it?', 'Right after Razorpay confirms payment, you\u2019ll see download buttons on the order-success page AND receive an email with permanent download links. Links never expire — re-download anytime from your account.'],
+        ['What license do I get?', 'A lifetime, single-buyer commercial license. Use the template on unlimited personal and client projects. You cannot resell the template file itself or include it in a competing marketplace.'],
+        ['Can I get a refund?', 'Yes — full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email support@hackknow.com with your order ID. We reverse the charge via Razorpay within 5\u20137 business days.'],
+        ['Do you provide GST invoices?', 'Yes. Every purchase generates a GST-compliant invoice automatically. Add your GSTIN at checkout to claim input credit.'],
+        ['Are templates compatible with Google Sheets / Slides?', 'Excel templates work in Microsoft 365, Excel 2016+, and Google Sheets (with minor formula adjustments noted in the ReadMe). PowerPoint decks open in PowerPoint 2016+, Keynote, and Google Slides.'],
+        ['Do you offer custom design work?', 'Yes — email partners@hackknow.com with your brief. Pricing depends on scope.'],
+        ['Are the courses recorded or live?', 'Recorded, lifetime access, with downloadable resources. Some flagship courses include live monthly Q&A sessions with the instructor.'],
+        ['Where can I find your roadmaps?', 'Browse 12+ free career roadmaps at /roadmaps — covering Python, FastAPI, MERN, data analytics, and more.'],
+      ];
+      return `
+        ${FAQS.map(([q, a]) => `<h2>${escapeHtml(q)}</h2><p>${escapeHtml(a)}</p>`).join('\n')}
+        <hr><p><strong>Still stuck?</strong> Email <a href="mailto:support@hackknow.com">support@hackknow.com</a> or visit <a href="${SITE}/support">/support</a>.</p>`;
+    },
+    ld: () => {
+      const FAQS = [
+        ['How do I download a template after I buy it?', 'Right after Razorpay confirms payment, you\u2019ll see download buttons on the order-success page AND receive an email with permanent download links. Links never expire — re-download anytime from your account.'],
+        ['What license do I get?', 'A lifetime, single-buyer commercial license. Use the template on unlimited personal and client projects. You cannot resell the template file itself or include it in a competing marketplace.'],
+        ['Can I get a refund?', 'Yes — full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email support@hackknow.com with your order ID. We reverse the charge via Razorpay within 5\u20137 business days.'],
+        ['Do you provide GST invoices?', 'Yes. Every purchase generates a GST-compliant invoice automatically. Add your GSTIN at checkout to claim input credit.'],
+        ['Are templates compatible with Google Sheets / Slides?', 'Excel templates work in Microsoft 365, Excel 2016+, and Google Sheets (with minor formula adjustments noted in the ReadMe). PowerPoint decks open in PowerPoint 2016+, Keynote, and Google Slides.'],
+        ['Do you offer custom design work?', 'Yes — email partners@hackknow.com with your brief. Pricing depends on scope.'],
+        ['Are the courses recorded or live?', 'Recorded, lifetime access, with downloadable resources. Some flagship courses include live monthly Q&A sessions with the instructor.'],
+        ['Where can I find your roadmaps?', 'Browse 12+ free career roadmaps at /roadmaps — covering Python, FastAPI, MERN, data analytics, and more.'],
+      ];
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: FAQS.map(([q, a]) => ({
+          '@type': 'Question',
+          name: q,
+          acceptedAnswer: { '@type': 'Answer', text: a },
+        })),
+      };
+    },
+  },
+  '/blog': {
+    title: 'HackKnow Blog — Excel, PowerPoint, MIS & Career Tutorials',
+    description: 'Hands-on tutorials and product updates from the HackKnow team. Excel formulas, MIS dashboard design, PowerPoint storytelling, FastAPI walkthroughs, India-focused career advice for freelancers and analysts.',
+    h1: 'HackKnow Blog',
+    body: (cats, products, ctx) => {
+      const posts = (ctx?.blogPosts || []).slice(0, 30);
+      const items = posts.length
+        ? posts.map((b) => `<li><a href="${SITE}/blog/${b.slug}">${escapeHtml(stripHtml(b.title?.rendered || b.slug))}</a></li>`).join('')
+        : '<li>New posts coming soon — meanwhile, browse our <a href="' + SITE + '/courses">courses</a> and <a href="' + SITE + '/roadmaps">roadmaps</a>.</li>';
+      return `
+        <p>Tutorials, product updates, and career advice from the HackKnow team. Practical Excel, PowerPoint, MIS, FastAPI, and freelancing know-how — written for Indian professionals.</p>
+        <h2>Latest articles</h2>
+        <ul>${items}</ul>`;
+    },
+    ld: (ctx) => ({
+      '@context': 'https://schema.org',
+      '@type': 'Blog',
+      name: 'HackKnow Blog',
+      url: `${SITE}/blog`,
+      publisher: ORG_LD,
+      blogPost: (ctx?.blogPosts || []).slice(0, 10).map((b) => ({
+        '@type': 'BlogPosting',
+        headline: stripHtml(b.title?.rendered || b.slug),
+        url: `${SITE}/blog/${b.slug}`,
+        datePublished: (b.date_gmt || b.date || '').slice(0, 10),
+      })),
+    }),
+  },
+  '/community': {
+    title: 'HackKnow Community — Join Indian Excel, MIS & Tech Builders',
+    description: 'Join the HackKnow community of 10,000+ Indian Excel power users, MIS analysts, and aspiring developers. Share dashboards, ask questions, get peer reviews, learn from industry experts.',
+    h1: 'HackKnow Community',
+    body: () => `
+      <p>Connect with 10,000+ Indian Excel power users, MIS analysts, freelance designers, and aspiring developers. Share what you&apos;re building, get peer code reviews, and learn from working professionals.</p>
+      <h2>Where we hang out</h2>
+      <ul>
+        <li><a href="https://www.youtube.com/@hackknow">YouTube channel</a> — tutorials, build-alongs, dashboard breakdowns</li>
+        <li><a href="https://www.instagram.com/hackknow">Instagram</a> — bite-size Excel tips, daily product highlights</li>
+        <li><a href="${SITE}/blog">Blog</a> — long-form tutorials &amp; case studies</li>
+        <li><a href="${SITE}/courses">Premium courses</a> — career-grade learning tracks</li>
+      </ul>
+      <p>Have a community feature you want? <a href="mailto:hello@hackknow.com">Tell us</a>.</p>`,
+  },
+  '/affiliate': {
+    title: 'HackKnow Affiliate Program — Earn 30% on Every Sale',
+    description: 'Earn 30% commission on every HackKnow sale you refer. 60-day cookie window. Monthly Razorpay payouts. Templates and courses with high conversion rates and a happy customer base.',
+    h1: 'HackKnow Affiliate Program',
+    body: () => `
+      <p>Earn <strong>30% commission</strong> on every sale you refer to HackKnow. We pay out monthly via Razorpay, no minimum threshold.</p>
+      <h2>Why partner with us</h2>
+      <ul>
+        <li>30% recurring commission on first purchase</li>
+        <li>60-day cookie window so late conversions still credit you</li>
+        <li>233+ products at every price point — \u20b919 to \u20b94,999</li>
+        <li>High conversion rate (3.4% storefront avg)</li>
+        <li>Monthly Razorpay payouts in INR</li>
+      </ul>
+      <p><a href="${SITE}/affiliate/learn-more">Learn more</a> or <a href="${SITE}/signup">sign up free</a> to get your tracking link.</p>`,
+  },
+  '/privacy': {
+    title: 'HackKnow Privacy Policy — How We Handle Your Data',
+    description: 'How HackKnow collects, uses, and protects your personal data. GDPR-ready, India DPDP-Act-aligned. We never sell user data. Razorpay handles payments. Withdraw consent anytime.',
+    h1: 'Privacy Policy',
+    body: () => `
+      <p><em>Last updated: ${TODAY}</em></p>
+      <h2>What we collect</h2>
+      <p>Email, name, billing address (when you buy), and Razorpay payment metadata. We use anonymous Cloudflare analytics for traffic stats — no third-party tracking pixels.</p>
+      <h2>How we use it</h2>
+      <p>To deliver your downloads, send invoices, send order/refund updates, and (with explicit opt-in) occasional product news. We never sell or share user data with third parties.</p>
+      <h2>Your rights</h2>
+      <p>Email <a href="mailto:privacy@hackknow.com">privacy@hackknow.com</a> any time to access, export, or delete your data. We process requests within 30 days per the Indian DPDP Act.</p>
+      <h2>Cookies</h2>
+      <p>We set a session cookie for cart state and an opt-in marketing cookie for re-engagement. No third-party tracking cookies.</p>
+      <p>Read our <a href="${SITE}/terms">Terms of Service</a> and <a href="${SITE}/refund-policy">Refund Policy</a>.</p>`,
+  },
+  '/terms': {
+    title: 'HackKnow Terms of Service — License, Usage & Disputes',
+    description: 'HackKnow Terms of Service. Lifetime single-buyer commercial license. Refund window. Acceptable use. Dispute resolution under Indian jurisdiction. Read before purchasing.',
+    h1: 'Terms of Service',
+    body: () => `
+      <p><em>Last updated: ${TODAY}</em></p>
+      <h2>License</h2>
+      <p>Every HackKnow purchase grants a <strong>lifetime, single-buyer commercial license</strong>. Use the template on unlimited personal and client projects. You cannot resell, sublicense, or include the file itself in a competing marketplace, course, or template pack.</p>
+      <h2>Refunds</h2>
+      <p>See our <a href="${SITE}/refund-policy">Refund Policy</a>. 7-day window, no questions asked.</p>
+      <h2>Account</h2>
+      <p>One account per buyer. Sharing logins or downloads is a license breach and we may suspend access without refund.</p>
+      <h2>Liability</h2>
+      <p>Templates are provided "as is". HackKnow is not liable for indirect damages from template misuse. Maximum liability = price paid for the specific product.</p>
+      <h2>Jurisdiction</h2>
+      <p>These terms are governed by the laws of India. Disputes go to courts in the seller&apos;s registered jurisdiction.</p>`,
+  },
+  '/refund-policy': {
+    title: 'HackKnow Refund Policy — 7-Day Money-Back Guarantee',
+    description: 'Full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email support@hackknow.com with your order ID. Refunds via Razorpay within 5\u20137 business days.',
+    h1: 'Refund Policy',
+    body: () => `
+      <p><em>Last updated: ${TODAY}</em></p>
+      <h2>7-day money-back guarantee</h2>
+      <p>Not happy with your purchase? Email <a href="mailto:support@hackknow.com">support@hackknow.com</a> within <strong>7 days</strong> of payment with your order ID and a one-line reason. We refund in full via Razorpay within 5\u20137 business days. No questions asked.</p>
+      <h2>What\u2019s NOT eligible</h2>
+      <ul>
+        <li>Requests after the 7-day window</li>
+        <li>Custom-designed templates (per the agreed brief)</li>
+        <li>Bulk/team orders past the 14-day extended window (separate agreement)</li>
+      </ul>
+      <h2>How refunds reach you</h2>
+      <p>Razorpay reverses the charge to the same card / UPI / wallet you used at checkout. Bank settlement typically takes 5\u20137 business days.</p>
+      <p>Read our <a href="${SITE}/terms">Terms</a> for the full license details.</p>`,
+  },
+  '/courses': {
+    title: 'HackKnow Courses — Premium Career-Track Online Courses (India)',
+    description: 'Career-grade online courses from HackKnow. Python, FastAPI, MERN, MIS analytics, Excel mastery, PowerPoint storytelling. Lifetime access, downloadable resources, India-focused pricing.',
+    h1: 'HackKnow Courses',
+    body: (cats, products, ctx) => {
+      const courses = ctx?.courses || [];
+      const items = courses.length
+        ? courses.slice(0, 30).map((c) => `<li><a href="${SITE}/courses/${c.slug}">${escapeHtml(c.title || c.name || c.slug)}</a></li>`).join('')
+        : '<li>More courses coming soon — meanwhile, see our <a href="' + SITE + '/roadmaps">roadmaps</a>.</li>';
+      return `
+        <p>Career-grade recorded courses by working professionals. Lifetime access, India-focused pricing in INR, downloadable resources, monthly Q&amp;A on flagship courses.</p>
+        <h2>${courses.length} courses available</h2>
+        <ul>${items}</ul>`;
+    },
+  },
+  '/roadmaps': {
+    title: 'HackKnow Career Roadmaps — Free Step-by-Step Learning Tracks',
+    description: 'Free, opinionated career roadmaps from working senior engineers. Python developer, FastAPI backend, MERN stack, data analyst, MIS specialist, Excel power user. Updated for 2026.',
+    h1: 'HackKnow Career Roadmaps',
+    body: (cats, products, ctx) => {
+      const roadmaps = ctx?.roadmaps || [];
+      const items = roadmaps.length
+        ? roadmaps.slice(0, 30).map((r) => `<li><a href="${SITE}/roadmaps/${r.slug}">${escapeHtml(r.title || r.name || r.slug)}</a></li>`).join('')
+        : '<li>Roadmaps loading\u2026</li>';
+      return `
+        <p>Free, opinionated career roadmaps from working senior engineers and analysts. Each roadmap is a clear step-by-step learning track with curated resources and milestones.</p>
+        <h2>${roadmaps.length} roadmaps</h2>
+        <ul>${items}</ul>`;
+    },
+  },
+  '/mis-templates': {
+    title: 'MIS Templates — Premium Excel MIS Dashboards for Indian Businesses',
+    description: 'Browse premium MIS (Management Information System) Excel templates for Indian businesses. Sales MIS, finance MIS, inventory MIS, HR MIS dashboards. Production-ready, lifetime license.',
+    h1: 'MIS Templates · HackKnow',
+    body: (cats, products) => {
+      const misCats = cats.filter((c) => /mis|dashboard|finance|hr|sales/i.test(c.name)).slice(0, 8);
+      return `
+        <p>Production-ready MIS (Management Information System) Excel templates designed for Indian businesses. Sales MIS, finance MIS, inventory tracking, HR analytics, production dashboards \u2014 every template ships with sample data, charts, and a ReadMe.</p>
+        <h2>Browse MIS categories</h2>
+        <ul>${misCats.map((c) => `<li><a href="${SITE}/shop/${c.slug}">${escapeHtml(c.name)} (${c.count} products)</a></li>`).join('')}</ul>
+        <p><a href="${SITE}/shop">Browse all ${products.length} HackKnow templates</a>.</p>`;
+    },
+  },
+  '/sponsor': {
+    title: 'Sponsor HackKnow — Reach 10,000+ Indian Tech Professionals',
+    description: 'Sponsor HackKnow and reach 10,000+ Indian Excel power users, MIS analysts, freelancers, and developers. Newsletter, banner, and product placement opportunities.',
+    h1: 'Sponsor HackKnow',
+    body: () => `
+      <p>Reach <strong>10,000+ Indian tech professionals</strong> \u2014 Excel power users, MIS analysts, MSME founders, freelancers, aspiring developers \u2014 via HackKnow sponsorships.</p>
+      <h2>Sponsor opportunities</h2>
+      <ul>
+        <li>Newsletter sponsorship (weekly, opt-in audience)</li>
+        <li>Storefront banner placement</li>
+        <li>Course intro segment placement</li>
+        <li>Custom co-branded content</li>
+      </ul>
+      <p>Email <a href="mailto:partners@hackknow.com">partners@hackknow.com</a> with a brief about your product and target audience.</p>`,
+  },
+  '/sponsors': {
+    title: 'HackKnow Sponsors — Partners Supporting Indian Builders',
+    description: 'Companies and platforms sponsoring HackKnow\u2019s mission to make career-grade tools and templates affordable for Indian professionals.',
+    h1: 'Our Sponsors',
+    body: () => `
+      <p>HackKnow is supported by the partners below \u2014 companies who believe in making career-grade digital tools affordable for Indian professionals. <a href="${SITE}/sponsor">Become a sponsor</a>.</p>`,
+  },
+  '/hacked-news': {
+    title: 'Hacked News — Live Tech, Cybersecurity & Startup Headlines',
+    description: 'Live tech, cybersecurity, AI, and Indian startup headlines aggregated from 60+ sources. Hacker News, BBC Tech, ZDNet, IEEE Spectrum, Schneier, Economic Times Tech \u2014 all in one feed, refreshed every 5 minutes.',
+    h1: 'Hacked News \u2014 Live Tech & Security Feed',
+    body: () => `
+      <p>Live aggregation of tech, cybersecurity, AI, and Indian startup headlines from 60+ trusted sources \u2014 Hacker News, Ars Technica, BBC Tech, ZDNet, Computerworld, IEEE Spectrum, Schneier on Security, Economic Times Tech, Times of India Tech, HT Tech, Slashdot, and more.</p>
+      <p>The feed auto-refreshes every 5 minutes. Same story from N sources collapses to 1 card with citation chips, Google-News-style.</p>
+      <p>Visit <a href="${SITE}/hacked-news">/hacked-news</a> to read the live feed.</p>`,
+  },
+  '/news': {
+    title: 'HackKnow News — Live Tech, Security & India Startup Feed',
+    description: 'Live tech and India startup headlines feed. 60+ sources, refreshed every 5 minutes. Visit /hacked-news for the full live feed.',
+    h1: 'HackKnow News',
+    body: () => `<p>For the live tech and security headlines feed, visit <a href="${SITE}/hacked-news">/hacked-news</a>.</p>`,
+  },
+  '/brainxercise': {
+    title: 'Brainxercise — Daily Brain Teasers & Coding Challenges',
+    description: 'Daily brain teasers, logic puzzles, and short coding challenges from HackKnow. Sharpen your problem-solving with quick, high-quality exercises.',
+    h1: 'Brainxercise',
+    body: () => `
+      <p>Daily brain teasers, logic puzzles, and short coding challenges from the HackKnow team. Quick, high-quality exercises to sharpen your problem-solving.</p>
+      <p>New puzzles published regularly. <a href="${SITE}/community">Join the community</a> to share solutions.</p>`,
+  },
+  '/testimonials': {
+    title: 'HackKnow Testimonials — What Customers Say',
+    description: 'Real testimonials from HackKnow customers \u2014 Indian Excel users, MIS analysts, MSME founders, and developers who shipped faster with our templates and courses.',
+    h1: 'Customer Testimonials',
+    body: () => `<p>Real reviews from HackKnow customers across India. Browse <a href="${SITE}/shop">our products</a> to see ratings on individual product pages.</p>`,
+  },
+  '/become-a-vendor': {
+    title: 'Sell on HackKnow — Become a Template Vendor',
+    description: 'List your Excel, PowerPoint, or template product on HackKnow. India-focused INR pricing, Razorpay payouts, lifetime license model. Apply to become a vendor.',
+    h1: 'Become a HackKnow Vendor',
+    body: () => `
+      <p>Have a high-quality Excel template, PowerPoint deck, or digital product? Sell it on HackKnow and reach 10,000+ Indian buyers.</p>
+      <h2>Vendor terms</h2>
+      <ul>
+        <li>70/30 revenue share (you keep 70%)</li>
+        <li>Monthly Razorpay payouts in INR</li>
+        <li>We handle storefront, payments, GST invoicing, support</li>
+      </ul>
+      <p>Email <a href="mailto:partners@hackknow.com">partners@hackknow.com</a> with samples and a short bio.</p>`,
+  },
+  '/sitemap': {
+    title: 'HackKnow Sitemap \u2014 Browse Every Section of Our Site',
+    description: 'Visual sitemap of the HackKnow.com site \u2014 every category, course, roadmap, and policy page. Useful for crawling, navigation, and accessibility.',
+    h1: 'HackKnow Sitemap',
+    body: (cats, products, ctx) => {
+      const courses = ctx?.courses || [];
+      const roadmaps = ctx?.roadmaps || [];
+      return `
+        <h2>Main sections</h2>
+        <ul>
+          <li><a href="${SITE}/">Home</a></li>
+          <li><a href="${SITE}/shop">Shop</a></li>
+          <li><a href="${SITE}/courses">Courses</a></li>
+          <li><a href="${SITE}/roadmaps">Roadmaps</a></li>
+          <li><a href="${SITE}/blog">Blog</a></li>
+          <li><a href="${SITE}/hacked-news">Hacked News</a></li>
+          <li><a href="${SITE}/about">About</a></li>
+          <li><a href="${SITE}/contact">Contact</a></li>
+          <li><a href="${SITE}/support">Support</a></li>
+          <li><a href="${SITE}/faq">FAQ</a></li>
+        </ul>
+        <h2>Categories (${cats.filter((c) => c.count > 0).length})</h2>
+        <ul>${cats.filter((c) => c.count > 0).map((c) => `<li><a href="${SITE}/shop/${c.slug}">${escapeHtml(c.name)} (${c.count})</a></li>`).join('')}</ul>
+        <h2>Courses (${courses.length})</h2>
+        <ul>${courses.map((c) => `<li><a href="${SITE}/courses/${c.slug}">${escapeHtml(c.title || c.name || c.slug)}</a></li>`).join('')}</ul>
+        <h2>Roadmaps (${roadmaps.length})</h2>
+        <ul>${roadmaps.map((r) => `<li><a href="${SITE}/roadmaps/${r.slug}">${escapeHtml(r.title || r.name || r.slug)}</a></li>`).join('')}</ul>
+        <h2>Policies</h2>
+        <ul>
+          <li><a href="${SITE}/privacy">Privacy Policy</a></li>
+          <li><a href="${SITE}/terms">Terms of Service</a></li>
+          <li><a href="${SITE}/refund-policy">Refund Policy</a></li>
+        </ul>`;
+    },
+  },
+};
+
+async function prerenderStaticPage(tmpl, routePath, meta, { cats, products, navFooter, ctx }) {
+  const body = typeof meta.body === 'function' ? meta.body(cats, products, ctx) : (meta.body || '');
+  const h1 = meta.h1 || meta.title;
+  const ld = [breadcrumbLd([
+    { name: 'Home', url: SITE + '/' },
+    { name: meta.h1 || routePath, url: SITE + routePath },
+  ])];
+  if (typeof meta.ld === 'function') {
+    const extra = meta.ld(ctx);
+    if (extra) ld.push(extra);
+  }
+  return writeRoute(routePath, applyMeta(tmpl, {
+    title: meta.title,
+    description: meta.description,
+    canonical: `${SITE}${routePath}`,
+    ogImage: `${SITE}/og-image.jpg`,
+    jsonLd: ld,
+    noscriptBody: `
+      <p><a href="${SITE}/">Home</a> &rsaquo; ${escapeHtml(h1)}</p>
+      <h1>${escapeHtml(h1)}</h1>
+      ${body}
+      ${navFooter}`,
+  }));
+}
+
 // ─── pings ─────────────────────────────────────────────────────────────────
 async function pingGoogleAndBing() {
   const sitemapUrl = `${SITE}/sitemap.xml`;
@@ -638,6 +1035,16 @@ async function main() {
   // Home + Shop
   try { await prerenderHome(tmpl, { cats, products, navFooter }); pages++; } catch (e) { console.warn(`  ✗ /: ${e.message}`); }
   try { await prerenderShop(tmpl, { products, navFooter }); pages++; } catch (e) { console.warn(`  ✗ /shop: ${e.message}`); }
+  // ── EVERY indexable static page (about, blog, faq, etc.) ──
+  // Each page gets unique title/description/H1/body/JSON-LD. Without this,
+  // /about /faq /community etc. served the homepage shell to Googlebot,
+  // creating 18+ "Duplicate, Google chose different canonical" errors in GSC.
+  const staticCtx = { courses, roadmaps, blogPosts };
+  for (const [routePath, meta] of Object.entries(STATIC_PAGES_META)) {
+    try { await prerenderStaticPage(tmpl, routePath, meta, { cats, products, navFooter, ctx: staticCtx }); pages++; }
+    catch (e) { console.warn(`  ✗ ${routePath}: ${e.message}`); }
+  }
+
 
   // All non-empty categories
   for (const cat of cats) {
