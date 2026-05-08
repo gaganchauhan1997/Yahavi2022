@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Coins, Loader2, ArrowDownToLine, ArrowUpFromLine, Sparkles, Plus, RefreshCw } from "lucide-react";
 import { yaviWallet, loadRazorpay, type WalletMe, type WalletLedgerRow } from "@/lib/yavi-wallet";
+import CouponBox from "@/components/CouponBox";
 import { getCurrentUser } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -157,6 +158,9 @@ export default function WalletPanel() {
           </button>
         </div>
       </div>
+
+      {/* Coupon redemption — credit YAVI via promo code */}
+      <CouponBox context="wallet" onRedeemed={() => { void refresh(); }} />
 
       {/* Topup tiers — true 1:1, no bonus */}
       <div>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, Download, Lock } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { Button } from "@/components/ui/button";
+import CouponBox from "@/components/CouponBox";
 import {
   createServerOrder,
   verifyServerPayment,
@@ -303,6 +304,8 @@ export default function CheckoutPage() {
                   />
                 </div>
               </div>
+
+              <CouponBox context="checkout" />
 
               <Button
                 type="submit"
