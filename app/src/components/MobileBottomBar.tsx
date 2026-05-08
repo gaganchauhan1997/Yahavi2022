@@ -1,53 +1,61 @@
-import { Home, ShoppingBag, Heart, User } from 'lucide-react';
+import { Home, Store, LayoutGrid, User } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { useStore } from '@/context/StoreContext';
-import { isAuthenticated } from '@/lib/auth';
 
+/**
+ * Mobile bottom navigation — 4 primary destinations.
+ *
+ * Visual style: HD outline icons (strokeWidth 1.5, no fill), slate tone for
+ * inactive, hack-black for active. NOT bold/chunky — clean reference style
+ * matching the design spec.
+ */
 const items = [
-  { to: '/',                 icon: Home,        label: 'Home' },
-  { to: '/shop',             icon: ShoppingBag, label: 'Shop' },
-  { to: '/account/wishlist', icon: Heart,       label: 'Wishlist', requiresAuth: true },
-  { to: '/account',          icon: User,        label: 'Account' },
+  { to: '/',                 icon: Home,       label: 'Home' },
+  { to: '/shop',             icon: Store,      label: 'Store' },
+  { to: '/account',          icon: LayoutGrid, label: 'Dashboards' },
+  { to: '/account/profile',  icon: User,       label: 'Profile' },
 ];
 
 export default function MobileBottomBar() {
-  const { state } = useStore();
   const location = useLocation();
-  const authed = isAuthenticated();
+
+  const isItemActive = (to: string) => {
+    if (to === '/') return location.pathname === '/';
+    if (to === '/account') {
+      // Dashboards = /account exactly OR sub-sections except /profile
+      return location.pathname === '/account' ||
+        (location.pathname.startsWith('/account/') && location.pathname !== '/account/profile');
+    }
+    return location.pathname === to || location.pathname.startsWith(to + '/');
+  };
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white border-t-[3px] border-hack-black shadow-[0_-4px_0_0_rgba(26,26,26,0.08)]"
+      className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(15,23,42,0.04)]"
       aria-label="Mobile navigation"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <ul className="grid grid-cols-4 px-2 pt-2 pb-2.5">
-        {items.map(({ to, icon: Icon, label, requiresAuth }) => {
-          const target = requiresAuth && !authed ? '/login' : to;
-          const isActive = location.pathname === to;
-          const showWishlistBadge = label === 'Wishlist' && state.wishlist.length > 0;
+      <ul className="grid grid-cols-4 px-1 pt-1.5 pb-1.5">
+        {items.map(({ to, icon: Icon, label }) => {
+          const isActive = isItemActive(to);
           return (
             <li key={label}>
               <Link
-                to={target}
+                to={to}
                 aria-current={isActive ? 'page' : undefined}
                 className="flex flex-col items-center gap-1 py-1 group"
               >
-                <span className="relative inline-flex items-center justify-center">
-                  <Icon
-                    className={`w-8 h-8 transition-transform ${
-                      isActive ? 'scale-110' : 'group-hover:scale-105'
-                    }`}
-                    strokeWidth={2.5}
-                    fill="#FFF055"
-                    color="#1A1A1A"
-                  />
-                  {showWishlistBadge && (
-                    <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                      {state.wishlist.length}
-                    </span>
-                  )}
-                </span>
-                <span className="text-[11px] font-bold text-hack-black tracking-wide">
+                <Icon
+                  className={`w-7 h-7 transition-colors ${
+                    isActive ? 'text-hack-black' : 'text-slate-500 group-hover:text-slate-700'
+                  }`}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+                <span
+                  className={`text-[11px] tracking-wide transition-colors ${
+                    isActive ? 'text-hack-black font-semibold' : 'text-slate-500 font-normal'
+                  }`}
+                >
                   {label}
                 </span>
               </Link>
