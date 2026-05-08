@@ -1,145 +1,129 @@
-// Yahavi AI v2 — Cloudflare Pages Function handler.
-// RAG via Vertex AI Search (Discovery Engine) + Gemini 2.5 Flash via Vertex AI.
+// Yahavi AI v2 (free tier) — Cloudflare Pages Function handler.
 //
-// Activation: requires CF Pages secret GCP_SA_JSON (paste full SA JSON string).
-// If absent or malformed, exports a sentinel so the middleware falls back to WP.
+// Stack:
+//   - Google AI Studio Gemini 2.5 Flash/Pro via API key (NO GCP billing required)
+//   - Grounding via WooCommerce Store API + hackknow REST endpoints + WP search
+//
+// Activation: requires CF Pages secret `GEMINI_API_KEY` (paste the AI Studio key).
+// If absent, exports a sentinel so the middleware falls back to the WP /chat route.
 
 import { buildSystemPrompt } from './yahavi-prompt.js';
 
-const PROJECT     = 'hackknow-ai';
-const REGION      = 'asia-south1';
-const ENGINE_PATH = `projects/${PROJECT}/locations/global/collections/default_collection/engines/hackknow-engine`;
-const MODEL       = 'gemini-2.5-flash';
-
-// ---------- GCP OAuth: SA-JSON → access token (RS256 JWT, SubtleCrypto) ----------
-
-let _tokenCache = null; // { token, expiresAt }
-let _tokenInflight = null; // dedupe concurrent refresh attempts within an isolate
-
-function b64urlEncode(buf) {
-  let bin = '';
-  const bytes = new Uint8Array(buf);
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-}
-
-function pemToBinary(pem) {
-  // Strip "-----BEGIN/END PRIVATE KEY-----" + newlines, then base64-decode.
-  const b64 = pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
-  const bin = atob(b64);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf.buffer;
-}
-
-async function getAccessToken(saJsonStr) {
-  const now = Math.floor(Date.now() / 1000);
-  if (_tokenCache && _tokenCache.expiresAt > now + 60) return _tokenCache.token;
-  // Concurrency guard: if a refresh is already in flight in this isolate,
-  // await its result instead of issuing a duplicate OAuth round-trip.
-  if (_tokenInflight) return _tokenInflight;
-  _tokenInflight = (async () => {
-    try { return await _refreshAccessToken(saJsonStr, now); }
-    finally { _tokenInflight = null; }
-  })();
-  return _tokenInflight;
-}
-
-async function _refreshAccessToken(saJsonStr, now) {
-  const sa = JSON.parse(saJsonStr);
-  const header  = { alg: 'RS256', typ: 'JWT' };
-  const payload = {
-    iss:   sa.client_email,
-    scope: 'https://www.googleapis.com/auth/cloud-platform',
-    aud:   'https://oauth2.googleapis.com/token',
-    iat:   now,
-    exp:   now + 3600,
-  };
-  const enc = new TextEncoder();
-  const headerB64  = b64urlEncode(enc.encode(JSON.stringify(header)));
-  const payloadB64 = b64urlEncode(enc.encode(JSON.stringify(payload)));
-  const signingInput = `${headerB64}.${payloadB64}`;
-
-  const key = await crypto.subtle.importKey(
-    'pkcs8',
-    pemToBinary(sa.private_key),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false, ['sign']
-  );
-  const sigBuf = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(signingInput));
-  const jwt = `${signingInput}.${b64urlEncode(sigBuf)}`;
-
-  const r = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }).toString(),
-  });
-  if (!r.ok) throw new Error(`oauth_token_failed:${r.status}:${await r.text()}`);
-  const j = await r.json();
-  _tokenCache = { token: j.access_token, expiresAt: now + (j.expires_in || 3600) };
-  return _tokenCache.token;
-}
-
-// ---------- Vertex AI Search ----------
-
-async function searchKnowledgeBase(query, accessToken) {
-  const url = `https://discoveryengine.googleapis.com/v1/${ENGINE_PATH}/servingConfigs/default_search:search`;
-  const body = {
-    query: query.slice(0, 500),
-    pageSize: 5,
-    contentSearchSpec: { snippetSpec: { returnSnippet: true } },
-  };
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`search_failed:${r.status}:${await r.text()}`);
-  const j = await r.json();
-  const docs = (j.results || []).map((res) => {
-    const d  = res.document || {};
-    const sd = d.structData || {};
-    const snip = (res.document?.derivedStructData?.snippets?.[0]?.snippet
-               || res.document?.derivedStructData?.snippets?.[0]?.snippet_text
-               || '').slice(0, 600);
-    return {
-      id: d.id,
-      kind: sd.kind,
-      title: sd.name || sd.title || d.id,
-      slug: sd.slug,
-      permalink: sd.permalink,
-      price: sd.price,
-      currency: sd.currency,
-      categories: sd.categories || [],
-      wp_id: sd.wp_id,
-      snippet: snip,
-    };
-  });
-  return docs;
-}
+const WP_HOST = 'https://shop.hackknow.com';
 
 // ---------- Smart routing (Flash vs Pro) ----------
-
+// AI Studio free tier: Flash = 1500 RPD, 1M tokens/day; Pro = 50 RPD, 50k tokens/day.
+// Keep Pro reserved for genuinely-reasoning queries.
 function pickModel(message, history) {
-  // Heuristic: Flash for ~95% of traffic; Pro reserved for genuine reasoning
-  // (Pro costs ~5x). Tightened from earlier v1 (wc>=30 OR complex OR turns>=8)
-  // which fired Pro on most "kya hai X" greetings — bad for ₹85k budget cap.
   const msg   = (message || '');
   const wc    = msg.trim().split(/\s+/).length;
   const turns = (history || []).length;
-  // "Reasoning intent" — words that genuinely benefit from Pro.
   const reasoning = /\b(compare|difference|vs\.?|versus|why|recommend|which is better|which one|tradeoff|pros and cons|kaunsa behtar)\b/i.test(msg);
   if ((reasoning && wc >= 25) || wc >= 80 || turns >= 16) return 'gemini-2.5-pro';
   return 'gemini-2.5-flash';
 }
 
-// ---------- Gemini call ----------
+// ---------- Grounding: parallel fan-out to WC + hackknow + WP search ----------
 
-async function callGemini({ systemPrompt, history, userMessage, model, accessToken }) {
-  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT}/locations/${REGION}/publishers/google/models/${model}:generateContent`;
+async function fetchJson(url, timeoutMs = 8000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, headers: { 'accept':'application/json' }, cf: { cacheTtl: 60, cacheEverything: true } });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
+  finally { clearTimeout(t); }
+}
+
+function stripHtml(s) {
+  return String(s || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
+async function searchKnowledgeBase(query) {
+  // Fan out 4 sources in parallel; combine + dedupe by id.
+  const q = encodeURIComponent(query.slice(0, 120));
+  const [products, pages, courses, roadmaps] = await Promise.all([
+    fetchJson(`${WP_HOST}/wp-json/wc/store/v1/products?search=${q}&per_page=6`),
+    fetchJson(`${WP_HOST}/wp-json/wp/v2/search?search=${q}&per_page=6&subtype=page,post`),
+    fetchJson(`${WP_HOST}/wp-json/hackknow/v1/courses`),
+    fetchJson(`${WP_HOST}/wp-json/hackknow/v1/roadmaps`),
+  ]);
+
+  const docs = [];
+
+  // (1) WooCommerce products → kind=product
+  if (Array.isArray(products)) {
+    for (const p of products.slice(0, 6)) {
+      docs.push({
+        id: `prod-${p.id}`,
+        title: p.name || '',
+        snippet: stripHtml(p.short_description || p.description).slice(0, 400),
+        kind: 'product',
+        wp_id: p.id,
+        slug: p.slug,
+        permalink: p.permalink,
+        price: p.prices?.price ? String(Number(p.prices.price) / Math.pow(10, p.prices.currency_minor_unit || 0)) : '0',
+        currency: p.prices?.currency_code || 'INR',
+        categories: (p.categories || []).map(c => c.name),
+      });
+    }
+  }
+
+  // (2) WP REST search → kind=page (subtype derived)
+  if (Array.isArray(pages)) {
+    for (const r of pages.slice(0, 6)) {
+      docs.push({
+        id: `pg-${r.id}`,
+        title: stripHtml(r.title || ''),
+        snippet: '',
+        kind: r.subtype === 'product' ? 'product' : 'page',
+        permalink: r.url,
+      });
+    }
+  }
+
+  // (3) Courses — keyword filter (endpoint doesn't accept search)
+  if (Array.isArray(courses)) {
+    const ql = query.toLowerCase();
+    const hits = courses.filter(c => (c.title + ' ' + (c.excerpt || '')).toLowerCase().includes(ql)).slice(0, 4);
+    for (const c of hits) {
+      docs.push({
+        id: `course-${c.id}`,
+        title: c.title,
+        snippet: stripHtml(c.excerpt || c.content).slice(0, 300),
+        kind: 'course',
+        slug: c.slug,
+        permalink: `${WP_HOST}/courses/${c.slug}`,
+      });
+    }
+  }
+
+  // (4) Roadmaps — same keyword filter
+  if (Array.isArray(roadmaps)) {
+    const ql = query.toLowerCase();
+    const hits = roadmaps.filter(r => (r.title + ' ' + (r.excerpt || '')).toLowerCase().includes(ql)).slice(0, 4);
+    for (const r of hits) {
+      docs.push({
+        id: `roadmap-${r.id}`,
+        title: r.title,
+        snippet: stripHtml(r.excerpt || '').slice(0, 300),
+        kind: 'roadmap',
+        slug: r.slug,
+        permalink: `${WP_HOST}/roadmaps/${r.slug}`,
+      });
+    }
+  }
+
+  // Dedupe by id; cap at 12 to keep prompt small.
+  const seen = new Set();
+  return docs.filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true; }).slice(0, 12);
+}
+
+// ---------- Gemini call (Google AI Studio API) ----------
+
+async function callGemini({ systemPrompt, history, userMessage, model, apiKey }) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const contents = [];
   for (const m of (history || []).slice(-10)) {
     contents.push({
@@ -152,11 +136,7 @@ async function callGemini({ systemPrompt, history, userMessage, model, accessTok
   const body = {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents,
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 1024,
-      topP: 0.95,
-    },
+    generationConfig: { temperature: 0.7, maxOutputTokens: 1024, topP: 0.95 },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_ONLY_HIGH' },
@@ -166,19 +146,18 @@ async function callGemini({ systemPrompt, history, userMessage, model, accessTok
   };
   const r = await fetch(url, {
     method: 'POST',
-    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    headers: { 'x-goog-api-key': apiKey, 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`gemini_failed:${r.status}:${await r.text()}`);
+  if (!r.ok) throw new Error(`gemini_failed:${r.status}:${(await r.text()).slice(0, 300)}`);
   const j = await r.json();
   const txt = j.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
   return { text: txt.trim(), usage: j.usageMetadata || {} };
 }
 
-// ---------- Response shaper: align with existing WP /chat shape ----------
+// ---------- Response shapers ----------
 
 function buildSuggestions(docs) {
-  // Up to 4 quick chips from non-product docs (pages, courses, roadmaps).
   return docs.filter(d => d.kind !== 'product' && d.permalink).slice(0, 4).map(d => ({
     label: (d.title || d.id).slice(0, 36),
     href: pathFromPermalink(d.permalink) || '/',
@@ -201,9 +180,8 @@ function pathFromPermalink(url) {
 // ---------- Public handler (called from _middleware.js) ----------
 
 export async function handleYahaviChat(request, env) {
-  const saJson = env.GCP_SA_JSON;
-  if (!saJson) {
-    // Sentinel: not configured — caller should fall back to WP path.
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) {
     const e = new Error('not_configured');
     e.code = 'NOT_CONFIGURED';
     throw e;
@@ -220,12 +198,11 @@ export async function handleYahaviChat(request, env) {
   const userLocale = request.headers.get('accept-language') || '';
 
   try {
-    const accessToken = await getAccessToken(saJson);
-    const groundingDocs = await searchKnowledgeBase(message, accessToken);
+    const groundingDocs = await searchKnowledgeBase(message);
     const systemPrompt  = buildSystemPrompt({ groundingDocs, userLocale });
     const model         = pickModel(message, history);
     const { text, usage } = await callGemini({
-      systemPrompt, history, userMessage: message, model, accessToken,
+      systemPrompt, history, userMessage: message, model, apiKey,
     });
 
     return jsonResponse(200, {
@@ -241,7 +218,6 @@ export async function handleYahaviChat(request, env) {
     });
   } catch (err) {
     console.error('yahavi_chat_err', err && err.message);
-    // Hard failure → tell middleware to fall back so user always gets a reply.
     const e = new Error(String(err && err.message || err));
     e.code = 'AI_FAILED';
     throw e;
