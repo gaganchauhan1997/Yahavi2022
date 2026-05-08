@@ -46,30 +46,76 @@ function stripHtml(s) {
   return String(s || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Hinglish/Hindi → English keyword normaliser. Lets us search the WC/WP indexes
+// using sensible terms even when the user types "मुझे excel सीखना है" or
+// "python course chahiye sasta wala". Cheap, no LLM call.
+const HINGLISH_MAP = {
+  'sikhna':'learn','seekhna':'learn','seekh':'learn','sikh':'learn',
+  'chahiye':'need','chahie':'need','chaahiye':'need',
+  'sasta':'cheap','sastu':'cheap','sasti':'cheap',
+  'mahanga':'expensive','mehnga':'expensive','mahangi':'expensive',
+  'kaunsa':'which','kaunsi':'which','konsa':'which','konsi':'which',
+  'behtar':'best','accha':'good','acha':'good','sabse':'best',
+  'discount':'discount','offer':'offer','deal':'deal',
+  'pdf':'pdf','dawnload':'download','download':'download',
+  'free':'free','muft':'free','mufat':'free','paisa':'price','daam':'price',
+  'kitne':'price','kitna':'price','kimat':'price','keemat':'price',
+};
+const DEVANAGARI_KEYWORDS = {
+  'एक्सेल':'excel','पायथन':'python','कोर्स':'course','टेम्पलेट':'template',
+  'सीखना':'learn','सीखें':'learn','मुझे':'i','चाहिए':'need','सस्ता':'cheap',
+  'पावरपॉइंट':'powerpoint','डाउनलोड':'download','फ्री':'free','कीमत':'price',
+};
+function extractSearchTerms(query) {
+  const terms = new Set();
+  // Direct Latin words from query (e.g. "excel", "python")
+  for (const w of (query.match(/[a-zA-Z]{3,}/g) || [])) terms.add(w.toLowerCase());
+  // Hinglish translit
+  for (const w of (query.toLowerCase().match(/[a-z]+/g) || [])) {
+    if (HINGLISH_MAP[w]) terms.add(HINGLISH_MAP[w]);
+  }
+  // Devanagari → English
+  for (const [hi, en] of Object.entries(DEVANAGARI_KEYWORDS)) {
+    if (query.includes(hi)) terms.add(en);
+  }
+  return Array.from(terms).filter(t => !['the','and','for','with','this','that','need','i','a','to','me','my','of','is','it','in','on','at','do','can','you'].includes(t));
+}
+
 async function searchKnowledgeBase(query) {
-  const q = encodeURIComponent(query.slice(0, 120));
-  const [products, pages, courses, roadmaps] = await Promise.all([
+  // Build a primary search query: extracted English/normalised terms, falling back
+  // to the raw user query so single-keyword English queries still work as before.
+  const terms = extractSearchTerms(query);
+  const searchQ = terms.length ? terms.slice(0, 5).join(' ') : query;
+  const q = encodeURIComponent(searchQ.slice(0, 120));
+  const qRaw = encodeURIComponent(query.slice(0, 120));
+
+  const [products, productsAll, pages, courses, roadmaps] = await Promise.all([
     fetchJson(`${WP_HOST}/wp-json/wc/store/v1/products?search=${q}&per_page=6`),
+    // Bestsellers fallback when search yields nothing — gives the model a baseline catalog.
+    fetchJson(`${WP_HOST}/wp-json/wc/store/v1/products?orderby=popularity&per_page=4`),
     fetchJson(`${WP_HOST}/wp-json/wp/v2/search?search=${q}&per_page=6&subtype=page,post`),
     fetchJson(`${WP_HOST}/wp-json/hackknow/v1/courses`),
     fetchJson(`${WP_HOST}/wp-json/hackknow/v1/roadmaps`),
   ]);
 
   const docs = [];
-  if (Array.isArray(products)) {
-    for (const p of products.slice(0, 6)) {
-      docs.push({
-        id: `prod-${p.id}`,
-        title: p.name || '',
-        snippet: stripHtml(p.short_description || p.description).slice(0, 400),
-        kind: 'product',
-        wp_id: p.id, slug: p.slug, permalink: p.permalink,
-        price: p.prices?.price ? String(Number(p.prices.price) / Math.pow(10, p.prices.currency_minor_unit || 0)) : '0',
-        currency: p.prices?.currency_code || 'INR',
-        categories: (p.categories || []).map(c => c.name),
-      });
-    }
-  }
+  const pushProduct = (p) => {
+    docs.push({
+      id: `prod-${p.id}`,
+      title: p.name || '',
+      snippet: stripHtml(p.short_description || p.description).slice(0, 400),
+      kind: 'product',
+      wp_id: p.id, slug: p.slug, permalink: p.permalink,
+      price: p.prices?.price ? String(Number(p.prices.price) / Math.pow(10, p.prices.currency_minor_unit || 0)) : '0',
+      currency: p.prices?.currency_code || 'INR',
+      categories: (p.categories || []).map(c => c.name),
+    });
+  };
+  if (Array.isArray(products)) for (const p of products.slice(0, 6)) pushProduct(p);
+  // Always include bestsellers as anti-hallucination baseline (model has REAL items
+  // to cite even on browse-style queries like "compare your courses").
+  if (Array.isArray(productsAll)) for (const p of productsAll.slice(0, 4)) pushProduct(p);
+
   if (Array.isArray(pages)) {
     for (const r of pages.slice(0, 6)) {
       docs.push({
@@ -78,9 +124,32 @@ async function searchKnowledgeBase(query) {
       });
     }
   }
-  const ql = query.toLowerCase();
+
+  // Course/roadmap match: use extracted terms (English keywords) for matching,
+  // then ALWAYS include up to 4 baseline courses + 4 roadmaps regardless. This
+  // ensures every reply has real catalog items to cite, eliminating hallucinations
+  // like "Python for Beginners ₹499" that don't exist in our shop.
+  const matchTerms = terms.length ? terms : [query.toLowerCase()];
+  const matchScore = (text) => {
+    const t = String(text || '').toLowerCase();
+    return matchTerms.reduce((n, w) => n + (t.includes(w) ? 1 : 0), 0);
+  };
+
   if (Array.isArray(courses)) {
-    for (const c of courses.filter(c => (c.title + ' ' + (c.excerpt || '')).toLowerCase().includes(ql)).slice(0, 4)) {
+    const scored = courses.map(c => ({ c, s: matchScore(c.title + ' ' + (c.excerpt || '')) }))
+      .sort((a, b) => b.s - a.s);
+    const picked = new Set();
+    for (const { c } of scored.filter(x => x.s > 0).slice(0, 4)) {
+      picked.add(c.id);
+      docs.push({
+        id: `course-${c.id}`, title: c.title,
+        snippet: stripHtml(c.excerpt || c.content).slice(0, 300),
+        kind: 'course', slug: c.slug, permalink: `${WP_HOST}/courses/${c.slug}`,
+      });
+    }
+    // Baseline: top 4 courses (regardless of match) so model always has real refs.
+    for (const c of courses.slice(0, 4)) {
+      if (picked.has(c.id)) continue;
       docs.push({
         id: `course-${c.id}`, title: c.title,
         snippet: stripHtml(c.excerpt || c.content).slice(0, 300),
@@ -89,7 +158,19 @@ async function searchKnowledgeBase(query) {
     }
   }
   if (Array.isArray(roadmaps)) {
-    for (const r of roadmaps.filter(r => (r.title + ' ' + (r.excerpt || '')).toLowerCase().includes(ql)).slice(0, 4)) {
+    const scored = roadmaps.map(r => ({ r, s: matchScore(r.title + ' ' + (r.excerpt || '')) }))
+      .sort((a, b) => b.s - a.s);
+    const picked = new Set();
+    for (const { r } of scored.filter(x => x.s > 0).slice(0, 3)) {
+      picked.add(r.id);
+      docs.push({
+        id: `roadmap-${r.id}`, title: r.title,
+        snippet: stripHtml(r.excerpt || '').slice(0, 300),
+        kind: 'roadmap', slug: r.slug, permalink: `${WP_HOST}/roadmaps/${r.slug}`,
+      });
+    }
+    for (const r of roadmaps.slice(0, 3)) {
+      if (picked.has(r.id)) continue;
       docs.push({
         id: `roadmap-${r.id}`, title: r.title,
         snippet: stripHtml(r.excerpt || '').slice(0, 300),
@@ -97,8 +178,9 @@ async function searchKnowledgeBase(query) {
       });
     }
   }
+
   const seen = new Set();
-  return docs.filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true; }).slice(0, 12);
+  return docs.filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true; }).slice(0, 18);
 }
 
 // ---------- LLM call: Workers AI primary, Gemini fallback ----------
