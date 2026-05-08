@@ -71,7 +71,7 @@ export default function WalletPanel() {
     try {
       await loadRazorpay();
       const order = await yaviWallet.createOrder(inr);
-      const w = window as Window & { Razorpay?: RzpCtor };
+      const w = window as unknown as { Razorpay?: RzpCtor };
       if (!w.Razorpay) throw new Error("Razorpay failed to load");
       const user = getCurrentUser();
       const rzp = new w.Razorpay({

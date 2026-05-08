@@ -44,7 +44,7 @@ export default function CourseDetailPage() {
       const apiTitleN = norm(ch.title || "");
       // Title-match first; fall back to index match.
       let e = enrichment?.chapters.find(
-        (c, ei) => apiTitleN && norm((enrichment?.chapters[ei] as { title?: string }).title || "") === apiTitleN,
+        (_c, ei) => apiTitleN && norm((enrichment?.chapters[ei] as { title?: string }).title || "") === apiTitleN,
       );
       if (!e) e = enrichment?.chapters[i];
       const apiLessons = ch.lessons && ch.lessons.length > 0 ? ch.lessons : null;

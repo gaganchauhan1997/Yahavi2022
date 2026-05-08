@@ -177,7 +177,7 @@ function adaptRelease(r: unknown): HKRelease {
     rss_color: typeof o.rss_color === 'string' ? o.rss_color : undefined,
   };
 }
-async function authPost<T>(path: string, body: unknown): Promise<T> {
+export async function authPost<T>(path: string, body: unknown): Promise<T> {
   const tok = getAuthToken();
   const r = await fetch(`${WP_REST_BASE}${path}`, {
     method: 'POST',
