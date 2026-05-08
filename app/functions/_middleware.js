@@ -1,32 +1,16 @@
-// Cloudflare Pages middleware — reverse-proxy WordPress backend paths,
-// AND intercept POST /wp-json/hackknow/v1/chat to serve Yahavi AI v2 from the
-// edge (Vertex AI Search RAG + Gemini 2.5). When GCP_SA_JSON secret is unset
-// or the AI call fails, transparently falls back to the WP chat endpoint.
-//
-// Why a Function (not _redirects)? CF Pages _redirects with status 200 rewrites
-// silently drop POST/PUT/DELETE — they only work for GET. The login form does
-// POST /wp-json/hackknow/v1/auth/login → 405 without this proxy.
+// app/functions/_middleware.js
+// Yahavi v2 edge intercept + WP reverse proxy.
 
 import { handleYahaviChat } from './lib/yahavi-chat.js';
 
-const WP_HOST   = "https://shop.hackknow.com";
-const CHAT_PATH = "/wp-json/hackknow/v1/chat";
+const WP_HOST   = 'https://shop.hackknow.com';
+const CHAT_PATH = '/wp-json/hackknow/v1/chat';
 
-const PROXY_PREFIXES = [
-  "/wp-json/", "/wp-admin", "/wp-content/", "/wp-includes/",
-  "/wp-login.php", "/graphql", "/xmlrpc.php",
-];
-
-function shouldProxy(pathname) {
-  for (const p of PROXY_PREFIXES) {
-    if (pathname === p || pathname.startsWith(p)) return true;
-    if (p.endsWith("/") && pathname === p.slice(0, -1)) return true;
-  }
-  return false;
+function shouldProxy(p) {
+  return p.startsWith('/wp-json/') || p.startsWith('/wp-admin/') || p.startsWith('/wp-content/') || p.startsWith('/wp-includes/');
 }
 
-export const onRequest = async (context) => {
-  const { request, next, env } = context;
+export const onRequest = async ({ request, env, next }) => {
   const url = new URL(request.url);
 
   // ---- Yahavi v2 intercept: POST chat → run RAG+Gemini at the edge ----
@@ -34,6 +18,7 @@ export const onRequest = async (context) => {
   // AND the fallback WP proxy can consume it independently. Avoids
   // "body already used" errors caused by tee'd streams.
   let bufferedBody = null;
+  let v2FallbackReason = null; // diagnostic: surfaced via x-yahavi-v2-fallback-reason header
   if (request.method === "POST" && url.pathname === CHAT_PATH) {
     try {
       bufferedBody = await request.arrayBuffer();
@@ -45,7 +30,10 @@ export const onRequest = async (context) => {
       return await handleYahaviChat(aiReq, env);
     } catch (err) {
       // not_configured (no GCP_SA_JSON) or AI_FAILED → proxy to WP unchanged.
-      console.warn("yahavi_v2_fallback_to_wp:", err && err.code, err && err.message);
+      const code = (err && err.code) || 'UNKNOWN';
+      const msg  = String((err && err.message) || err || '').slice(0, 240);
+      v2FallbackReason = `${code}|${msg}`;
+      console.warn("yahavi_v2_fallback_to_wp:", code, msg);
       // Fall through; bufferedBody is reused below.
     }
   }
@@ -85,6 +73,9 @@ export const onRequest = async (context) => {
       const cleaned = c.replace(/;\s*Domain=[^;]+/i, "");
       respHeaders.append("set-cookie", cleaned);
     }
+  }
+  if (v2FallbackReason) {
+    respHeaders.set("x-yahavi-v2-fallback-reason", v2FallbackReason);
   }
   return new Response(upstreamResp.body, {
     status: upstreamResp.status,
