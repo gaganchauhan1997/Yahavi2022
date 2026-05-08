@@ -31,7 +31,9 @@ export const onRequest = async ({ request, env, next }) => {
     } catch (err) {
       // not_configured (no GCP_SA_JSON) or AI_FAILED → proxy to WP unchanged.
       const code = (err && err.code) || 'UNKNOWN';
-      const msg  = String((err && err.message) || err || '').slice(0, 240);
+      const rawMsg = String((err && err.message) || err || '');
+      // RFC 7230: header value must be visible ASCII (no CR/LF/NUL/control chars).
+      const msg = rawMsg.replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
       v2FallbackReason = `${code}|${msg}`;
       console.warn("yahavi_v2_fallback_to_wp:", code, msg);
       // Fall through; bufferedBody is reused below.
@@ -75,7 +77,7 @@ export const onRequest = async ({ request, env, next }) => {
     }
   }
   if (v2FallbackReason) {
-    respHeaders.set("x-yahavi-v2-fallback-reason", v2FallbackReason);
+    try { respHeaders.set("x-yahavi-v2-fallback-reason", v2FallbackReason); } catch (_) { /* invalid header value, swallow */ }
   }
   return new Response(upstreamResp.body, {
     status: upstreamResp.status,
