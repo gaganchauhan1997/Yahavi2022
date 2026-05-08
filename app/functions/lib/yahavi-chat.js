@@ -14,6 +14,7 @@ const MODEL       = 'gemini-2.5-flash';
 // ---------- GCP OAuth: SA-JSON → access token (RS256 JWT, SubtleCrypto) ----------
 
 let _tokenCache = null; // { token, expiresAt }
+let _tokenInflight = null; // dedupe concurrent refresh attempts within an isolate
 
 function b64urlEncode(buf) {
   let bin = '';
@@ -34,7 +35,17 @@ function pemToBinary(pem) {
 async function getAccessToken(saJsonStr) {
   const now = Math.floor(Date.now() / 1000);
   if (_tokenCache && _tokenCache.expiresAt > now + 60) return _tokenCache.token;
+  // Concurrency guard: if a refresh is already in flight in this isolate,
+  // await its result instead of issuing a duplicate OAuth round-trip.
+  if (_tokenInflight) return _tokenInflight;
+  _tokenInflight = (async () => {
+    try { return await _refreshAccessToken(saJsonStr, now); }
+    finally { _tokenInflight = null; }
+  })();
+  return _tokenInflight;
+}
 
+async function _refreshAccessToken(saJsonStr, now) {
   const sa = JSON.parse(saJsonStr);
   const header  = { alg: 'RS256', typ: 'JWT' };
   const payload = {
@@ -113,12 +124,15 @@ async function searchKnowledgeBase(query, accessToken) {
 // ---------- Smart routing (Flash vs Pro) ----------
 
 function pickModel(message, history) {
-  // Heuristic: Pro for longer/complex/multi-turn queries; Flash for short ones.
-  // (Pro costs ~5x but handles reasoning much better.)
-  const wc = (message || '').trim().split(/\s+/).length;
+  // Heuristic: Flash for ~95% of traffic; Pro reserved for genuine reasoning
+  // (Pro costs ~5x). Tightened from earlier v1 (wc>=30 OR complex OR turns>=8)
+  // which fired Pro on most "kya hai X" greetings — bad for ₹85k budget cap.
+  const msg   = (message || '');
+  const wc    = msg.trim().split(/\s+/).length;
   const turns = (history || []).length;
-  const complex = /compare|difference|why|kaise|kyun|kyon|explain|recommend|which is better|which one/i.test(message || '');
-  if (wc >= 30 || turns >= 8 || complex) return 'gemini-2.5-pro';
+  // "Reasoning intent" — words that genuinely benefit from Pro.
+  const reasoning = /\b(compare|difference|vs\.?|versus|why|recommend|which is better|which one|tradeoff|pros and cons|kaunsa behtar)\b/i.test(msg);
+  if ((reasoning && wc >= 25) || wc >= 80 || turns >= 16) return 'gemini-2.5-pro';
   return 'gemini-2.5-flash';
 }
 

@@ -30,15 +30,23 @@ export const onRequest = async (context) => {
   const url = new URL(request.url);
 
   // ---- Yahavi v2 intercept: POST chat → run RAG+Gemini at the edge ----
+  // We BUFFER the body once into a fixed ArrayBuffer so both the AI handler
+  // AND the fallback WP proxy can consume it independently. Avoids
+  // "body already used" errors caused by tee'd streams.
+  let bufferedBody = null;
   if (request.method === "POST" && url.pathname === CHAT_PATH) {
     try {
-      // Clone the body once so we can fall back to WP if the AI path errors.
-      const cloned = request.clone();
-      return await handleYahaviChat(cloned, env);
+      bufferedBody = await request.arrayBuffer();
+      const aiReq = new Request(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: bufferedBody,
+      });
+      return await handleYahaviChat(aiReq, env);
     } catch (err) {
       // not_configured (no GCP_SA_JSON) or AI_FAILED → proxy to WP unchanged.
       console.warn("yahavi_v2_fallback_to_wp:", err && err.code, err && err.message);
-      // Fall through to the standard WP proxy below.
+      // Fall through; bufferedBody is reused below.
     }
   }
 
@@ -48,7 +56,7 @@ export const onRequest = async (context) => {
   const proxyReq = new Request(upstream.toString(), {
     method: request.method,
     headers: request.headers,
-    body: request.body,
+    body: bufferedBody !== null ? bufferedBody : request.body,
     redirect: "manual",
   });
   proxyReq.headers.set("host", "shop.hackknow.com");

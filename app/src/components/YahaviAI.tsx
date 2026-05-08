@@ -113,8 +113,15 @@ function parseChatActions(raw: string): ChatActions {
   let couponCode: string | null = null;
   let filterSlug: string | null = null;
 
+  // Defence-in-depth NAV allowlist — even if Yahavi is prompt-injected, she can
+  // only navigate to user-facing storefront paths. Blocks /wp-admin, /wp-login,
+  // /wp-content, /account/settings, /account/billing, etc.
+  const NAV_ALLOWED = /^\/(?:shop(?:\/|$)|product(?:\/|$)|courses?(?:\/|$)|roadmaps?(?:\/|$)|blog(?:\/|$)|about|community|support|contact|faq|affiliate|cart|checkout|account\/orders|refund-policy|terms|privacy|login|signup|$)/;
   const cleanText = raw
-    .replace(/\[\[\s*NAV\s*:\s*(\/[^\]\s]*)\s*\]\]/gi, (_f, p: string) => { navTargets.push(p); return ""; })
+    .replace(/\[\[\s*NAV\s*:\s*(\/[^\]\s]*)\s*\]\]/gi, (_f, p: string) => {
+      if (NAV_ALLOWED.test(p)) navTargets.push(p);
+      return "";
+    })
     .replace(/\[\[\s*ADD_TO_CART\s*:\s*(\d{1,9})\s*\]\]/gi, (_f, id: string) => {
       const n = Number(id); if (n > 0 && n < 1e9) addToCartIds.push(n); return "";
     })
@@ -270,6 +277,27 @@ export default function YahaviChat() {
       }
 
       setMessages((m) => [...m, botMsg]);
+
+      // ── v2 persistence: when reply came from edge AI, mirror the exchange
+      // to wp_hk_chat_messages via /chat/log so analytics + history work as
+      // before. Fire-and-forget; persistence failure must NEVER block UX.
+      if (data && (data.model_used || data.grounding)) {
+        const grounding = Array.isArray(data.grounding) ? data.grounding : [];
+        fetch(`${WP_REST_BASE}/chat/log`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            session_id:   sessionIdRef.current,
+            user_message: q,
+            bot_reply:    cleanText,
+            model_used:   String(data.model_used || ""),
+            tokens_in:    Number(data.tokens_in || 0),
+            tokens_out:   Number(data.tokens_out || 0),
+            grounding,
+          }),
+        }).catch(() => { /* swallow — best-effort */ });
+      }
 
       // ── Action markers — fire side effects (cart, coupon, filter, nav) ──
       // ADD_TO_CART: WC Store API (cart-token cookie carries the cart context).
