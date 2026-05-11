@@ -1,5 +1,6 @@
 // app/functions/_middleware.js
 // Yahavi v2 edge intercept + WP reverse proxy.
+// Proxies: /wp-json/, /wp-admin/, /wp-content/, /wp-includes/, /graphql
 
 import { handleYahaviChat } from './lib/yahavi-chat.js';
 
@@ -7,18 +8,24 @@ const WP_HOST   = 'https://shop.hackknow.com';
 const CHAT_PATH = '/wp-json/hackknow/v1/chat';
 
 function shouldProxy(p) {
-  return p.startsWith('/wp-json/') || p.startsWith('/wp-admin/') || p.startsWith('/wp-content/') || p.startsWith('/wp-includes/');
+  return (
+    p.startsWith('/wp-json/') ||
+    p.startsWith('/wp-admin/') ||
+    p.startsWith('/wp-content/') ||
+    p.startsWith('/wp-includes/') ||
+    p === '/graphql' ||
+    p.startsWith('/graphql?') ||
+    p.startsWith('/graphql/')
+  );
 }
 
 export const onRequest = async ({ request, env, next }) => {
   const url = new URL(request.url);
 
   // ---- Yahavi v2 intercept: POST chat → run RAG+Gemini at the edge ----
-  // We BUFFER the body once into a fixed ArrayBuffer so both the AI handler
-  // AND the fallback WP proxy can consume it independently. Avoids
-  // "body already used" errors caused by tee'd streams.
+  // Buffer body once so both AI handler AND WP proxy fallback can consume it.
   let bufferedBody = null;
-  let v2FallbackReason = null; // diagnostic: surfaced via x-yahavi-v2-fallback-reason header
+  let v2FallbackReason = null;
   if (request.method === "POST" && url.pathname === CHAT_PATH) {
     try {
       bufferedBody = await request.arrayBuffer();
@@ -29,14 +36,11 @@ export const onRequest = async ({ request, env, next }) => {
       });
       return await handleYahaviChat(aiReq, env);
     } catch (err) {
-      // not_configured (no GCP_SA_JSON) or AI_FAILED → proxy to WP unchanged.
       const code = (err && err.code) || 'UNKNOWN';
       const rawMsg = String((err && err.message) || err || '');
-      // RFC 7230: header value must be visible ASCII (no CR/LF/NUL/control chars).
       const msg = rawMsg.replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
       v2FallbackReason = `${code}|${msg}`;
       console.warn("yahavi_v2_fallback_to_wp:", code, msg);
-      // Fall through; bufferedBody is reused below.
     }
   }
 
@@ -77,7 +81,7 @@ export const onRequest = async ({ request, env, next }) => {
     }
   }
   if (v2FallbackReason) {
-    try { respHeaders.set("x-yahavi-v2-fallback-reason", v2FallbackReason); } catch (_) { /* invalid header value, swallow */ }
+    try { respHeaders.set("x-yahavi-v2-fallback-reason", v2FallbackReason); } catch (_) {}
   }
   return new Response(upstreamResp.body, {
     status: upstreamResp.status,
