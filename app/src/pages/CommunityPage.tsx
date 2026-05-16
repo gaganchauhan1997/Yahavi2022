@@ -105,7 +105,7 @@ const CommunityPage = () => {
 
   const handleJoin = async () => {
     if (!isAuthenticated()) {
-      toast.error('Pehle login karein');
+      toast.error('Please log in first');
       navigate('/login?next=/community');
       return;
     }

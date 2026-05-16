@@ -44,7 +44,7 @@ export default function HomePage({ openSettings, settingsOpen, closeSettings }: 
     setScore(null);
     setProgressPct(0);
     setAttempt(1);
-    if (!title.trim()) { setError('Title likh bhai.'); return; }
+    if (!title.trim()) { setError('Please enter a title.'); return; }
     if (!hasMinimumKeys()) { openSettings(); return; }
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -105,7 +105,7 @@ export default function HomePage({ openSettings, settingsOpen, closeSettings }: 
               <span className="italic text-noir-blood">They tell tales.</span>
             </h1>
             <p className="max-w-2xl mx-auto text-noir-bone/70 text-base sm:text-lg leading-relaxed">
-              Title likho. Template chuno. Citations + readable structure + 90+ quality score ke saath full SEO article milta hai. Copy karo, export karo, publish karo. Zero backend — sab kuch tumhare browser me.
+              Type a title. Pick a template. Get a full SEO article with citations, readable structure, and a 90+ quality score. Copy it, export it, publish it. Zero backend — everything stays in your browser.
             </p>
           </section>
         )}
@@ -114,7 +114,7 @@ export default function HomePage({ openSettings, settingsOpen, closeSettings }: 
         <section className="noir-card p-5 sm:p-7 space-y-5">
           <div>
             <label htmlFor="title" className="noir-label block mb-2">
-              Article title (your only input — sab baaki AI sambhal lega)
+              Article title (your only input — AI handles everything else)
             </label>
             <div className="relative">
               <input
@@ -129,7 +129,7 @@ export default function HomePage({ openSettings, settingsOpen, closeSettings }: 
               />
             </div>
             <p className="text-[11px] text-noir-fog mt-2 font-mono">
-              {title.length}/120 chars · enter dabane se start hoga
+              {title.length}/120 chars · press enter to start
             </p>
           </div>
 

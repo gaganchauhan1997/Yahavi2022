@@ -1,30 +1,30 @@
 # FOUNDER.md — HackKnow System Overview
 
-> **Founder ka guide:** Yeh file explain karti hai ki poora system kaise kaam karta hai,
-> kya touch karna hai, kya bilkul nahi, aur build ke liye kaunse credentials chahiye.
-> Kisi bhi developer ya AI ko dene se pehle yeh file zaroor padhao.
+> **Founder's guide:** This file explains how the entire system works,
+> what to touch, what to never touch, and which credentials are needed for the build.
+> Make sure any developer or AI reads this file before being given access.
 
 ---
 
-## System Kaise Kaam Karta Hai
+## How the System Works
 
-### Simple Words Mein
+### In Simple Terms
 
 ```
 User (browser)
-  ↓  www.hackknow.com pe jaata hai
+  ↓  goes to www.hackknow.com
 Cloudflare Pages
-  ↓  React website serve karta hai (static files)
-  ↓  Agar request /wp-json/* ya /graphql ke liye hai...
+  ↓  serves React website (static files)
+  ↓  If request is for /wp-json/* or /graphql...
 Cloudflare Workers (_middleware.js)
-  ↓  Request ko silently forward karta hai
+  ↓  silently forwards the request
 WordPress (shop.hackknow.com — Hostinger)
-  ↓  Products, orders, auth data return karta hai
-User ko response milta hai
-  (shop.hackknow.com kabhi bhi browser mein nahi dikhta)
+  ↓  returns products, orders, auth data
+User receives the response
+  (shop.hackknow.com is never visible in the browser)
 ```
 
-### Connections — Kya Kis Se Baat Karta Hai
+### Connections — What Talks to What
 
 | From | To | Path | Purpose |
 |------|----|------|---------|
@@ -39,63 +39,63 @@ User ko response milta hai
 
 ---
 
-## Cloudflare Dashboard Mein Kya Set Karna Hai
+## What to Set in the Cloudflare Dashboard
 
 **Cloudflare → Pages → hackknow → Settings → Environment Variables:**
 
-| Variable | Kya Hai |
+| Variable | What It Is |
 |----------|---------|
 | `VITE_RAZORPAY_KEY_ID` | Razorpay live key (rzp_live_...) |
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth Client ID |
-| `VITE_WP_API_BASE` | **Khali chhod do (empty)** — proxy handle karta hai |
+| `VITE_WP_API_BASE` | **Leave empty** — the proxy handles it |
 
 ---
 
-## Bilkul Mat Chhuona (DO NOT TOUCH)
+## DO NOT TOUCH
 
-| Cheez | Kyun Nahi |
+| Item | Why Not |
 |-------|-----------|
-| `app/functions/_middleware.js` ka proxy logic | Yeh poora bridge hai — toota toh site dark ho jaayegi |
-| `VITE_WP_API_BASE` ko koi value dena | Empty hona zaroori hai — warna backend expose ho jaata hai |
-| `shop.hackknow.com` ko public links mein daalna | Backend kabhi user ko nahi dikhna chahiye |
-| Desktop PageSpeed settings | Desktop 95/100 hai — kuch bhi change mat karo |
-| `app/public/_redirects` ka `/* /index.html 200` | Yeh SPA routing hai — hata diya toh 404 aayenge |
-| `app/public/fonts/` folder | Self-hosted fonts hain — hataoge toh Google Fonts load hoga (1700ms lag) |
-| WordPress mu-plugins folder on Hostinger | `hackknow-checkout.php` orders aur downloads handle karta hai |
+| `app/functions/_middleware.js` proxy logic | This is the entire bridge — if broken, the site goes dark |
+| Setting any value for `VITE_WP_API_BASE` | Must remain empty — otherwise the backend gets exposed |
+| Putting `shop.hackknow.com` in public links | The backend must never be visible to users |
+| Desktop PageSpeed settings | Desktop is at 95/100 — do not change anything |
+| `app/public/_redirects`'s `/* /index.html 200` | This is SPA routing — removing it causes 404s |
+| `app/public/fonts/` folder | These are self-hosted fonts — removing them causes Google Fonts to load (1700ms penalty) |
+| WordPress mu-plugins folder on Hostinger | `hackknow-checkout.php` handles orders and downloads |
 
 ---
 
-## Build Karne Ke Liye Credentials
+## Credentials Needed for the Build
 
-### Cloudflare Pages Build (Automatic jab GitHub pe push karo)
+### Cloudflare Pages Build (Automatic when you push to GitHub)
 
-| Credential | Kahan Set Karo | Kya Hai |
+| Credential | Where to Set | What It Is |
 |-----------|----------------|---------|
 | `VITE_RAZORPAY_KEY_ID` | CF Pages → Environment Variables | Razorpay public key (rzp_live_...) |
 | `VITE_GOOGLE_CLIENT_ID` | CF Pages → Environment Variables | Google OAuth Client ID |
-| `VITE_WP_API_BASE` | CF Pages → Environment Variables | **Empty rakhna** |
+| `VITE_WP_API_BASE` | CF Pages → Environment Variables | **Keep empty** |
 
-### Replit (Deploy automation ke liye)
+### Replit (For deploy automation)
 
 | Credential | Purpose |
 |-----------|---------|
-| `GITHUB_TOKEN` | GitHub repo mein code push karne ke liye (Contents read+write chahiye) |
-| `HOSTINGER_SFTP_HOST` | WordPress files upload karne ke liye (SFTP) |
+| `GITHUB_TOKEN` | For pushing code to the GitHub repo (Contents read+write required) |
+| `HOSTINGER_SFTP_HOST` | For uploading WordPress files via SFTP |
 | `HOSTINGER_SFTP_USER` | Hostinger SFTP username |
 | `HOSTINGER_SFTP_PASSWORD` | Hostinger SFTP password |
 | `RAZORPAY_KEY_ID` | Razorpay live key |
-| `RAZORPAY_KEY_SECRET` | Razorpay secret (webhook verification ke liye) |
+| `RAZORPAY_KEY_SECRET` | Razorpay secret (for webhook verification) |
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth Client ID |
 
-### WordPress (Hostinger pe already set hain)
-- WooCommerce active hona chahiye
-- WPGraphQL plugin active hona chahiye
-- `hackknow-checkout.php` mu-plugins mein deployed hona chahiye
-- Razorpay WordPress plugin configured hona chahiye
+### WordPress (Already set on Hostinger)
+- WooCommerce must be active
+- WPGraphQL plugin must be active
+- `hackknow-checkout.php` must be deployed in mu-plugins
+- Razorpay WordPress plugin must be configured
 
 ---
 
-## Key Files — Kahan Kya Hai
+## Key Files — What Lives Where
 
 ```
 app/
@@ -133,25 +133,25 @@ Build runs: npm run build (inside app/)
    - Uses VITE_GOOGLE_CLIENT_ID from CF env vars
    - VITE_WP_API_BASE = empty (no hardcoded URLs)
        ↓
-dist/ folder deploy hota hai Cloudflare edge pe
+dist/ folder is deployed to Cloudflare edge
        ↓
-functions/_middleware.js bhi deploy hota hai as Cloudflare Workers
+functions/_middleware.js is also deployed as Cloudflare Workers
        ↓
-www.hackknow.com live ho jaata hai (1-2 min mein)
+www.hackknow.com goes live (within 1-2 minutes)
 ```
 
 ---
 
-## Agar Kuch Toot Jaaye — Quick Debug
+## If Something Breaks — Quick Debug
 
-| Problem | Check Karo |
+| Problem | Check |
 |---------|-----------|
-| Products nahi dikh rahe | `_middleware.js` mein `/graphql` proxy hai ya nahi |
-| Login kaam nahi kar raha | `/wp-json/hackknow/v1/auth/*` WordPress pe accessible hai ya nahi |
-| Payment fail ho rahi hai | `VITE_RAZORPAY_KEY_ID` CF Pages env vars mein set hai ya nahi |
-| Images nahi load ho rahi | `/wp-content/*` proxy `_middleware.js` mein hai |
-| Cloudflare pe build fail ho rahi | Build env vars set hain ya nahi (CF Dashboard check karo) |
-| 404 errors everywhere | `_redirects` file mein `/* /index.html 200` hai ya nahi |
+| Products not showing | Check if `/graphql` proxy exists in `_middleware.js` |
+| Login not working | Check if `/wp-json/hackknow/v1/auth/*` is accessible on WordPress |
+| Payments failing | Check if `VITE_RAZORPAY_KEY_ID` is set in CF Pages env vars |
+| Images not loading | Check if `/wp-content/*` proxy is in `_middleware.js` |
+| Build failing on Cloudflare | Check if build env vars are set (check CF Dashboard) |
+| 404 errors everywhere | Check if `/* /index.html 200` is in the `_redirects` file |
 
 ---
 

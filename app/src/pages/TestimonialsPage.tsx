@@ -139,7 +139,7 @@ const REVIEWS: Review[] = [
     city: "Lucknow, IN",
     rating: 5,
     text:
-      "Manish sir ki team genuinely helpful hai. Asked them a question on WhatsApp at 11pm, got reply in 10 minutes. Mad respect.",
+      "Manish's team is genuinely helpful. Asked them a question on WhatsApp at 11pm, got a reply in 10 minutes. Mad respect.",
     product: "Reseller Bundle",
     source: "WhatsApp Review",
     href: "https://wa.me/918796018700",

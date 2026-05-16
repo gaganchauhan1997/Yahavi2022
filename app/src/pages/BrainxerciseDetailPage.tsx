@@ -120,7 +120,7 @@ export default function BrainxerciseDetailPage() {
         setSheetReady(true);
       } catch (e) {
         console.error('[Brainxercise] Could not mount spreadsheet:', e);
-        if (!cancelled) setErr('Could not load the spreadsheet editor. Refresh karo.');
+        if (!cancelled) setErr('Could not load the spreadsheet editor. Please refresh.');
       }
     })();
 
@@ -224,7 +224,7 @@ export default function BrainxerciseDetailPage() {
               )}
               {secondsLeft !== null && secondsLeft <= 0 && !result?.pass && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-mono bg-red-200 text-red-900 rounded ml-auto">
-                  Time's up — submit ya reset karo
+                  Time's up — submit or reset
                 </span>
               )}
             </div>
@@ -307,7 +307,7 @@ export default function BrainxerciseDetailPage() {
                     )}
                     <div className="flex-1">
                       <p className="font-display font-bold text-xl">
-                        {result.pass ? 'Bilkul sahi!' : 'Almost. Try again.'}
+                        {result.pass ? 'Correct!' : 'Almost. Try again.'}
                       </p>
                       <p className="text-sm font-mono mt-1">
                         Score: {result.score}% · Correct {result.correct} / {result.total}
