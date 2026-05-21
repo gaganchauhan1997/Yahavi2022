@@ -1,2 +1,2 @@
-last-redeploy-nudge: 2026-05-01T19:53:27Z
-reason: GCE webhook fired before feat(courses) + fix(shop) commits landed; new bundle missed them.
+last-redeploy-nudge: 2026-05-21T08:49:09Z
+reason: hotfix(checkout) — client-side fallback for /order-free 404 (mu-plugin missing on Hostinger). 183 free products mapped to public download URLs in src/data/free-downloads.json. Plus zz-hk-free-orders.php staged to wp-content/mu-plugins/ for next manual sync.
