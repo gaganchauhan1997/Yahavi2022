@@ -2,4 +2,4 @@
 
 Newest first. Each row links to a per-run report.
 
-- 2026-08-15T05:18:41.057Z — WARN 10/11 — [report](audit-2026-08-15T05-18Z.md)
+- 2026-08-15T06:25:54.183Z — WARN 10/11 — [report](audit-2026-08-15T06-25Z.md)
