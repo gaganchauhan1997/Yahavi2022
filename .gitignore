@@ -1,5 +1,6 @@
 # Dependencies
 app/node_modules/
+founder-connector/node_modules/
 
 # Build output
 app/dist/
@@ -8,6 +9,8 @@ app/dist/
 app/.env
 app/.env.local
 app/.env.production
+founder-connector/.env
+founder-connector/.env.*
 
 # Editor
 .DS_Store
