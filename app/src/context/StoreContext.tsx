@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 import type { Product } from "@/data/products";
-import { fallbackProducts } from "@/data/products";
 import { fetchAllProducts } from "@/lib/graphql-client";
 import { loadAvailability } from "@/lib/product-availability";
 import { initializeRazorpayPayment } from "@/lib/razorpay";
@@ -248,33 +247,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             };
           });
 
-          // Filter out NO-FILE products. Owner rule is strict: a product
-          // must NEVER appear on the storefront unless we have positively
-          // confirmed it has a downloadable file.
-          //
-          // Behaviour:
-          // - Map fully loaded with entries → STRICT: a product is shown only
-          //   when its availability entry has has_file === true. Unknown ids
-          //   are hidden (defensive — protects against stale/missing rows).
-          // - Map empty (network failure / endpoint down) → FAIL-OPEN: show
-          //   everything rather than blank the entire storefront. The shop
-          //   still functions; the bad-product window is the same as before
-          //   the filter existed.
-          const mapHasEntries = Object.keys(availability).length > 0;
-          const deliverable = mapHasEntries
-            ? mappedProducts.filter((p) => {
-                const e = availability[String(p.id)];
-                return !!e && e.has_file === true;
-              })
-            : mappedProducts;
+          // Only positively verified downloadable products enter store state.
+          const deliverable = mappedProducts.filter((p) => availability[String(p.id)]?.has_file === true);
           dispatch({ type: "SET_PRODUCTS", payload: deliverable });
         } else {
           throw new Error("No products returned from API");
         }
       } catch {
         if (cancelled) return;
-        // Silently fall back to static products — no disruptive toast
-        dispatch({ type: "SET_PRODUCTS", payload: fallbackProducts });
+        // Keep the existing retry UI; never substitute demo products for failed live data.
+        dispatch({ type: "SET_PRODUCTS", payload: [] });
       }
     };
 
