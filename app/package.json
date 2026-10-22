@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/prerender.mjs",
+    "build": "npm run build:client && node scripts/prerender.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "prerender": "node scripts/prerender.mjs",
-    "build:client": "tsc -b && vite build",
+    "build:client": "tsc -b && vite build && node scripts/prepare-free-templates.mjs",
     "build:production": "npm run build:client && PRERENDER_MODE=live node scripts/prerender.mjs",
     "typecheck": "tsc -b",
     "test": "vitest run",
@@ -17,6 +17,9 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -94,7 +97,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "web-vitals": "^6.2.3"
   },
   "engines": {
     "node": ">=24.19.0 <25",
