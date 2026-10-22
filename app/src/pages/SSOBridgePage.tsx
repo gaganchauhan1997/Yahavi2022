@@ -8,7 +8,7 @@
  *              else: navigate('/login?redirect=' + encodeURIComponent(thisPathWithQuery))
  *   - tool   → reads fragment, persists, strips, signed in.
  */
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isAuthenticated } from '@/lib/auth';
 import { getAuthToken } from '@/lib/auth-token';
@@ -16,36 +16,29 @@ import { getAuthToken } from '@/lib/auth-token';
 const ALLOWED_RETURN_ORIGINS = [
   'https://tdm.hackknow.com',
   'https://ai.hackknow.com',
-  'http://localhost:5174',
+  ...(import.meta.env.DEV ? ['http://localhost:5174'] : []),
 ];
 
 export default function SSOBridgePage() {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const returnUrl = params.get('return') || '';
-    const isLogout = params.get('logout') === '1';
-
-    // Validate return URL
-    let returnOrigin = '';
+  const params = new URLSearchParams(window.location.search);
+  const returnUrl = params.get('return') || '';
+  const isLogout = params.get('logout') === '1';
+  const error = (() => {
     try {
       const u = new URL(returnUrl);
-      returnOrigin = u.origin;
-    } catch {
-      setError('Invalid return URL — bridge can only send you back to allowed HackKnow tools.');
-      return;
-    }
-    if (!ALLOWED_RETURN_ORIGINS.includes(returnOrigin)) {
-      setError(`Return origin "${returnOrigin}" is not on the allow-list.`);
-      return;
-    }
+      if (u.username || u.password || !ALLOWED_RETURN_ORIGINS.includes(u.origin)) return 'Return origin is not allowed.';
+      return null;
+    } catch { return 'Invalid return URL.'; }
+  })();
+
+  useEffect(() => {
+    if (error) return;
 
     // Logout intent — clear local session and bounce back to tool
     if (isLogout) {
-      try { localStorage.removeItem('hackknow-user'); } catch {}
-      try { localStorage.removeItem('hackknow-auth-token'); } catch {}
+      try { localStorage.removeItem('hackknow-user'); } catch { /* Storage may be blocked by the browser. */ }
+      try { localStorage.removeItem('hackknow-auth-token'); } catch { /* Storage may be blocked by the browser. */ }
       window.location.replace(returnUrl);
       return;
     }
@@ -53,7 +46,7 @@ export default function SSOBridgePage() {
     // Need to be logged in
     if (!isAuthenticated()) {
       const here = window.location.pathname + window.location.search;
-      navigate(`/login?redirect=${encodeURIComponent(here)}`, { replace: true });
+      navigate(`/login?next=${encodeURIComponent(here)}`, { replace: true });
       return;
     }
 
@@ -61,7 +54,7 @@ export default function SSOBridgePage() {
     const token = getAuthToken();
     if (!user) {
       const here = window.location.pathname + window.location.search;
-      navigate(`/login?redirect=${encodeURIComponent(here)}`, { replace: true });
+      navigate(`/login?next=${encodeURIComponent(here)}`, { replace: true });
       return;
     }
 
@@ -76,7 +69,7 @@ export default function SSOBridgePage() {
     const sep = returnUrl.includes('#') ? '&' : '#';
     const tokenPart = token ? `&token=${encodeURIComponent(token)}` : '';
     window.location.replace(`${returnUrl}${sep}sso=${b64}${tokenPart}`);
-  }, [navigate]);
+  }, [navigate, error, returnUrl, isLogout]);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
