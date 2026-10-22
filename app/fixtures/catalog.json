@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-22",
+  "categories": [{"id": 1, "name": "Excel Templates", "slug": "excel-templates", "count": 1, "parent": 0}],
+  "products": [{"id": 101, "name": "Sample Excel Dashboard", "slug": "sample-excel-dashboard", "description": "<p>Offline fixture product for verification.</p>", "short_description": "Sample dashboard", "is_purchasable": true, "prices": {"price": "10000", "regular_price": "10000", "currency_code": "INR", "currency_minor_unit": 2}, "categories": [{"id": 1, "name": "Excel Templates", "slug": "excel-templates"}], "images": []}],
+  "courses": [], "roadmaps": [], "posts": []
+}
