@@ -1,19 +1,6 @@
-/**
- * Server-side checkout client. Calls the REST endpoints registered by
- * wp-content/mu-plugins/hackknow-checkout.php (paid path) and
- * wp-content/mu-plugins/zz-hk-free-orders.php (free path).
- *
- * Timeouts:
- *   createServerOrder   — 25s (acceptable wait to create a WC order)
- *   createFreeOrder     — 25s (creates + completes + grants downloads;
- *                              dispatches DLQ-backed email asynchronously
- *                              so the request itself stays snappy)
- *   verifyServerPayment — NO timeout. Payment already captured by Razorpay;
- *                         we must not abort the verification call or the
- *                         order will be in a limbo state. The UI handles
- *                         failure by redirecting to /order-pending with
- *                         the Razorpay ID.
- */
+/** Checkout requests have bounded UI waits. A verification timeout does not
+ * cancel a captured payment: CheckoutPage redirects to pending status. Never
+ * retry a charge automatically after a network/verification failure. */
 import { WP_REST_BASE } from "./api-base";
 import { getAuthToken } from "./auth-token";
 
@@ -37,63 +24,29 @@ async function postJsonWithTimeout<T>(
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let r: Response;
   try {
-    r = await fetch(`${WP_REST_BASE}${path}`, {
+    const r = await fetch(`${WP_REST_BASE}${path}`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new Error("The server took too long to respond. Please try again.");
+    const data = await r.json();
+    if (!r.ok) {
+      const message = data && typeof data.message === "string"
+        ? data.message : `Request failed (${r.status})`;
+      throw new Error(message);
     }
-    throw err instanceof Error
-      ? new Error(`Network error: ${err.message}`)
-      : new Error("Network error");
+    return data as T;
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error("Confirmation is taking longer than expected. Check your order status before trying again.");
+    }
+    throw err instanceof Error ? err : new Error("Request failed. Check your order status.");
   } finally {
+    // Include response body consumption in the deadline, not just the headers.
     clearTimeout(timer);
   }
-  const data = await r.json().catch(() => ({} as Record<string, unknown>));
-  if (!r.ok) {
-    const msg =
-      (data &&
-        typeof data === "object" &&
-        "message" in data &&
-        typeof (data as { message?: unknown }).message === "string"
-        ? (data as { message: string }).message
-        : null) || `Request failed (${r.status})`;
-    throw new Error(msg);
-  }
-  return data as T;
-}
-
-async function postJsonNoTimeout<T>(path: string, body: unknown): Promise<T> {
-  let r: Response;
-  try {
-    r = await fetch(`${WP_REST_BASE}${path}`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    throw err instanceof Error
-      ? new Error(`Network error: ${err.message}`)
-      : new Error("Network error");
-  }
-  const data = await r.json().catch(() => ({} as Record<string, unknown>));
-  if (!r.ok) {
-    const msg =
-      (data &&
-        typeof data === "object" &&
-        "message" in data &&
-        typeof (data as { message?: unknown }).message === "string"
-        ? (data as { message: string }).message
-        : null) || `Request failed (${r.status})`;
-    throw new Error(msg);
-  }
-  return data as T;
 }
 
 export interface CreateOrderInput {
@@ -138,7 +91,7 @@ export interface VerifyPaymentResult {
 }
 
 export const verifyServerPayment = (input: VerifyPaymentInput) =>
-  postJsonNoTimeout<VerifyPaymentResult>("/verify", input);
+  postJsonWithTimeout<VerifyPaymentResult>("/verify", input, 45_000);
 
 /* ── Free-order checkout (T4) ─────────────────────────────────────────────
  * Bypasses Razorpay entirely. Server endpoint /order-free hard-asserts that
