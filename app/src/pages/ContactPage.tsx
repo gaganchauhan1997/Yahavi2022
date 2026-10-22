@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Mail,
-  Phone,
+
   MapPin,
   Send,
   MessageSquare,
@@ -142,22 +142,22 @@ const ContactPage = () => {
               </div>
             </a>
 
-            {/* Phone card */}
+            {/* Founder email */}
             <a
-              href="tel:+918796018700"
+              href="mailto:founder@hackknow.com"
               className={`${neoCard} block p-5 sm:p-6 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_0_#0A0A0A] transition-all`}
             >
               <div className="flex items-start gap-4">
                 <span className="flex-none inline-flex w-12 h-12 items-center justify-center rounded-xl bg-hack-magenta border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#0A0A0A]">
-                  <Phone className="w-6 h-6 text-white" strokeWidth={2.5} />
+                  <Mail className="w-6 h-6 text-white" strokeWidth={2.5} />
                 </span>
                 <div className="min-w-0">
-                  <h3 className="font-display font-black text-lg text-hack-black">Call Us</h3>
+                  <h3 className="font-display font-black text-lg text-hack-black">Contact the Founder</h3>
                   <p className="text-xs font-mono uppercase tracking-wider text-hack-black/50 mt-0.5">
                     Mon–Fri · 9 AM – 6 PM IST
                   </p>
                   <p className="mt-2 font-display font-black text-hack-black text-base sm:text-lg">
-                    +91 87960 18700
+                    founder@hackknow.com
                   </p>
                 </div>
               </div>
@@ -176,7 +176,7 @@ const ContactPage = () => {
                   </p>
                   <p className="mt-2 text-base text-hack-black font-bold">
                     HackKnow HQ<br />
-                    Delhi NCR, India
+                    Delhi, India
                   </p>
                 </div>
               </div>
