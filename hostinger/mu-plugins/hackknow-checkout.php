@@ -671,75 +671,12 @@ function hackknow_my_downloads(WP_REST_Request $req) {
     if (!$user) return new WP_Error('not_found', 'User not found', ['status' => 404]);
     if (!function_exists('wc_get_orders')) return new WP_Error('no_wc', 'WooCommerce not active', ['status' => 500]);
 
-    // ── STEP 1: Collect ALL completed/processing order IDs for this account.
-    //    Query by BOTH customer_id AND billing_email so:
-    //    (a) guest orders placed before account registration are included
-    //    (b) orders placed via Google login vs email login all appear
-    $statuses  = ['wc-completed', 'wc-processing'];
-    $by_id     = wc_get_orders(['customer_id'   => $uid,               'limit' => 200, 'status' => $statuses, 'return' => 'ids']);
-    $by_email  = wc_get_orders(['billing_email' => $user->user_email,  'limit' => 200, 'status' => $statuses, 'return' => 'ids']);
-    $order_ids = array_unique(array_map('intval', array_merge($by_id, $by_email)));
-
-    if (empty($order_ids)) {
-        return ['downloads' => []];
+    // WooCommerce owns permission/expiry/remaining/refund checks and signed URLs.
+    // Reading the account must never recreate grants or invent unlimited access.
+    if (!function_exists('wc_get_customer_available_downloads')) {
+        return new WP_Error('downloads_unavailable', 'Downloads temporarily unavailable.', ['status' => 503]);
     }
-
-    // ── STEP 2: Ensure WC has granted download permissions for every
-    //    completed order. Re-runs the grant without resetting existing rows.
-    foreach ($order_ids as $oid) {
-        if (function_exists('wc_downloadable_product_permissions')) {
-            wc_downloadable_product_permissions($oid, false);
-        }
-    }
-
-    // ── STEP 3: Query the permissions table DIRECTLY.
-    //    wc_get_customer_available_downloads() is bypassed on purpose: it
-    //    hides rows where downloads_remaining = 0. HackKnow policy is
-    //    unlimited re-downloads forever — a file must NEVER disappear.
-    global $wpdb;
-    $placeholders = implode(',', array_fill(0, count($order_ids), '%d'));
-    $rows = $wpdb->get_results(
-        $wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}woocommerce_downloadable_product_permissions
-              WHERE order_id IN ($placeholders)
-              ORDER BY order_id DESC, permission_id DESC",
-            $order_ids
-        )
-    );
-
-    $downloads = [];
-    $seen      = [];
-    foreach ($rows as $row) {
-        // Dedupe: one card per (product_id + download_id) — keep newest order
-        $key = (int)$row->product_id . '_' . $row->download_id;
-        if (isset($seen[$key])) continue;
-        $seen[$key] = true;
-
-        $product      = function_exists('wc_get_product') ? wc_get_product((int)$row->product_id) : null;
-        $product_name = $product ? $product->get_name() : ('Product #' . (int)$row->product_id);
-        $file_name    = '';
-        if ($product && $product->is_downloadable()) {
-            foreach ((array)$product->get_downloads() as $dl_id => $file_obj) {
-                if ((string)$dl_id === (string)$row->download_id) {
-                    $file_name = (method_exists($file_obj, 'get_name') ? $file_obj->get_name() : '') ?: '';
-                    break;
-                }
-            }
-        }
-
-        $downloads[] = [
-            'download_id'         => (string)$row->download_id,
-            'download_url'        => (string)$row->download_url,
-            'product_id'          => (int)$row->product_id,
-            'product_name'        => $product_name,
-            'file'                => ['name' => $file_name, 'file' => (string)($row->download_url ?? '')],
-            'access_expires'      => null,
-            'downloads_remaining' => 'unlimited',
-            'download_count'      => (int)($row->download_count ?? 0),
-            'order_id'            => (int)$row->order_id,
-        ];
-    }
-    return ['downloads' => $downloads];
+    return ['downloads' => array_values(wc_get_customer_available_downloads($uid))];
 }
 
 /* ── Razorpay helpers ──────────────────────────────────────────────────── */
