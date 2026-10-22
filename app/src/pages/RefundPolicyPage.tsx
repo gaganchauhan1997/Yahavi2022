@@ -205,7 +205,7 @@ const RefundPolicyPage = () => {
             <div className="bg-hack-black rounded-2xl p-6 lg:p-8 text-white text-center">
               <h2 className="font-display font-bold text-xl mb-3">Questions About Refunds?</h2>
               <p className="text-white/60 mb-4">
-                Email <a href="mailto:team@hackknow.com" className="text-hack-yellow">team@hackknow.com</a> or call <a href="tel:+918796018700" className="text-hack-yellow">+91 87960 18700</a>.
+                Email <a href="mailto:team@hackknow.com" className="text-hack-yellow">team@hackknow.com</a> or contact <a href="mailto:founder@hackknow.com" className="text-hack-yellow">founder@hackknow.com</a>.
               </p>
               <Link
                 to="/contact"
