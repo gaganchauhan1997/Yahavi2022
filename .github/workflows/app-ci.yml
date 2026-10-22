@@ -1,0 +1,58 @@
+name: HackKnow checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  storefront:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm install --global npm@11.9.0
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: app
+      - run: npm run lint -- --max-warnings 0
+        working-directory: app
+      - run: npm run build
+        working-directory: app
+        env:
+          PRERENDER_MODE: fixture
+          VITE_GTM_ID: GTM-TEST123
+      - run: npm run test:coverage
+        working-directory: app
+      - run: npx playwright install --with-deps chromium
+        working-directory: app
+      - run: npm run test:e2e
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: storefront-test-results
+          path: app/test-results/
+  ai-tool:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm install --global npm@11.9.0
+      - run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+        working-directory: ai-tool
+  php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax and payment contracts (offline, no credentials)
+        run: |
+          docker run --rm --network none -v "$PWD:/repo:ro" -w /repo php:8.3-cli@sha256:60a100afa8efd88c0f556ce60e891c9bb8b1e8bca15721e4db07eca4fa79c07a sh -c 'find hostinger -name "*.php" -print0 | xargs -0 -n1 php -l && php tests/php/payment-safety.php'
