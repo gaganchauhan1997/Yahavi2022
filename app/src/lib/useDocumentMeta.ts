@@ -28,7 +28,7 @@ export function useDocumentMeta(meta: DocMeta) {
       setMeta('meta[name="description"]', { name: 'description', content: meta.description });
     }
     const path = window.location.pathname.replace(/\/+$/, '') || '/';
-    const canon = meta.canonical || `${SITE}${path}`;
+    const canon = meta.canonical || `${SITE}${path === "/" ? "/" : path + "/"}`;
     setMeta('link[rel="canonical"]', { rel: 'canonical', href: canon });
     setMeta('meta[property="og:url"]', { property: 'og:url', content: canon });
     if (meta.ogTitle || meta.title) {
