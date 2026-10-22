@@ -95,6 +95,7 @@ function get_user_by($field, $value) { global $user; return $value === 7 ? $user
 class WP_REST_Request {
     function __construct(public $params) {}
     function get_param($k) { return $this->params[$k] ?? null; }
+    function get_header($k) { return $this->params[$k] ?? ''; }
 }
 $remoteCalls = 0;
 function wp_remote_get($url, $options) { global $remoteCalls, $valid; $remoteCalls++; return ['body'=>json_encode($valid), 'status'=>200]; }
@@ -115,3 +116,14 @@ check(hackknow_verify_token($token) === null, 'password reset revokes old token'
 check(hackknow_verify_token(hackknow_make_token(7)) === 7, 'new login works after password reset');
 check(hackknow_verify_token($token.'tampered') === null, 'tampered token rejected');
 echo "Canonical verify + token revocation included: $checks assertions passed\n";
+
+function wc_get_orders(...$args) { return []; }
+$permissionWrites = 0;
+function wc_downloadable_product_permissions(...$args) { global $permissionWrites; $permissionWrites++; }
+function wc_get_customer_available_downloads($uid) {
+    return [['product_id'=>101,'download_url'=>'https://www.hackknow.com/?download_file=101&key=signed','downloads_remaining'=>2,'access_expires'=>'2026-11-01']];
+}
+$account = hackknow_my_downloads(new WP_REST_Request(['authorization'=>'Bearer '.hackknow_make_token(7)]));
+check($account['downloads'][0]['downloads_remaining'] === 2 && $account['downloads'][0]['access_expires'] === '2026-11-01', 'account preserves native WC permission fields');
+check($permissionWrites === 0, 'account read never renews download grants');
+echo "Including account download delegation: $checks assertions passed\n";
