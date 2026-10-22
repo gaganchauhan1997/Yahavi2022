@@ -12,27 +12,8 @@ Disallow: /checkout
 Disallow: /cart
 Disallow: /order/
 
-# Specifically welcome major bots (some skip the wildcard above for clarity)
-User-agent: Googlebot
-Allow: /
-Disallow: /wp-admin/
-Crawl-delay: 0
-
-User-agent: Bingbot
-Allow: /
-Disallow: /wp-admin/
-
-User-agent: DuckDuckBot
-Allow: /
-
-User-agent: GPTBot
-Allow: /
-
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
+# Good crawlers share the rules above; bot-specific Allow groups must not
+# accidentally override account/checkout restrictions.
 
 # Block heavy/uncool scrapers
 User-agent: SemrushBot
