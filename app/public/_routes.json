@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "include": [
+    "/wp-json/*",
+    "/graphql",
+    "/graphql/*",
+    "/wp-admin",
+    "/wp-admin/*",
+    "/wp-content/*",
+    "/wp-includes/*",
+    "/wp-login.php"
+  ],
+  "exclude": []
+}
