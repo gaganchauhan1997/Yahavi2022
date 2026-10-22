@@ -10,7 +10,7 @@ Request: publish current leadership, remember Manish Kumar Singh respectfully, r
 - Remove the disrespectful fictional tiger/death comic from Testimonials in light of the founder memorial.
 - Replace published business telephone/WhatsApp contacts on contact, footer, legal, support, pending-order, checkout-success and account pages with founder@hackknow.com / team@hackknow.com. Retain customer-entered phone fields needed by existing forms/payment integration.
 - Contact location: Delhi, India. Index/schema, prerendered About/Contact copy and edge AI attribution follow the current identity. The prepared Hostinger AI prompt source also changes, but that PHP file is not deployed through Pages.
-- The founder's exact personal LinkedIn URL was requested; no verified URL is present in the repository. No guessed personal profile link is published. The company LinkedIn link is not represented as a personal founder profile.
+- The owner supplied the exact personal profiles: https://www.linkedin.com/in/gagan-yahavi-hackknow/ and https://www.instagram.com/i_kunalarious/. Both are linked from the founder biography and included in the founder entity schema. Instagram tracking parameters are removed. Company social profiles remain distinct.
 
 ## Free Excel collection
 
