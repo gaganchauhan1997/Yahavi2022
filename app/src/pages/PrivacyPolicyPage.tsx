@@ -186,8 +186,8 @@ const PrivacyPolicyPage = () => {
             </ul>
             <p className="text-hack-black/80 mt-3">
               To exercise any right, email{" "}
-              <a href="mailto:privacy@hackknow.com" className="text-hack-magenta hover:text-hack-orange">
-                privacy@hackknow.com
+              <a href="mailto:team@hackknow.com" className="text-hack-magenta hover:text-hack-orange">
+                team@hackknow.com
               </a>{" "}
               (cc: team@hackknow.com). We will respond within 30 days.
             </p>
@@ -202,7 +202,7 @@ const PrivacyPolicyPage = () => {
             <p className="text-hack-black/80">
               HackKnow is not intended for children under 18. We do not knowingly collect data from
               minors. If you believe a minor has registered an account, write to us at
-              privacy@hackknow.com and we will delete it within 7 days.
+              team@hackknow.com and we will delete it within 7 days.
             </p>
           </section>
 
@@ -225,8 +225,8 @@ const PrivacyPolicyPage = () => {
             </p>
             <div className="font-mono text-sm space-y-1 text-white/90">
               <p>Name: Grievance Cell, HackKnow</p>
-              <p>Email: <a href="mailto:legal@hackknow.com" className="text-hack-yellow">legal@hackknow.com</a></p>
-              <p>Phone: <a href="tel:+918796018700" className="text-hack-yellow">+91 87960 18700</a></p>
+              <p>Email: <a href="mailto:team@hackknow.com" className="text-hack-yellow">team@hackknow.com</a></p>
+              <p>Founder: <a href="mailto:founder@hackknow.com" className="text-hack-yellow">founder@hackknow.com</a></p>
               <p>Address: Delhi, India</p>
               <p>Hours: Mon–Fri, 10:00–19:00 IST</p>
             </div>
