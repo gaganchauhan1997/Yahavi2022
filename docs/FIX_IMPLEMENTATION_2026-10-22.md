@@ -20,7 +20,7 @@ Scope: improve the existing React/Cloudflare Pages + Hostinger WordPress/WooComm
 | SSO | Reject URL userinfo/unapproved return origins, disable localhost in production, correct login continuation parameter. Full single-use SSO remains a separate backend/client change. |
 | Payment PHP | Shared stored-order/amount/captured-INR invariants across verify/webhook/manual/cron completion; MySQL advisory order lock and unique payment-to-WC-order binding; retries avoid duplicate completion; invalid signature no longer changes a paid order to failed. Remove forced permission renewal on verify/download reads and explicit duplicate mail sends. |
 | Backend auth | Password-hash-bound tokens are revoked by password reset. Dedicated admin bearer required instead of webhook signing secret. Database diagnostics require admin; cleanup token accepted only in header. |
-| Backend correctness | Move identity verification off payment `/verify`; WC order metadata APIs for new payment bindings; WC order queries for customer downloads; remove raw file URL fallback; release free-order reservation on explicit price drift. |
+| Backend correctness | Move identity verification off payment `/verify`; WC order metadata APIs for new payment bindings; WC order queries for customer downloads; use native WooCommerce account download permissions/expiry instead of a custom raw permissions-table URL query; remove raw file URL fallback; release free-order reservation on explicit price drift. |
 
 ## Verification performed locally
 
@@ -28,7 +28,7 @@ Scope: improve the existing React/Cloudflare Pages + Hostinger WordPress/WooComm
 - Storefront ESLint succeeds with zero warnings.
 - 14 Vitest regression tests pass, including actual upstream spreadsheet sink and an offline prerender with fetch prohibited. Coverage is deliberately reported honestly: roughly 39% of lines in the selected helper/edge files, not full application coverage.
 - 10 Chromium browser cases pass across desktop/mobile, using mock catalogue/availability APIs and blocked external services: cart persistence, unverified product blocking, catalogue failure recovery and analytics consent.
-- 23 PHP files pass syntax checks in PHP 8.3.36. 26 offline assertions exercise payment invariants, duplicate completion, payment reuse, contention, exception recovery, the canonical verify callback, and password-reset token revocation. WordPress/WooCommerce/database are stubs, not a real integration environment.
+- 23 PHP files pass syntax checks in PHP 8.3.36. 28 offline assertions exercise payment invariants, duplicate completion, payment reuse, contention, exception recovery, the canonical verify callback, and password-reset token revocation. WordPress/WooCommerce/database are stubs, not a real integration environment.
 - Explicit live-data prerender succeeded through this workspace's configured network proxy: 30 categories, 271 products, 10 courses, 12 roadmaps, 258 posts, 407 snapshots. No purge/notifications. This proves build/data compatibility at that moment, not checkout performance.
 - No production stress test, real payment/refund or transactional-email test was run.
 
