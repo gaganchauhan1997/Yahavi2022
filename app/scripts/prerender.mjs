@@ -36,6 +36,7 @@ const APP_ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(APP_ROOT, 'dist');
 
 const SITE = 'https://www.hackknow.com';
+const FREE_EXCEL = JSON.parse(await fs.readFile(path.join(APP_ROOT, 'src/content/free-excel-templates.json'), 'utf8'));
 const STORE_API = 'https://shop.hackknow.com/wp-json/wc/store/v1';
 const HK_API = 'https://shop.hackknow.com/wp-json/hackknow/v1';
 const WP_API = 'https://shop.hackknow.com/wp-json/wp/v2';
@@ -108,10 +109,11 @@ async function fetchJson(url) {
 // ─── meta application ──────────────────────────────────────────────────────
 function applyMeta(html, opts) {
   const {
-    title, description, canonical, ogImage,
+    title, description, canonical: canonicalInput, ogImage,
     jsonLd = [], noscriptBody = '',
     robots = 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
   } = opts;
+  const canonical = canonicalInput && !new URL(canonicalInput).pathname.endsWith('/') ? canonicalInput + '/' : canonicalInput;
   let out = html;
 
   out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
@@ -193,6 +195,8 @@ const ORG_LD = {
   name: 'HackKnow',
   url: SITE,
   logo: `${SITE}/icon-512.png`,
+  address: { '@type': 'PostalAddress', addressLocality: 'Delhi', addressCountry: 'IN' },
+  founder: [ { '@type': 'Person', name: 'Gagan Chauhan', jobTitle: 'Founder', email: 'founder@hackknow.com' }, { '@type': 'Person', name: 'Manish Kumar Singh', jobTitle: 'Late Beloved Founder and Mentor' }, { '@type': 'Person', name: 'Vinay Rajouria', jobTitle: 'Co-Founder and Website Designer' } ],
   sameAs: [
     'https://www.instagram.com/hackknow',
     'https://www.youtube.com/@hackknow',
@@ -200,7 +204,7 @@ const ORG_LD = {
   contactPoint: {
     '@type': 'ContactPoint',
     contactType: 'customer support',
-    email: 'support@hackknow.com',
+    email: 'team@hackknow.com',
     areaServed: 'IN',
     availableLanguage: ['English'],
   },
@@ -294,6 +298,7 @@ function courseLd({ title, slug, description }) {
 // ─── sitemap segments ──────────────────────────────────────────────────────
 const STATIC_ROUTES = [
   { p: '/',                pri: '1.0', cf: 'daily'   },
+  { p: '/free-excel-templates', pri: '0.7', cf: 'monthly' },
   { p: '/shop',            pri: '0.9', cf: 'daily'   },
   { p: '/courses',         pri: '0.8', cf: 'weekly'  },
   { p: '/roadmaps',        pri: '0.8', cf: 'weekly'  },
@@ -564,44 +569,41 @@ async function prerenderNoindexRoute(tmpl, routePath, label, { navFooter }) {
 // etc. served the homepage shell to Googlebot → "Duplicate, Google chose
 // different canonical" → 383 not-indexed in Search Console.
 const STATIC_PAGES_META = {
+  '/free-excel-templates': {
+    title: 'Free Excel Templates for Commercial Use | HackKnow',
+    description: 'Download MIT-licensed Excel workbooks for finance, career and business planning, with attribution and the original license included.',
+    h1: 'Free Excel Templates for Commercial Use',
+    body: () => `<p>No account or payment required. Each ZIP contains an unchanged Excel workbook, its original MIT license and source attribution. Commercial use and redistribution are permitted under the included license. Keep the copyright and license notice when sharing.</p>${FREE_EXCEL.map(f => `<section><h2>${escapeHtml(f.title)}</h2><p>${escapeHtml(f.category)} — ${escapeHtml(f.description)}</p><p>By ${escapeHtml(f.author)}. MIT license. Supplied as-is; review sample values and formulas before business or financial decisions.</p><a href="${escapeHtml(f.download)}">Download Excel and license (ZIP)</a> · <a href="${escapeHtml(f.source)}">Original source</a> · <a href="${escapeHtml(f.licenseSource)}">License</a></section>`).join('')}`,
+    ld: () => ({ '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Free Excel Templates', url: SITE + '/free-excel-templates/', mainEntity: { '@type': 'ItemList', itemListElement: FREE_EXCEL.map((f, i) => ({ '@type': 'ListItem', position: i + 1, item: { '@type': 'CreativeWork', name: f.title, license: 'https://opensource.org/license/mit/', author: { '@type': 'Person', name: f.author }, encoding: { '@type': 'MediaObject', contentUrl: SITE + f.download, encodingFormat: 'application/zip' } } })) } }),
+  },
   '/about': {
-    title: 'About HackKnow — India\u2019s Trusted Digital Templates Marketplace',
-    description: 'Learn about HackKnow: founded by The Dead Man, we ship 233+ premium Excel dashboards, PowerPoint decks, website templates, and career courses to 10,000+ Indian professionals. Instant download, lifetime license.',
+    title: 'About HackKnow — Gagan Chauhan, Founder | Delhi',
+    description: 'Meet Gagan Chauhan, founder of HackKnow from Nangli Razapur, Delhi, and co-founder Vinay Rajouria. Remembering our late beloved founder, Manish Kumar Singh.',
     h1: 'About HackKnow',
-    body: (cats, products) => `
-      <h2>Our story</h2>
-      <p>HackKnow is an India-first digital templates marketplace founded by The Dead Man. We help freelancers, startups, MSMEs, and corporate teams skip hours of design and analytics busywork with production-ready Excel dashboards, PowerPoint decks, website templates, marketing kits, and career-track courses.</p>
-      <h2>What you get</h2>
-      <ul>
-        <li><strong>${products.length}+ digital products</strong> across <strong>${cats.length} categories</strong></li>
-        <li>Instant download after checkout — no waiting, no shipping</li>
-        <li>Lifetime license — buy once, use forever, on any number of projects</li>
-        <li>Razorpay-secured payments, GST invoices, INR pricing</li>
-        <li>Free updates whenever a template ships v2/v3</li>
-      </ul>
-      <h2>Why teams choose HackKnow</h2>
-      <p>Every template ships with sample data, a ReadMe, and a one-click "Make a Copy" workflow. Our courses are recorded by working professionals, not generic instructors. We&apos;re backed by The Dead Man and a small senior team.</p>
-      <p><a href="${SITE}/shop">Browse all templates</a> · <a href="${SITE}/courses">See premium courses</a> · <a href="${SITE}/contact">Contact us</a></p>`,
-    ld: () => ({
-      '@context': 'https://schema.org',
-      '@type': 'AboutPage',
-      name: 'About HackKnow',
-      url: `${SITE}/about`,
-      mainEntity: ORG_LD,
-    }),
+    body: () => `
+      <h2>In loving memory of Manish Kumar Singh</h2>
+      <p>Late Beloved Founder &amp; Mentor. His love of technology, travel and sharing knowledge helped shape HackKnow. Deeply missed, always remembered: his influence remains in the work and the people carrying it forward.</p>
+      <h2>Gagan Chauhan — Founder of hackknow.com</h2>
+      <p>A Delhi boy and hands-on builder from Nangli Razapur, Delhi, Gagan guides HackKnow’s engineering and direction, from its React storefront and Cloudflare infrastructure to WooCommerce checkout, Razorpay integration and Yahavi AI. His focus is useful products, thoughtful technology and a platform people can rely on.</p>
+      <p>Contact: <a href="mailto:founder@hackknow.com">founder@hackknow.com</a></p>
+      <h2>Vinay Rajouria — Co-Founder &amp; Website Design</h2>
+      <p>Vinay designed HackKnow’s website and brings the design perspective to making digital tools easier to discover, understand and use.</p>
+      <p>Company location: Delhi, India. Team: <a href="mailto:team@hackknow.com">team@hackknow.com</a></p>
+      <p><a href="${SITE}/shop">Explore products</a> · <a href="${SITE}/contact">Contact us</a></p>`,
+    ld: () => ({ '@context': 'https://schema.org', '@type': 'AboutPage', name: 'About HackKnow', url: `${SITE}/about`, mainEntity: ORG_LD }),
   },
   '/contact': {
     title: 'Contact HackKnow — Get in Touch with Our Support Team',
-    description: 'Email support@hackknow.com or use our contact form. We respond to every paid customer within 24 hours, 7 days a week. Refund queries, technical help, custom template requests — we read every message.',
+    description: 'Email team@hackknow.com or use our contact form. We respond to every paid customer within 24 hours, 7 days a week. Refund queries, technical help, custom template requests — we read every message.',
     h1: 'Contact HackKnow',
     body: () => `
       <h2>Get in touch</h2>
       <p>Need help with a template, refund, or custom design request? Reach out and our team will respond within <strong>24 hours</strong> on business days.</p>
       <ul>
-        <li><strong>Customer support:</strong> <a href="mailto:support@hackknow.com">support@hackknow.com</a></li>
-        <li><strong>Refunds &amp; billing:</strong> <a href="mailto:billing@hackknow.com">billing@hackknow.com</a></li>
-        <li><strong>Partnerships:</strong> <a href="mailto:partners@hackknow.com">partners@hackknow.com</a></li>
-        <li><strong>Address:</strong> HackKnow, India (remote-first, GST-registered)</li>
+        <li><strong>Customer support:</strong> <a href="mailto:team@hackknow.com">team@hackknow.com</a></li>
+        <li><strong>Refunds &amp; billing:</strong> <a href="mailto:team@hackknow.com">team@hackknow.com</a></li>
+        <li><strong>Partnerships:</strong> <a href="mailto:founder@hackknow.com">founder@hackknow.com</a></li>
+        <li><strong>Address:</strong> HackKnow, Delhi, India</li>
       </ul>
       <h2>Common quick links</h2>
       <ul>
@@ -619,7 +621,7 @@ const STATIC_PAGES_META = {
   },
   '/support': {
     title: 'HackKnow Support — Help Center, FAQs & Account Recovery',
-    description: 'Self-service help for HackKnow customers. Download issues, license questions, account recovery, payment problems, refund requests — solved fast. Email support@hackknow.com or read our help articles.',
+    description: 'Self-service help for HackKnow customers. Download issues, license questions, account recovery, payment problems, refund requests — solved fast. Email team@hackknow.com or read our help articles.',
     h1: 'HackKnow Support',
     body: () => `
       <h2>How we help</h2>
@@ -628,7 +630,7 @@ const STATIC_PAGES_META = {
         <li><a href="${SITE}/forgot-password">Reset your password</a></li>
         <li><a href="${SITE}/refund-policy">Request a refund (within 7 days)</a></li>
         <li><a href="${SITE}/faq">Frequently asked questions</a></li>
-        <li><a href="mailto:support@hackknow.com">Email customer support</a> — replies within 24 hours</li>
+        <li><a href="mailto:team@hackknow.com">Email customer support</a> — replies within 24 hours</li>
       </ul>
       <h2>License &amp; usage</h2>
       <p>Every HackKnow purchase comes with a <strong>lifetime, single-buyer commercial license</strong>. Use the template on unlimited personal and client projects. Reselling the template file itself is not allowed.</p>`,
@@ -641,25 +643,25 @@ const STATIC_PAGES_META = {
       const FAQS = [
         ['How do I download a template after I buy it?', 'Right after Razorpay confirms payment, you\u2019ll see download buttons on the order-success page AND receive an email with permanent download links. Links never expire — re-download anytime from your account.'],
         ['What license do I get?', 'A lifetime, single-buyer commercial license. Use the template on unlimited personal and client projects. You cannot resell the template file itself or include it in a competing marketplace.'],
-        ['Can I get a refund?', 'Yes — full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email support@hackknow.com with your order ID. We reverse the charge via Razorpay within 5\u20137 business days.'],
+        ['Can I get a refund?', 'Yes — full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email team@hackknow.com with your order ID. We reverse the charge via Razorpay within 5\u20137 business days.'],
         ['Do you provide GST invoices?', 'Yes. Every purchase generates a GST-compliant invoice automatically. Add your GSTIN at checkout to claim input credit.'],
         ['Are templates compatible with Google Sheets / Slides?', 'Excel templates work in Microsoft 365, Excel 2016+, and Google Sheets (with minor formula adjustments noted in the ReadMe). PowerPoint decks open in PowerPoint 2016+, Keynote, and Google Slides.'],
-        ['Do you offer custom design work?', 'Yes — email partners@hackknow.com with your brief. Pricing depends on scope.'],
+        ['Do you offer custom design work?', 'Yes — email founder@hackknow.com with your brief. Pricing depends on scope.'],
         ['Are the courses recorded or live?', 'Recorded, lifetime access, with downloadable resources. Some flagship courses include live monthly Q&A sessions with the instructor.'],
         ['Where can I find your roadmaps?', 'Browse 12+ free career roadmaps at /roadmaps — covering Python, FastAPI, MERN, data analytics, and more.'],
       ];
       return `
         ${FAQS.map(([q, a]) => `<h2>${escapeHtml(q)}</h2><p>${escapeHtml(a)}</p>`).join('\n')}
-        <hr><p><strong>Still stuck?</strong> Email <a href="mailto:support@hackknow.com">support@hackknow.com</a> or visit <a href="${SITE}/support">/support</a>.</p>`;
+        <hr><p><strong>Still stuck?</strong> Email <a href="mailto:team@hackknow.com">team@hackknow.com</a> or visit <a href="${SITE}/support">/support</a>.</p>`;
     },
     ld: () => {
       const FAQS = [
         ['How do I download a template after I buy it?', 'Right after Razorpay confirms payment, you\u2019ll see download buttons on the order-success page AND receive an email with permanent download links. Links never expire — re-download anytime from your account.'],
         ['What license do I get?', 'A lifetime, single-buyer commercial license. Use the template on unlimited personal and client projects. You cannot resell the template file itself or include it in a competing marketplace.'],
-        ['Can I get a refund?', 'Yes — full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email support@hackknow.com with your order ID. We reverse the charge via Razorpay within 5\u20137 business days.'],
+        ['Can I get a refund?', 'Yes — full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email team@hackknow.com with your order ID. We reverse the charge via Razorpay within 5\u20137 business days.'],
         ['Do you provide GST invoices?', 'Yes. Every purchase generates a GST-compliant invoice automatically. Add your GSTIN at checkout to claim input credit.'],
         ['Are templates compatible with Google Sheets / Slides?', 'Excel templates work in Microsoft 365, Excel 2016+, and Google Sheets (with minor formula adjustments noted in the ReadMe). PowerPoint decks open in PowerPoint 2016+, Keynote, and Google Slides.'],
-        ['Do you offer custom design work?', 'Yes — email partners@hackknow.com with your brief. Pricing depends on scope.'],
+        ['Do you offer custom design work?', 'Yes — email founder@hackknow.com with your brief. Pricing depends on scope.'],
         ['Are the courses recorded or live?', 'Recorded, lifetime access, with downloadable resources. Some flagship courses include live monthly Q&A sessions with the instructor.'],
         ['Where can I find your roadmaps?', 'Browse 12+ free career roadmaps at /roadmaps — covering Python, FastAPI, MERN, data analytics, and more.'],
       ];
@@ -768,12 +770,12 @@ const STATIC_PAGES_META = {
   },
   '/refund-policy': {
     title: 'HackKnow Refund Policy — 7-Day Money-Back Guarantee',
-    description: 'Full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email support@hackknow.com with your order ID. Refunds via Razorpay within 5\u20137 business days.',
+    description: 'Full refund within 7 days of purchase if the template doesn\u2019t fit your needs. Email team@hackknow.com with your order ID. Refunds via Razorpay within 5\u20137 business days.',
     h1: 'Refund Policy',
     body: () => `
       <p><em>Last updated: ${TODAY}</em></p>
       <h2>7-day money-back guarantee</h2>
-      <p>Not happy with your purchase? Email <a href="mailto:support@hackknow.com">support@hackknow.com</a> within <strong>7 days</strong> of payment with your order ID and a one-line reason. We refund in full via Razorpay within 5\u20137 business days. No questions asked.</p>
+      <p>Not happy with your purchase? Email <a href="mailto:team@hackknow.com">team@hackknow.com</a> within <strong>7 days</strong> of payment with your order ID and a one-line reason. We refund in full via Razorpay within 5\u20137 business days. No questions asked.</p>
       <h2>What\u2019s NOT eligible</h2>
       <ul>
         <li>Requests after the 7-day window</li>
@@ -840,7 +842,7 @@ const STATIC_PAGES_META = {
         <li>Course intro segment placement</li>
         <li>Custom co-branded content</li>
       </ul>
-      <p>Email <a href="mailto:partners@hackknow.com">partners@hackknow.com</a> with a brief about your product and target audience.</p>`,
+      <p>Email <a href="mailto:founder@hackknow.com">founder@hackknow.com</a> with a brief about your product and target audience.</p>`,
   },
   '/sponsors': {
     title: 'HackKnow Sponsors — Partners Supporting Indian Builders',
@@ -890,7 +892,7 @@ const STATIC_PAGES_META = {
         <li>Monthly Razorpay payouts in INR</li>
         <li>We handle storefront, payments, GST invoicing, support</li>
       </ul>
-      <p>Email <a href="mailto:partners@hackknow.com">partners@hackknow.com</a> with samples and a short bio.</p>`,
+      <p>Email <a href="mailto:founder@hackknow.com">founder@hackknow.com</a> with samples and a short bio.</p>`,
   },
   '/sitemap': {
     title: 'HackKnow Sitemap \u2014 Browse Every Section of Our Site',
