@@ -134,19 +134,6 @@ const REVIEWS: Review[] = [
     color: "from-hack-orange to-hack-yellow",
   },
   {
-    id: 9,
-    name: "Sahil Khan",
-    city: "Lucknow, IN",
-    rating: 5,
-    text:
-      "Manish's team is genuinely helpful. Asked them a question on WhatsApp at 11pm, got a reply in 10 minutes. Mad respect.",
-    product: "Reseller Bundle",
-    source: "WhatsApp Review",
-    href: "https://wa.me/918796018700",
-    initials: "SK",
-    color: "from-green-400 to-hack-orange",
-  },
-  {
     id: 10,
     name: "Jessica Martinez",
     city: "Madrid, ES",
@@ -320,60 +307,6 @@ export default function TestimonialsPage() {
             Hover to pause • Tap any card to open the original review
           </p>
         )}
-
-        {/* Comic: "Read the reviews next time" — fun PSA */}
-        <div className="mt-14 bg-gradient-to-br from-hack-yellow/20 via-white to-hack-orange/10 rounded-2xl border-2 border-hack-black shadow-[6px_6px_0_0_#0A0A0A] p-5 lg:p-8">
-          <div className="grid lg:grid-cols-5 gap-6 items-center">
-            <div className="lg:col-span-2 order-2 lg:order-1">
-              <span className="inline-block bg-hack-black text-hack-yellow font-mono text-xs uppercase tracking-wider px-3 py-1 rounded-full mb-3">
-                A True Story (sort of)
-              </span>
-              <h2 className="font-display font-bold text-2xl lg:text-3xl text-hack-black leading-tight mb-3">
-                Don&rsquo;t be <span className="bg-hack-yellow px-2">that guy</span> &mdash;
-                <br />read the reviews <span className="text-hack-magenta">first</span>.
-              </h2>
-              <p className="text-hack-black/70 text-sm lg:text-base leading-relaxed mb-4">
-                Manish learned the hard way at Tiger Kingdom. You don&rsquo;t have to.
-                Every HackKnow template has real reviews from real buyers &mdash; scroll up,
-                read them, then download with zero regret.
-              </p>
-              <div className="flex flex-wrap gap-2 text-xs font-mono">
-                <span className="bg-white border border-hack-black/20 rounded-full px-3 py-1">⭐ 963+ creators</span>
-                <span className="bg-white border border-hack-black/20 rounded-full px-3 py-1">🌍 120+ countries</span>
-                <span className="bg-white border border-hack-black/20 rounded-full px-3 py-1">🐅 0 tigers</span>
-              </div>
-            </div>
-            <div className="lg:col-span-3 order-1 lg:order-2">
-              <div
-                role="img"
-                aria-label="Three-panel comic strip: Manish visits Tiger Kingdom, skips the reviews, and becomes lunch."
-                className="grid grid-cols-3 gap-2 w-full p-4 rounded-xl border-2 border-hack-black shadow-[4px_4px_0_0_#0A0A0A] bg-white"
-              >
-                <div className="aspect-[3/4] rounded-lg border-2 border-hack-black bg-hack-yellow/40 flex flex-col p-3 relative">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-hack-black/60">Panel 1</span>
-                  <div className="flex-1 flex items-center justify-center text-5xl">🧳</div>
-                  <p className="font-display font-bold text-xs leading-tight text-hack-black">
-                    "Tiger Kingdom! No need to read reviews."
-                  </p>
-                </div>
-                <div className="aspect-[3/4] rounded-lg border-2 border-hack-black bg-hack-orange/30 flex flex-col p-3 relative">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-hack-black/60">Panel 2</span>
-                  <div className="flex-1 flex items-center justify-center text-5xl">🐅</div>
-                  <p className="font-display font-bold text-xs leading-tight text-hack-black">
-                    Tiger: "Lunch arrived early."
-                  </p>
-                </div>
-                <div className="aspect-[3/4] rounded-lg border-2 border-hack-black bg-hack-magenta/20 flex flex-col p-3 relative">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-hack-black/60">Panel 3</span>
-                  <div className="flex-1 flex items-center justify-center text-5xl">📖</div>
-                  <p className="font-display font-bold text-xs leading-tight text-hack-black">
-                    Manish (in tiger): "Read. The. Reviews."
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* CTA */}
         <div className="mt-14 bg-hack-black rounded-2xl p-6 lg:p-8 text-white text-center">

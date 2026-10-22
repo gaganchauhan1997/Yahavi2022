@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Loader2, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import { useStore } from "@/context/StoreContext";
 import { categories as _allCategories } from "@/data/products";
@@ -419,16 +419,20 @@ export default function ShopPage() {
               )}
 
               {loading ? (
-                <div className="py-20 text-center">
-                  <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-hack-yellow" />
-                  <p className="mb-2 font-display text-lg font-bold">Loading products...</p>
-                  <p className="text-sm text-hack-black/50">Fetching from our digital marketplace</p>
+                <div role="status" aria-label="Loading products" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-6 xl:grid-cols-3">
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <div key={i} aria-hidden="true" className="rounded-2xl border-[3px] border-hack-black/10 overflow-hidden bg-white">
+                      <div className="aspect-[4/3] bg-hack-black/5" />
+                      <div className="h-40 p-5 space-y-4"><div className="h-5 w-3/4 bg-hack-black/5 rounded" /><div className="h-4 w-1/2 bg-hack-black/5 rounded" /></div>
+                    </div>
+                  ))}
+                  <span className="sr-only">Loading products…</span>
                 </div>
               ) : paginatedProducts.length > 0 ? (
                 <>
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-6 xl:grid-cols-3">
-                    {paginatedProducts.map((product) => (
-                      <ProductCard key={product.id} product={product} />
+                    {paginatedProducts.map((product, index) => (
+                      <ProductCard key={product.id} product={product} priority={index === 0} />
                     ))}
                   </div>
 

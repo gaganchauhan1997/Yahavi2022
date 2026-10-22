@@ -149,7 +149,7 @@ const RenderDownloads = () => {
         <p className="text-xs text-gray-400 text-center pt-2">
           All your purchases — no expiry, re-download anytime.{' '}
           <a href="mailto:team@hackknow.com" className="underline hover:text-hack-black">team@hackknow.com</a>
-          {' '}| <a href="tel:+918796018700" className="underline hover:text-hack-black">+91 87960 18700</a>
+          {' '}| <a href="mailto:founder@hackknow.com" className="underline hover:text-hack-black">founder@hackknow.com</a>
         </p>
       )}
     </div>

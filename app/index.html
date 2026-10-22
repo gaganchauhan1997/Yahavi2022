@@ -60,8 +60,6 @@
     <link rel="apple-touch-startup-image" href="/apple-splash-640-1136.png"  media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
 
     <!-- Preconnect to critical origins -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://checkout.razorpay.com" />
 
     <!-- DNS prefetch for secondary origins -->
@@ -74,32 +72,6 @@
     <link rel="preload" as="image" href="/images/hero/phone-mockup.webp"
           type="image/webp" media="(min-width: 1024px)" fetchpriority="high" />
 
-    <!-- Google Fonts — async load (does not block render) -->
-    <link rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap"
-          media="print" onload="this.media='all'" />
-    <noscript>
-      <link rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" />
-    </noscript>
-
-    <!-- Google Sign-In SDK — deferred until browser is idle (login/signup pages only need this) -->
-    <script>
-    (function(){
-      var load = function(){
-        var s = document.createElement('script');
-        s.src = 'https://accounts.google.com/gsi/client';
-        s.async = true;
-        document.head.appendChild(s);
-      };
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(load, { timeout: 4000 });
-      } else {
-        setTimeout(load, 3000);
-      }
-    })();
-    </script>
-
     <!-- JSON-LD structured data -->
     <script type="application/ld+json">
     {
@@ -110,9 +82,9 @@
       "url": "https://www.hackknow.com",
       "logo": "https://www.hackknow.com/icon-512.png",
       "image": "https://www.hackknow.com/og-image.jpg",
-      "description": "India's premium digital marketplace for Excel templates, MIS dashboards, PowerPoint decks, website templates, marketing kits, and self-paced courses. 233+ products across 28 categories. Trusted by 10,000+ professionals.",
+      "description": "India's premium digital marketplace for Excel templates, MIS dashboards, PowerPoint decks, website templates, marketing kits, and self-paced courses. Based in Delhi, India.",
       "foundingDate": "2022",
-      "founder": { "@type": "Person", "name": "Gagan Chauhan" },
+      "founder": [{ "@type": "Person", "name": "Gagan Chauhan", "jobTitle": "Founder", "email": "founder@hackknow.com", "sameAs": ["https://www.linkedin.com/in/gagan-yahavi-hackknow/", "https://www.instagram.com/i_kunalarious/"] }, { "@type": "Person", "name": "Manish Kumar Singh", "jobTitle": "Late Beloved Founder and Mentor" }, { "@type": "Person", "name": "Vinay Rajouria", "jobTitle": "Co-Founder and Website Designer" }],
       "address": {
         "@type": "PostalAddress",
         "addressCountry": "IN",
@@ -154,7 +126,6 @@
         }
       ],
       "sameAs": [
-        "https://shop.hackknow.com",
         "https://www.linkedin.com/company/hackknow",
         "https://twitter.com/hackknow",
         "https://www.instagram.com/hackknow"

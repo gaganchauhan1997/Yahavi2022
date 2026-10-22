@@ -97,8 +97,8 @@ const DMCAPage = () => {
             </p>
             <div className="rounded-xl bg-white p-4 border border-hack-black/10 font-mono text-sm text-hack-black/80 space-y-1">
               <p>HackKnow — Grievance Officer</p>
-              <p>Email: <a href="mailto:legal@hackknow.com" className="text-hack-magenta">legal@hackknow.com</a> (cc: <a href="mailto:team@hackknow.com" className="text-hack-magenta">team@hackknow.com</a>)</p>
-              <p>Phone: <a href="tel:+918796018700" className="text-hack-magenta">+91 87960 18700</a></p>
+              <p>Email: <a href="mailto:team@hackknow.com" className="text-hack-magenta">team@hackknow.com</a> (cc: <a href="mailto:team@hackknow.com" className="text-hack-magenta">team@hackknow.com</a>)</p>
+              <p>Founder: <a href="mailto:founder@hackknow.com" className="text-hack-magenta">founder@hackknow.com</a></p>
               <p>Address: Delhi, India</p>
             </div>
             <p className="text-xs text-hack-black/60 mt-3">

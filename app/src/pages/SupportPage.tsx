@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Mail, Phone, FileText, HelpCircle, RotateCcw, Shield, CreditCard } from "lucide-react";
+import { Search, Mail, FileText, HelpCircle, RotateCcw, Shield, CreditCard } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -239,7 +239,7 @@ export default function SupportPage() {
               Still Need Help?
             </h2>
             <p className="text-hack-white/60 mb-6 max-w-md mx-auto">
-              Our support team is ready to help. Reach us by email or phone — we typically respond within a few hours.
+              Our support team is ready to help. Reach us by email — we typically respond within a few hours.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <a
@@ -250,11 +250,11 @@ export default function SupportPage() {
                 team@hackknow.com
               </a>
               <a
-                href="tel:+918796018700"
+                href="mailto:founder@hackknow.com"
                 className="inline-flex items-center gap-2 px-7 py-3.5 bg-hack-white/10 text-hack-white rounded-full font-bold hover:bg-hack-white/20 transition-colors"
               >
-                <Phone className="w-4 h-4" />
-                +91 87960 18700
+                <Mail className="w-4 h-4" />
+                founder@hackknow.com
               </a>
             </div>
           </div>

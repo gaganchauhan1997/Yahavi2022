@@ -66,7 +66,7 @@ const SECTIONS: Section[] = [
       { label: 'Website Templates',        to: '/shop/website-templates',        desc: 'Landing pages, portfolio sites, business templates.',   audience: 'Creators' },
       { label: 'Custom Dashboards',        to: '/shop/custom-dashboards',        desc: 'High-end interactive dashboards for specific industries.',audience: 'Premium buyers' },
       { label: 'Premium Bundles',          to: '/shop/premium',                  desc: 'Multi-template bundles at discounted pricing.',         audience: 'Power users', tag: 'BUNDLE' },
-      { label: 'Free Resources',           to: '/shop/free-resources',           desc: '100+ free templates and starter files. No login required.', audience: 'Everyone',     tag: 'FREE' },
+      { label: 'Free Resources',           to: '/free-excel-templates',           desc: 'MIT-licensed Excel workbooks for finance, career and business planning. No login required.', audience: 'Everyone',     tag: 'FREE' },
     ],
   },
   {

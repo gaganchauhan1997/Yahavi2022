@@ -1,3 +1,4 @@
+import { loadGoogleIdentity } from '@/lib/google-identity';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Zap, ArrowRight, Mail, Lock } from 'lucide-react';
@@ -28,6 +29,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => { void loadGoogleIdentity().catch(() => { /* Email sign-in remains available if Google is blocked. */ }); }, []);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   // refs are the source of truth on iOS Safari, where password-manager

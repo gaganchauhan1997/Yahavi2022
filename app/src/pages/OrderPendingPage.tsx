@@ -122,9 +122,9 @@ const OrderPendingPage = () => {
           <a href="mailto:team@hackknow.com" className="text-hack-magenta hover:text-hack-orange transition-colors">
             team@hackknow.com
           </a>
-          {' '}or call{' '}
-          <a href="tel:+918796018700" className="text-hack-magenta hover:text-hack-orange transition-colors">
-            +91 87960 18700
+          {' '}or contact our founder at{' '}
+          <a href="mailto:founder@hackknow.com" className="text-hack-magenta hover:text-hack-orange transition-colors">
+            founder@hackknow.com
           </a>
         </p>
       </div>

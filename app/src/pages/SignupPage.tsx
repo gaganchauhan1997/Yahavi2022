@@ -1,5 +1,6 @@
+import { loadGoogleIdentity } from '@/lib/google-identity';
 import type { FC, FormEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, BadgeCheck, Lock, Mail, Phone, Sparkles, User } from 'lucide-react';
 import { registerWithWordPress, loginWithGoogleToken } from '@/lib/auth';
@@ -58,6 +59,7 @@ const SignupPage: FC = () => {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => { void loadGoogleIdentity().catch(() => { /* Email sign-in remains available if Google is blocked. */ }); }, []);
 
   const passwordsMatch = useMemo(
     () => formData.password.length >= 8 && formData.password === formData.confirmPassword,

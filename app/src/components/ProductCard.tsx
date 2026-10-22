@@ -10,19 +10,18 @@ import RequestToDownloadModal from "@/components/RequestToDownloadModal";
 interface ProductCardProps {
   product: Product;
   className?: string;
+  priority?: boolean;
 }
 
-export default function ProductCard({ product, className = "" }: ProductCardProps) {
+export default function ProductCard({ product, className = "", priority = false }: ProductCardProps) {
   const { dispatch, toggleWishlist, state } = useStore();
   const isInWishlist = state.wishlist.includes(product.id);
   const productImage = product.image?.sourceUrl?.trim();
   const availability = useProductAvailability(product.id);
   const [requestOpen, setRequestOpen] = useState(false);
 
-  // Until availability data loads, treat as available so we don't flicker
-  // the Request button on every card. Once data arrives, file-less products
-  // permanently show the Request flow.
-  const isFileLess = availability !== null && availability.has_file === false;
+  // Unknown/failed availability is not evidence that a file can be delivered.
+  const isFileLess = availability?.has_file !== true;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -54,7 +53,11 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
           <img
             src={productImage}
             alt={product.name}
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding="async"
+            width={640}
+            height={480}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (() => {
