@@ -44,6 +44,7 @@ Implemented fixes:
 - Keep the lazy-page loader at least one viewport tall so the footer is not shown and then pushed away during route code loading.
 - Reserve product-grid space with layout-matched skeletons, rather than showing a short spinner then pushing the visible footer down several screens. First shop product image is eager/high priority, with explicit dimensions; remaining cards stay lazy.
 - Correct trailing-slash route metadata lookup, canonical directory URLs, and SPA robots transitions between account/auth and public pages. Known private pages remain noindex; unknown client routes are noindex. Add the working skip-link target to main content.
+- Prerender every fetched blog post instead of only 50, include local featured article slugs in snapshots/sitemaps, and remove bot-specific robots groups that accidentally overrode common account/checkout restrictions.
 - Publish founder/company schema and a source-attributed free-resource CollectionPage/ItemList; add the free page to generated sitemap and prerendered HTML.
 
 Limits: HTTP soft-404 handling, backend catalogue latency, full SSR/rendering coverage, accessibility issues surfaced by broader checks and field Core Web Vitals remain separate concerns. Do not claim every URL is fully SEO-complete or that one lab run certifies good CWV for all users. No stress test, live payment or email campaign is performed.
