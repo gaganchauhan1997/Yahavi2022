@@ -1,3 +1,4 @@
+import { API_BASE } from './api-base';
 /**
  * Frontend RSS aggregator — 60+ tech / AI / dev / business / India feeds.
  *
@@ -115,7 +116,7 @@ interface Rss2JsonResp  { status: string; feed?: { title?: string; image?: strin
  */
 // Tier-0: our own WordPress backend (zz-hk-rss-proxy.php) — wp_remote_get + 5min transient cache.
 // Bypasses 3rd-party rate limits/quotas/outages. Allow-listed feed hosts only.
-const PROXY_HK_BACKEND = 'https://shop.hackknow.com/wp-json/hk/v1/rss?url=';
+const PROXY_HK_BACKEND = `${API_BASE}/wp-json/hk/v1/rss?url=`;
 const PROXY_CODETABS   = 'https://api.codetabs.com/v1/proxy/?quest=';
 const PROXY_ALLORIGINS = 'https://api.allorigins.win/raw?url=';
 const PROXY_RSS2JSON   = 'https://api.rss2json.com/v1/api.json?rss_url=';
