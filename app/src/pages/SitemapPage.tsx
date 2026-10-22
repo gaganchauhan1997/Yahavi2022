@@ -1,3 +1,4 @@
+import { API_BASE } from '@/lib/api-base';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -8,7 +9,7 @@ import {
 import { FEATURED_ARTICLES } from '@/content/featured-articles';
 
 const SITE = 'https://www.hackknow.com';
-const WP = 'https://shop.hackknow.com/wp-json/wp/v2';
+const WP = `${API_BASE}/wp-json/wp/v2`;
 const HK_API = 'https://www.hackknow.com/wp-json/hackknow/v1';
 
 // ─── Static structure: every page on the site, organized by purpose ─────
@@ -199,9 +200,10 @@ type ApiItem = { slug: string; title?: string; name?: string };
 function useApi<T>(url: string): { data: T | null; loading: boolean } {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
+  const [previousInput, setPreviousInput] = useState(url);
+  if (previousInput !== url) { setPreviousInput(url); setLoading(true); setData(null); }
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     fetch(url)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { if (alive) { setData(j); setLoading(false); } })
