@@ -180,11 +180,10 @@ function useColumns(reviews: Review[]) {
 export default function TestimonialsPage() {
   const columns = useColumns(REVIEWS);
   const [paused, setPaused] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 
   useEffect(() => {
     const m = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduceMotion(m.matches);
     const fn = () => setReduceMotion(m.matches);
     m.addEventListener?.("change", fn);
     return () => m.removeEventListener?.("change", fn);
