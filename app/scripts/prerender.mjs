@@ -36,6 +36,7 @@ const APP_ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(APP_ROOT, 'dist');
 
 const SITE = 'https://www.hackknow.com';
+const { FEATURED_ARTICLES } = await import('../src/content/featured-articles.ts');
 const FREE_EXCEL = JSON.parse(await fs.readFile(path.join(APP_ROOT, 'src/content/free-excel-templates.json'), 'utf8'));
 const STORE_API = 'https://shop.hackknow.com/wp-json/wc/store/v1';
 const HK_API = 'https://shop.hackknow.com/wp-json/hackknow/v1';
@@ -984,6 +985,10 @@ async function main() {
     console.log(`  ✓ ${blogPosts.length} blog posts`);
   } catch (e) { warnFailure(`  ✗ blog: ${e.message}`); }
 
+  // The browser gives local featured articles precedence over matching WP slugs.
+  const featuredPosts = FEATURED_ARTICLES.map(a => ({ slug: a.slug, title: { rendered: a.title }, excerpt: { rendered: a.excerpt }, date: a.publishDate, date_gmt: a.publishDate, modified: a.modifiedDate || a.publishDate }));
+  blogPosts = [...new Map([...blogPosts, ...featuredPosts].map(p => [p.slug, p])).values()];
+
   if (failures.length || !products.length || !cats.length) throw new Error('Required catalogue data unavailable; refusing incomplete deployment');
 
   // ── Sitemap index + 4 segment sitemaps ──
@@ -1073,8 +1078,8 @@ async function main() {
     catch (e) { warnFailure(`  ✗ /roadmaps/${r.slug}: ${e.message}`); }
   }
 
-  // Top 50 blog posts
-  for (const b of blogPosts.slice(0, 50)) {
+  // Every fetched blog post and local featured article
+  for (const b of blogPosts) {
     if (!b.slug) continue;
     try { await prerenderBlogPost(tmpl, b, { navFooter }); pages++; }
     catch (e) { warnFailure(`  ✗ /blog/${b.slug}: ${e.message}`); }
