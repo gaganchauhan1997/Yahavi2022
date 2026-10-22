@@ -20,10 +20,8 @@ export default function ProductCard({ product, className = "", priority = false 
   const availability = useProductAvailability(product.id);
   const [requestOpen, setRequestOpen] = useState(false);
 
-  // Until availability data loads, treat as available so we don't flicker
-  // the Request button on every card. Once data arrives, file-less products
-  // permanently show the Request flow.
-  const isFileLess = availability !== null && availability.has_file === false;
+  // Unknown/failed availability is not evidence that a file can be delivered.
+  const isFileLess = availability?.has_file !== true;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
