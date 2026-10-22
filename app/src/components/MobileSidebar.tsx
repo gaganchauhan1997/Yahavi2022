@@ -21,15 +21,13 @@ type View = 'root' | 'shop' | 'courses' | 'account';
 export default function MobileSidebar({ onClose, shopCategories, onSignOut, isAuthed }: Props) {
   const [view, setView] = useState<View>('root');
   const [courseCats, setCourseCats] = useState<HKCategory[] | null>(null);
-  const [loadingCats, setLoadingCats] = useState(false);
+  const loadingCats = view === 'courses' && courseCats === null;
 
   useEffect(() => {
     if (view !== 'courses' || courseCats !== null) return;
-    setLoadingCats(true);
     fetchCourseCategories()
       .then(r => setCourseCats(r.items))
-      .catch(() => setCourseCats([]))
-      .finally(() => setLoadingCats(false));
+      .catch(() => setCourseCats([]));
   }, [view, courseCats]);
 
   // Lock body scroll while open
