@@ -19,9 +19,30 @@ import WalletBadge from "@/components/WalletBadge";
 
 interface HKPreview { url: string; open_in: 'newtab' | 'iframe'; }
 
+  const PREVIEW_ALLOWED_HOSTS = ['www.hackknow.com', 'hackknow.com', 'shop.hackknow.com'];
+  const isAllowedPreviewUrl = (raw: string): boolean => {
+    try {
+      const u = new URL(raw, window.location.origin);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+      return PREVIEW_ALLOWED_HOSTS.includes(u.hostname);
+    } catch { return false; }
+  };
+
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
+  return <ProductPageContent key={slug} />;
+}
+
+function ProductPageContent() {
+  const { slug } = useParams<{ slug: string }>();
   const { dispatch, toggleWishlist, state } = useStore();
+
+  const [preview, setPreview] = useState<HKPreview | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  /* Reset modal whenever the slug (i.e. user-visible product) changes, so
+     stale iframe content from a previous product never flashes. */
+
 
   /* Fast path: directly fetch this product by slug so we don't have to wait
      for the entire 1700+ product catalog to paginate through GraphQL first. */
@@ -71,20 +92,7 @@ export default function ProductPage() {
   /* Preview URL fetched from custom endpoint; null = none / not fetched yet.
      We allowlist preview origins to prevent any chance of a tampered backend
      pointing the iframe / new-tab popup at an off-site URL. */
-  const PREVIEW_ALLOWED_HOSTS = ['www.hackknow.com', 'hackknow.com', 'shop.hackknow.com'];
-  const isAllowedPreviewUrl = (raw: string): boolean => {
-    try {
-      const u = new URL(raw, window.location.origin);
-      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
-      return PREVIEW_ALLOWED_HOSTS.includes(u.hostname);
-    } catch { return false; }
-  };
 
-  const [preview, setPreview] = useState<HKPreview | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-
-  /* Reset modal whenever the slug (i.e. user-visible product) changes, so
-     stale iframe content from a previous product never flashes. */
   useEffect(() => { setPreviewOpen(false); setPreview(null); }, [slug]);
 
   useEffect(() => {
@@ -116,7 +124,7 @@ export default function ProductPage() {
 
   // Hooks must run unconditionally — declared above the early returns.
   const availability = useProductAvailability(product?.id);
-  const isFileLess = availability !== null && availability.has_file === false;
+  const isFileLess = availability?.has_file !== true;
   const [requestOpen, setRequestOpen] = useState(false);
 
   if (directLoading && !product) {
