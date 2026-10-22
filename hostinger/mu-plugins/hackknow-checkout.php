@@ -49,15 +49,15 @@
  *
  *      define('HACKKNOW_SMTP_HOST', 'smtp.hostinger.com');
  *      define('HACKKNOW_SMTP_PORT', 465);
- *      define('HACKKNOW_SMTP_USER', 'support@hackknow.com');
+ *      define('HACKKNOW_SMTP_USER', 'team@hackknow.com');
  *      define('HACKKNOW_SMTP_PASS', '<mailbox password>');
  *      // Optional — defaults below
  *      // define('HACKKNOW_SMTP_SECURE', 'ssl'); // 'ssl' for 465, 'tls' for 587
- *      // define('HACKKNOW_MAIL_FROM',  'support@hackknow.com');
+ *      // define('HACKKNOW_MAIL_FROM',  'team@hackknow.com');
  *      // define('HACKKNOW_MAIL_FROM_NAME', 'HackKnow');
  *
  *  The mailbox password lives in Hostinger panel → Emails →
- *  support@hackknow.com (Reset password). Once set, every wp_mail() call
+ *  team@hackknow.com (Reset password). Once set, every wp_mail() call
  *  goes through Hostinger's authenticated SMTP relay, which DKIM-signs the
  *  message for hackknow.com and passes SPF — Gmail then accepts it inbox.
  *  Verify on /home/u828497513/.logs/mail.log: outbound entries should show
@@ -335,19 +335,19 @@ if (!defined('HACKKNOW_FRONTEND_URL')) {
 /* From-address used for ALL outbound HackKnow mail. Must be a real mailbox on
  * the same domain as the site so SPF/DKIM/DMARC accept it. To stay aligned
  * with the SMTP-authenticated mailbox (see HACKKNOW_SMTP_USER below) the
- * default is support@hackknow.com — Hostinger DKIM-signs anything authenticated
+ * default is team@hackknow.com — Hostinger DKIM-signs anything authenticated
  * as that user, and SPF passes because the message is being relayed by
  * smtp.hostinger.com. Override in wp-config.php with
  *   define('HACKKNOW_MAIL_FROM', 'team@hackknow.com');
  * if you switch the SMTP user to a different mailbox. */
-if (!defined('HACKKNOW_MAIL_FROM'))      { define('HACKKNOW_MAIL_FROM',      'support@hackknow.com'); }
+if (!defined('HACKKNOW_MAIL_FROM'))      { define('HACKKNOW_MAIL_FROM',      'team@hackknow.com'); }
 if (!defined('HACKKNOW_MAIL_FROM_NAME')) { define('HACKKNOW_MAIL_FROM_NAME', 'HackKnow'); }
 
 /* ─── Site-wide mail headers ───────────────────────────────────────────────
  * The default wp_mail From is `wordpress@<sitehost>`, which does NOT exist as
  * a real mailbox on Hostinger and almost always fails SPF/DMARC checks → mail
  * silently drops or lands in spam. We force every outbound email to come from
- * support@hackknow.com (a real mailbox the owner controls) so the password-
+ * team@hackknow.com (a real mailbox the owner controls) so the password-
  * reset, order-confirmation, and contact-form emails actually reach inboxes.
  *
  * IMPORTANT: WooCommerce (and some other plugins) set an explicit `From:`
@@ -390,14 +390,14 @@ add_filter('wp_mail', function ($args) {
  * switch PHPMailer from local PHP mail() to authenticated SMTP. This is what
  * makes Gmail accept the message into the inbox: the outbound mail is now
  * relayed by Hostinger\'s smtp.hostinger.com on behalf of a real mailbox
- * (support@hackknow.com), so it gets DKIM-signed for hackknow.com and SPF
+ * (team@hackknow.com), so it gets DKIM-signed for hackknow.com and SPF
  * passes. Without it, mail() messages are rejected/spammed because they
  * lack DKIM and the envelope sender doesn\'t match the From: header.
  *
  * Required wp-config.php constants (chmod 600, OUTSIDE public_html):
  *   define('HACKKNOW_SMTP_HOST', 'smtp.hostinger.com');
  *   define('HACKKNOW_SMTP_PORT', 465);
- *   define('HACKKNOW_SMTP_USER', 'support@hackknow.com');
+ *   define('HACKKNOW_SMTP_USER', 'team@hackknow.com');
  *   define('HACKKNOW_SMTP_PASS', '<mailbox password from Hostinger panel>');
  * Optional:
  *   define('HACKKNOW_SMTP_SECURE', 'ssl'); // or 'tls' if using port 587
@@ -1466,8 +1466,8 @@ function hackknow_chat(WP_REST_Request $req) {
              . "jo is poori website chalati hoon. Real human chahiye toh team@hackknow.com pe "
              . "email kar do.'\n\n"
              . "ABOUT THE STORE: HackKnow.com sells Excel templates, dashboards, PowerPoint decks, "
-             . "Notion templates, marketing kits and free resources. Founder: Manish Kumar Singh, "
-             . "Delhi NCR, India. Phone +91 87960 18700, team@hackknow.com. Refunds within 7 days "
+             . "Notion templates, marketing kits and free resources. Founder: Gagan Chauhan. Co-founder and website designer: Vinay Rajouria. Remembering late beloved founder and mentor Manish Kumar Singh. "
+             . "Delhi, India. Contact founder@hackknow.com or team@hackknow.com. Refunds within 7 days "
              . "(file corrupt, wrong listing, missing files). Reply in the SAME language the user "
              . "wrote in (English, Hindi, Hinglish, French, German, Spanish…). Keep replies under "
              . "90 words. Suggest paths like /shop, /shop/free-resources, /account/orders, "
@@ -1488,7 +1488,7 @@ function hackknow_chat(WP_REST_Request $req) {
              . "   where every template is production-ready.\n"
              . " • Real human + AI support — many free Excel formula blogs leave you stranded with "
              . "   a comments section. HackKnow has email support (team@hackknow.com), phone "
-             . "   (+91 87960 18700), AND me, Yahavi, available 24x7 on every page.\n"
+             . "   (team@hackknow.com), AND me, Yahavi, available 24x7 on every page.\n"
              . " • Refund within 7 days — if the file is corrupt, wrong listing, or missing files, "
              . "   we refund. Big subscription marketplaces simply don't refund.\n"
              . " • No login wall to browse — many competitors force account creation just to look "
@@ -2425,7 +2425,7 @@ function hackknow_newsletter_send_welcome($email) {
         $args['message'] = $cached['html'];
         $headers = isset($args['headers']) ? (array) $args['headers'] : [];
         $headers[] = 'Content-Type: text/html; charset=UTF-8';
-        $headers[] = 'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'support@hackknow.com');
+        $headers[] = 'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'team@hackknow.com');
         $args['headers'] = $headers;
         delete_transient($key);
         return $args;
@@ -2695,8 +2695,8 @@ if (!function_exists('hackknow_send_welcome_rebate_email')) {
 
         $headers = array(
             'Content-Type: text/html; charset=UTF-8',
-            'From: HackKnow <' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'support@hackknow.com') . '>',
-            'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'support@hackknow.com'),
+            'From: HackKnow <' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'team@hackknow.com') . '>',
+            'Reply-To: ' . (defined('HACKKNOW_MAIL_FROM') ? HACKKNOW_MAIL_FROM : 'team@hackknow.com'),
         );
 
         $sent = wp_mail($email, $subject, $html, $headers);
