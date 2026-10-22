@@ -494,7 +494,7 @@ export default function YahaviChat() {
                 Yahavi AI <Sparkles className="w-3 h-3 text-hack-yellow" />
               </div>
               <div className="text-[10px] uppercase tracking-wider text-white/60 font-mono">
-                by DeadMan • English
+                by Gagan Chauhan • English
               </div>
             </div>
             <button
