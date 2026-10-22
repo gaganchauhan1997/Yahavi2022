@@ -143,8 +143,11 @@ Browser on www.hackknow.com
 - 30-day download expiry after order completion date
 
 ### 3. Contact Details
-- Email: team@hackknow.com
-- Phone: +91 87960 18700
+- Public business contacts: founder@hackknow.com and team@hackknow.com
+- Do not publish business phone/WhatsApp numbers. Customer-entered checkout/profile fields are separate.
+- Founder: Gagan Chauhan (Nangli Razapur, Delhi); Co-Founder/Website Design: Vinay Rajouria.
+- Manish Kumar Singh: Late Beloved Founder & Mentor, remembered respectfully.
+- Company location: Delhi, India. Founder social links and free Excel licenses are recorded in `docs/COMPANY_RESOURCES_PERFORMANCE_2026-10-22.md`.
 
 ### 4. WooCommerce mu-plugin (hackknow-checkout.php)
 - Handles: orders filter, 30-day download expiry, custom checkout fields
