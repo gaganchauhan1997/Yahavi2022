@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowRight, ShoppingBag, X } from 'lucide-react';
 import { useStore } from '@/context/StoreContext';
@@ -25,19 +25,22 @@ export default function StickyCheckoutBar() {
   });
 
   // Auto-restore when the cart grows (new item added) so user sees confirmation
-  const prevCountRef = useRef(cartCount);
+  const [previousCount, setPreviousCount] = useState(cartCount);
+  if (cartCount !== previousCount) {
+    setPreviousCount(cartCount);
+    if (cartCount > previousCount && minimised) setMinimised(false);
+  }
   useEffect(() => {
-    if (cartCount > prevCountRef.current && minimised) {
-      setMinimised(false);
-      try { sessionStorage.removeItem('hk_checkout_pill_min'); } catch {}
-    }
-    prevCountRef.current = cartCount;
-  }, [cartCount, minimised]);
+    try {
+      if (minimised) sessionStorage.setItem('hk_checkout_pill_min', '1');
+      else sessionStorage.removeItem('hk_checkout_pill_min');
+    } catch { /* Storage may be blocked. */ }
+  }, [minimised]);
 
   const dismiss = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
     setMinimised(true);
-    try { sessionStorage.setItem('hk_checkout_pill_min', '1'); } catch {}
+    try { sessionStorage.setItem('hk_checkout_pill_min', '1'); } catch { /* Storage may be blocked by the browser. */ }
   };
 
   // Hide entirely on cart, checkout, account, login pages or empty cart
