@@ -197,7 +197,7 @@ const ORG_LD = {
   url: SITE,
   logo: `${SITE}/icon-512.png`,
   address: { '@type': 'PostalAddress', addressLocality: 'Delhi', addressCountry: 'IN' },
-  founder: [ { '@type': 'Person', name: 'Gagan Chauhan', jobTitle: 'Founder', email: 'founder@hackknow.com' }, { '@type': 'Person', name: 'Manish Kumar Singh', jobTitle: 'Late Beloved Founder and Mentor' }, { '@type': 'Person', name: 'Vinay Rajouria', jobTitle: 'Co-Founder and Website Designer' } ],
+  founder: [ { '@type': 'Person', name: 'Gagan Chauhan', jobTitle: 'Founder', email: 'founder@hackknow.com', sameAs: ['https://www.linkedin.com/in/gagan-yahavi-hackknow/', 'https://www.instagram.com/i_kunalarious/'] }, { '@type': 'Person', name: 'Manish Kumar Singh', jobTitle: 'Late Beloved Founder and Mentor' }, { '@type': 'Person', name: 'Vinay Rajouria', jobTitle: 'Co-Founder and Website Designer' } ],
   sameAs: [
     'https://www.instagram.com/hackknow',
     'https://www.youtube.com/@hackknow',
@@ -586,7 +586,7 @@ const STATIC_PAGES_META = {
       <p>Late Beloved Founder &amp; Mentor. His love of technology, travel and sharing knowledge helped shape HackKnow. Deeply missed, always remembered: his influence remains in the work and the people carrying it forward.</p>
       <h2>Gagan Chauhan — Founder of hackknow.com</h2>
       <p>A Delhi boy and hands-on builder from Nangli Razapur, Delhi, Gagan guides HackKnow’s engineering and direction, from its React storefront and Cloudflare infrastructure to WooCommerce checkout, Razorpay integration and Yahavi AI. His focus is useful products, thoughtful technology and a platform people can rely on.</p>
-      <p>Contact: <a href="mailto:founder@hackknow.com">founder@hackknow.com</a></p>
+      <p>Contact: <a href="mailto:founder@hackknow.com">founder@hackknow.com</a> · <a href="https://www.linkedin.com/in/gagan-yahavi-hackknow/">Gagan on LinkedIn</a> · <a href="https://www.instagram.com/i_kunalarious/">Gagan on Instagram</a></p>
       <h2>Vinay Rajouria — Co-Founder &amp; Website Design</h2>
       <p>Vinay designed HackKnow’s website and brings the design perspective to making digital tools easier to discover, understand and use.</p>
       <p>Company location: Delhi, India. Team: <a href="mailto:team@hackknow.com">team@hackknow.com</a></p>
