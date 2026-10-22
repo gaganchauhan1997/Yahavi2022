@@ -32,3 +32,8 @@
 # WordPress uploads/media — short cache
 /wp-content/*
   Cache-Control: public, max-age=86400
+
+# Versioned free-resource files bypass Functions
+/downloads/free-excel/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
