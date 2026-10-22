@@ -129,12 +129,11 @@ export default function CategorySidebar() {
 
   const [tree, setTree] = useState<CatNode[] | null>(null);
   const [openTop, setOpenTop] = useState<Record<number, boolean>>({});
-  const [loading, setLoading] = useState(false);
+  const loading = state.isSidebarOpen && tree === null;
 
   // Lazy fetch: only when sidebar first opens
   useEffect(() => {
-    if (!state.isSidebarOpen || tree !== null || loading) return;
-    setLoading(true);
+    if (!state.isSidebarOpen || tree !== null) return;
     fetch(`${API_BASE}/wp-json/wp/v2/product_cat?per_page=100&hide_empty=false&_fields=id,name,slug,parent,count`)
       .then((r) => (r.ok ? r.json() : []))
       .then((flat: WPCat[]) => {
@@ -144,9 +143,8 @@ export default function CategorySidebar() {
           setTree(buildTree(flat));
         }
       })
-      .catch(() => setTree([]))
-      .finally(() => setLoading(false));
-  }, [state.isSidebarOpen, tree, loading]);
+      .catch(() => setTree([]));
+  }, [state.isSidebarOpen, tree]);
 
   const fallback = useMemo<CatNode[]>(
     () =>
