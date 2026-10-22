@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, Search, SlidersHorizontal } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
@@ -224,10 +224,12 @@ export default function ShopPage() {
     return result;
   }, [categorySlug, filterParam, maxVisiblePrice, products, searchQuery, sortBy, subParam, availabilityMap]);
 
-  // Reset to page 1 whenever filters change
-  useEffect(() => {
+  const filterKey = JSON.stringify([categorySlug, filterParam, subParam, searchQuery, sortBy, selectedMaxPrice]);
+  const [previousFilters, setPreviousFilters] = useState(filterKey);
+  if (filterKey !== previousFilters) {
+    setPreviousFilters(filterKey);
     setCurrentPage(1);
-  }, [categorySlug, filterParam, subParam, searchQuery, sortBy, selectedMaxPrice]);
+  }
 
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
   const paginatedProducts = filteredProducts.slice(

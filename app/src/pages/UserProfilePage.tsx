@@ -60,9 +60,10 @@ function useFetch<T>(path: string) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [previousInput, setPreviousInput] = useState(path);
+  if (previousInput !== path) { setPreviousInput(path); setLoading(true); setError(''); setData(null); }
   useEffect(() => {
     let active = true;
-    setLoading(true); setError('');
     authFetch(path)
       .then(r => {
         if (!r.ok) throw new Error(`Request failed: ${r.status} ${r.statusText}`);

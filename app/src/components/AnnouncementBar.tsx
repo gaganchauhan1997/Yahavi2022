@@ -15,7 +15,7 @@ function nextMidnightIST(): number {
 }
 
 function setBarHeightVar(px: number) {
-  try { document.documentElement.style.setProperty('--hk-ann-h', `${px}px`); } catch {}
+  try { document.documentElement.style.setProperty('--hk-ann-h', `${px}px`); } catch { /* Storage may be blocked by the browser. */ }
 }
 
 export default function AnnouncementBar() {
@@ -62,7 +62,7 @@ export default function AnnouncementBar() {
         </div>
         <button
           type="button"
-          onClick={() => { try { sessionStorage.setItem(STORAGE_KEYS.ANN_BAR_DISMISSED, '1'); } catch {}; setDismissed(true); }}
+          onClick={() => { try { sessionStorage.setItem(STORAGE_KEYS.ANN_BAR_DISMISSED, '1'); } catch { /* Storage may be blocked by the browser. */ }; setDismissed(true); }}
           className="p-1 hover:bg-white/10 rounded shrink-0"
           aria-label="Dismiss announcement"
         >

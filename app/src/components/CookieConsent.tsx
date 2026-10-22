@@ -16,11 +16,13 @@ export default function CookieConsent() {
 
   const accept = () => {
     localStorage.setItem(COOKIE_KEY, "accepted");
+    window.dispatchEvent(new Event("hackknow:consent"));
     setVisible(false);
   };
 
   const decline = () => {
     localStorage.setItem(COOKIE_KEY, "declined");
+    window.dispatchEvent(new Event("hackknow:consent"));
     setVisible(false);
   };
 

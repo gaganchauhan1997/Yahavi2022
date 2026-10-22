@@ -23,9 +23,8 @@
  *  • <link rel="alternate" hreflang="en-IN"> on every prerendered page.
  *  • Self-canonical with NO trailing slash, consistently. (Both /x and /x/
  *    serve the same file with the same canonical → resolves duplicate signal.)
- *  • IndexNow ping (Bing + Yandex) after build — instant submission of fresh URLs.
- *  • Optional Google sitemap ping + Cloudflare purge if env vars present.
- *  • Failure-safe: every section wrapped in try/catch, never breaks the build.
+ *  • No publishing notifications or cache purges during builds.
+ *  • Required data and snapshot failures stop the build; local/CI uses fixtures.
  */
 
 import fs from 'node:fs/promises';
@@ -40,7 +39,13 @@ const SITE = 'https://www.hackknow.com';
 const STORE_API = 'https://shop.hackknow.com/wp-json/wc/store/v1';
 const HK_API = 'https://shop.hackknow.com/wp-json/hackknow/v1';
 const WP_API = 'https://shop.hackknow.com/wp-json/wp/v2';
-const TODAY = new Date().toISOString().slice(0, 10);
+const MODE = process.env.PRERENDER_MODE || (process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH === 'main' ? 'live' : 'fixture');
+if (!['live', 'fixture'].includes(MODE)) throw new Error('PRERENDER_MODE must be live or fixture');
+if (process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH === 'main' && MODE !== 'live') throw new Error('Production must use live catalog data');
+const FIXTURE = MODE === 'fixture' ? JSON.parse(await fs.readFile(path.join(APP_ROOT, 'fixtures/catalog.json'), 'utf8')) : null;
+const TODAY = FIXTURE?.date || new Date().toISOString().slice(0, 10);
+const failures = [];
+function warnFailure(message) { failures.push(message); console.warn(message); }
 const HREFLANG = 'en-IN';
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -62,41 +67,42 @@ const escXml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;',
 })[c]);
 
+async function fetchResponse(url) {
+  const r = await fetch(url, {
+    headers: { 'User-Agent': 'HackKnow-Prerender/3.0' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status} fetching ${new URL(url).pathname}`);
+  return r;
+}
+
 async function fetchAllPages(baseUrl, perPage = 100, maxPages = 50) {
+  if (FIXTURE) {
+    if (baseUrl.includes('/products/categories')) return FIXTURE.categories;
+    if (baseUrl.includes('/products')) return FIXTURE.products;
+    if (baseUrl.includes('/posts')) return FIXTURE.posts;
+    throw new Error('Unknown fixture endpoint');
+  }
   const all = [];
   for (let page = 1; page <= maxPages; page++) {
     const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}per_page=${perPage}&page=${page}`;
-    let r;
-    try {
-      r = await fetch(url, { headers: { 'User-Agent': 'HackKnow-Prerender/2.0' } });
-    } catch (e) {
-      console.warn(`  fetch error ${url}: ${e.message}`);
-      break;
-    }
-    if (!r.ok) {
-      // Non-fatal: WP REST returns 400 when page > total
-      if (r.status === 400 || r.status === 404) break;
-      console.warn(`  HTTP ${r.status} on ${url} — stopping pagination`);
-      break;
-    }
-    let data;
-    try { data = await r.json(); } catch { break; }
-    if (!Array.isArray(data) || data.length === 0) break;
+    const r = await fetchResponse(url);
+    const data = await r.json();
+    if (!Array.isArray(data)) throw new Error('Expected an array of catalogue records');
     all.push(...data);
-    if (data.length < perPage) break;
+    const totalPages = Number(r.headers.get('x-wp-totalpages'));
+    if (data.length < perPage || (totalPages > 0 && page >= totalPages)) return all;
   }
-  return all;
+  throw new Error(`Catalogue pagination exceeded ${maxPages} pages; refusing a partial sitemap`);
 }
 
 async function fetchJson(url) {
-  try {
-    const r = await fetch(url, { headers: { 'User-Agent': 'HackKnow-Prerender/2.0' } });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch (e) {
-    console.warn(`  fetch err ${url}: ${e.message}`);
-    return null;
+  if (FIXTURE) {
+    if (url.endsWith('/courses')) return { items: FIXTURE.courses };
+    if (url.endsWith('/roadmaps')) return { items: FIXTURE.roadmaps };
+    throw new Error('Unknown fixture endpoint');
   }
+  return (await fetchResponse(url)).json();
 }
 
 // ─── meta application ──────────────────────────────────────────────────────
@@ -948,21 +954,6 @@ async function prerenderStaticPage(tmpl, routePath, meta, { cats, products, navF
   }));
 }
 
-// ─── pings ─────────────────────────────────────────────────────────────────
-async function pingGoogleAndBing() {
-  const sitemapUrl = `${SITE}/sitemap.xml`;
-  const targets = [
-    `https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
-    `https://www.bing.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
-  ];
-  for (const t of targets) {
-    try {
-      const r = await fetch(t, { method: 'GET', headers: { 'User-Agent': 'HackKnow-Prerender/2.0' } });
-      console.log(`  ${r.ok ? '✓' : 'ⓘ'} ping ${new URL(t).host}: ${r.status}`);
-    } catch (e) { console.warn(`  ✗ ping ${t}: ${e.message}`); }
-  }
-}
-
 // ─── main ──────────────────────────────────────────────────────────────────
 async function main() {
   console.log('🚀 hk-prerender v2 starting…');
@@ -971,25 +962,27 @@ async function main() {
   try {
     cats = await fetchAllPages(`${STORE_API}/products/categories`);
     console.log(`  ✓ ${cats.length} categories`);
-  } catch (e) { console.warn(`  ✗ categories: ${e.message}`); }
+  } catch (e) { warnFailure(`  ✗ categories: ${e.message}`); }
   try {
     products = await fetchAllPages(`${STORE_API}/products`);
     console.log(`  ✓ ${products.length} products`);
-  } catch (e) { console.warn(`  ✗ products: ${e.message}`); }
+  } catch (e) { warnFailure(`  ✗ products: ${e.message}`); }
   try {
     const j = await fetchJson(`${HK_API}/courses`);
     courses = Array.isArray(j) ? j : (j?.items || []);
     console.log(`  ✓ ${courses.length} courses`);
-  } catch (e) { console.warn(`  ✗ courses: ${e.message}`); }
+  } catch (e) { warnFailure(`  ✗ courses: ${e.message}`); }
   try {
     const j = await fetchJson(`${HK_API}/roadmaps`);
     roadmaps = Array.isArray(j) ? j : (j?.items || []);
     console.log(`  ✓ ${roadmaps.length} roadmaps`);
-  } catch (e) { console.warn(`  ✗ roadmaps: ${e.message}`); }
+  } catch (e) { warnFailure(`  ✗ roadmaps: ${e.message}`); }
   try {
     blogPosts = await fetchAllPages(`${WP_API}/posts?_fields=id,slug,title,excerpt,date,date_gmt,modified,modified_gmt`, 100, 5);
     console.log(`  ✓ ${blogPosts.length} blog posts`);
-  } catch (e) { console.warn(`  ✗ blog: ${e.message}`); }
+  } catch (e) { warnFailure(`  ✗ blog: ${e.message}`); }
+
+  if (failures.length || !products.length || !cats.length) throw new Error('Required catalogue data unavailable; refusing incomplete deployment');
 
   // ── Sitemap index + 4 segment sitemaps ──
   try {
@@ -1001,7 +994,7 @@ async function main() {
     await fs.writeFile(path.join(DIST, 'sitemap.xml'), sitemapIndexXml(segments));
     const total = STATIC_ROUTES.length + cats.filter((c) => c.count > 0).length + products.filter((p) => p.is_purchasable !== false).length + courses.length + roadmaps.length + blogPosts.length;
     console.log(`  ✓ sitemap index + 4 segments (~${total} indexable URLs)`);
-  } catch (e) { console.warn(`  ✗ sitemap: ${e.message}`); }
+  } catch (e) { warnFailure(`  ✗ sitemap: ${e.message}`); }
 
   // ── robots.txt: ensure Sitemap directive present ──
   try {
@@ -1017,15 +1010,15 @@ async function main() {
     } else {
       console.log('  ✓ robots.txt — Sitemap directive present');
     }
-  } catch (e) { console.warn(`  ✗ robots.txt: ${e.message}`); }
+  } catch (e) { warnFailure(`  ✗ robots.txt: ${e.message}`); }
 
   // ── Read template ──
   let tmpl;
   try {
     tmpl = await fs.readFile(path.join(DIST, 'index.html'), 'utf8');
   } catch (e) {
-    console.warn(`  ✗ cannot read dist/index.html — aborting prerender: ${e.message}`);
-    return;
+    warnFailure(`  ✗ cannot read dist/index.html — aborting prerender: ${e.message}`);
+    throw e;
   }
 
   const navFooter = internalNavFooter(cats);
@@ -1033,8 +1026,8 @@ async function main() {
   let pages = 0;
 
   // Home + Shop
-  try { await prerenderHome(tmpl, { cats, products, navFooter }); pages++; } catch (e) { console.warn(`  ✗ /: ${e.message}`); }
-  try { await prerenderShop(tmpl, { products, navFooter }); pages++; } catch (e) { console.warn(`  ✗ /shop: ${e.message}`); }
+  try { await prerenderHome(tmpl, { cats, products, navFooter }); pages++; } catch (e) { warnFailure(`  ✗ /: ${e.message}`); }
+  try { await prerenderShop(tmpl, { products, navFooter }); pages++; } catch (e) { warnFailure(`  ✗ /shop: ${e.message}`); }
   // ── EVERY indexable static page (about, blog, faq, etc.) ──
   // Each page gets unique title/description/H1/body/JSON-LD. Without this,
   // /about /faq /community etc. served the homepage shell to Googlebot,
@@ -1042,7 +1035,7 @@ async function main() {
   const staticCtx = { courses, roadmaps, blogPosts };
   for (const [routePath, meta] of Object.entries(STATIC_PAGES_META)) {
     try { await prerenderStaticPage(tmpl, routePath, meta, { cats, products, navFooter, ctx: staticCtx }); pages++; }
-    catch (e) { console.warn(`  ✗ ${routePath}: ${e.message}`); }
+    catch (e) { warnFailure(`  ✗ ${routePath}: ${e.message}`); }
   }
 
 
@@ -1054,35 +1047,35 @@ async function main() {
       const parent = cat.parent ? catById[cat.parent] : null;
       await prerenderCategory(tmpl, cat, { catProducts, parent, navFooter });
       pages++;
-    } catch (e) { console.warn(`  ✗ /shop/${cat.slug}: ${e.message}`); }
+    } catch (e) { warnFailure(`  ✗ /shop/${cat.slug}: ${e.message}`); }
   }
 
   // ALL purchasable products (was: top 20)
   for (const p of products) {
     if (p.is_purchasable === false) continue;
     try { await prerenderProduct(tmpl, p, { catById, navFooter }); pages++; }
-    catch (e) { console.warn(`  ✗ /product/${p.slug}: ${e.message}`); }
+    catch (e) { warnFailure(`  ✗ /product/${p.slug}: ${e.message}`); }
   }
 
   // All courses
   for (const c of courses) {
     if (!c.slug) continue;
     try { await prerenderCourse(tmpl, c, { navFooter }); pages++; }
-    catch (e) { console.warn(`  ✗ /courses/${c.slug}: ${e.message}`); }
+    catch (e) { warnFailure(`  ✗ /courses/${c.slug}: ${e.message}`); }
   }
 
   // All roadmaps
   for (const r of roadmaps) {
     if (!r.slug) continue;
     try { await prerenderRoadmap(tmpl, r, { navFooter }); pages++; }
-    catch (e) { console.warn(`  ✗ /roadmaps/${r.slug}: ${e.message}`); }
+    catch (e) { warnFailure(`  ✗ /roadmaps/${r.slug}: ${e.message}`); }
   }
 
   // Top 50 blog posts
   for (const b of blogPosts.slice(0, 50)) {
     if (!b.slug) continue;
     try { await prerenderBlogPost(tmpl, b, { navFooter }); pages++; }
-    catch (e) { console.warn(`  ✗ /blog/${b.slug}: ${e.message}`); }
+    catch (e) { warnFailure(`  ✗ /blog/${b.slug}: ${e.message}`); }
   }
 
   // Private routes — emit HTML with noindex meta
@@ -1095,33 +1088,18 @@ async function main() {
   };
   for (const r of NOINDEX_ROUTES) {
     try { await prerenderNoindexRoute(tmpl, r, labels[r] || r, { navFooter }); pages++; }
-    catch (e) { console.warn(`  ✗ noindex ${r}: ${e.message}`); }
+    catch (e) { warnFailure(`  ✗ noindex ${r}: ${e.message}`); }
   }
 
   console.log(`  ✓ ${pages} per-route HTML snapshots written`);
 
-  // ── Pings: tell Google + Bing the sitemap moved ──
-  await pingGoogleAndBing();
-
-  // ── Optional Cloudflare cache purge ──
-  if (process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ZONE_ID) {
-    try {
-      const r = await fetch(`https://api.cloudflare.com/client/v4/zones/${process.env.CLOUDFLARE_ZONE_ID}/purge_cache`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purge_everything: true }),
-      });
-      const j = await r.json().catch(() => ({}));
-      console.log(`  ${r.ok && j.success ? '✓' : '✗'} Cloudflare purge: ${j.success ? 'OK' : JSON.stringify(j.errors || j)}`);
-    } catch (e) { console.warn(`  ✗ Cloudflare purge: ${e.message}`); }
-  } else {
-    console.log('  ⓘ Cloudflare purge skipped (set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ZONE_ID env vars)');
-  }
-
+  if (failures.length) throw new Error(`Prerender failed in ${failures.length} section(s)`);
+  console.log(`Prerender mode: ${MODE}. No notifications or cache purges performed.`);
   console.log('🎉 hk-prerender v2 done');
 }
 
 main().catch((e) => {
   console.warn(`hk-prerender unexpected error: ${e.message}`);
   console.warn(e.stack);
+  process.exitCode = 1;
 });

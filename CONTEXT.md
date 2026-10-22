@@ -4,6 +4,10 @@
 
 ---
 
+## October 2026 implementation update
+
+See `docs/FIX_IMPLEMENTATION_2026-10-22.md` for the tested runtime, offline/live build modes, deployment boundary and outstanding work. Static pages/assets bypass Functions using `_routes.json`; API/proxy paths still use the sole middleware proxy. `_redirects` now contains legacy aliases; Pages supplies the implicit SPA fallback. Historical scores and completion notes below are not a current capacity certification.
+
 ## Project Overview
 
 **HackKnow** is a digital product marketplace for Indian creators.

@@ -227,7 +227,7 @@ export const fetchLiveNews = async (source: string = 'all', limit = 30): Promise
       const items = (raw as unknown[]).slice(0, limit).map(adaptRelease);
       return { items, total: items.length, sources: [], cached_for_seconds: 0 };
     }
-  } catch (_) { /* fall through to empty */ }
+  } catch { /* fall through to empty */ }
   return { items: [], total: 0, sources: [], cached_for_seconds: 0 };
 };
 
@@ -247,7 +247,7 @@ export const fetchAllNews = async (limit = 50): Promise<HKNewsAllResp> => {
       const items = (raw as unknown[]).slice(0, limit).map(adaptRelease);
       return { items, total: items.length, curated: items.length, live: 0 };
     }
-  } catch (_) { /* fall back below */ }
+  } catch { /* fall back below */ }
 
   // Fallback: curated-only via /releases
   const list = await getList<HKRelease>('/releases', adaptRelease);

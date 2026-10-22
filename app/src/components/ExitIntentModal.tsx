@@ -14,7 +14,7 @@ export default function ExitIntentModal() {
 
   useEffect(() => {
     let already = false;
-    try { already = sessionStorage.getItem(STORAGE_KEYS.EXIT_MODAL_SEEN) === '1'; } catch {}
+    try { already = sessionStorage.getItem(STORAGE_KEYS.EXIT_MODAL_SEEN) === '1'; } catch { /* Storage may be blocked by the browser. */ }
     if (already) return;
 
     let mobileTimer: number | undefined;
@@ -22,7 +22,7 @@ export default function ExitIntentModal() {
     let armed = false;
 
     const trigger = () => {
-      try { sessionStorage.setItem(STORAGE_KEYS.EXIT_MODAL_SEEN, '1'); } catch {}
+      try { sessionStorage.setItem(STORAGE_KEYS.EXIT_MODAL_SEEN, '1'); } catch { /* Storage may be blocked by the browser. */ }
       setOpen(true);
       window.removeEventListener('mouseout', onMouseOut);
       if (mobileTimer) window.clearTimeout(mobileTimer);

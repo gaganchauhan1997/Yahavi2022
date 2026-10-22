@@ -1,3 +1,4 @@
+import { secureHeaders, validChatPayload } from './http-security.js';
 // Yahavi AI v2 — Cloudflare Pages Function handler.
 // Stack:
 //   - Primary LLM: Cloudflare Workers AI (Llama 3.3 70B / Llama 3.1 8B), free tier,
@@ -242,12 +243,12 @@ async function callLLM({ systemPrompt, history, userMessage, modelKey, env }) {
         catch (err2) { console.warn('workers_ai_secondary_failed:', err2 && err2.message); }
       }
       // Final fallback: Gemini (if configured).
-      if (!env.GEMINI_API_KEY) throw new Error(`workers_ai_failed:${err.message || err}`);
+      if (!env.GEMINI_API_KEY || env.YAHAVI_ALLOW_GEMINI_FALLBACK !== 'true') throw new Error(`workers_ai_failed:${err.message || err}`);
     }
   }
 
   // ---- PATH 2: Google AI Studio Gemini (fallback) ----
-  if (env.GEMINI_API_KEY) {
+  if (env.GEMINI_API_KEY && env.YAHAVI_ALLOW_GEMINI_FALLBACK === 'true') {
     const geminiModel = modelKey.startsWith('cf:') ? 'gemini-2.5-flash' : MODEL_MAP[modelKey];
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
     const contents = [];
@@ -273,6 +274,7 @@ async function callLLM({ systemPrompt, history, userMessage, modelKey, env }) {
       method: 'POST',
       headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(20_000),
     });
     if (!r.ok) throw new Error(`gemini_failed:${r.status}:${(await r.text()).slice(0, 300)}`);
     const j = await r.json();
@@ -326,7 +328,7 @@ function sanitiseActionMarkers(text, groundingDocs) {
 
 export async function handleYahaviChat(request, env) {
   // At least one LLM provider must be configured.
-  if (!env.AI && !env.GEMINI_API_KEY) {
+  if (!env.AI && !(env.GEMINI_API_KEY && env.YAHAVI_ALLOW_GEMINI_FALLBACK === 'true')) {
     const e = new Error('not_configured');
     e.code = 'NOT_CONFIGURED';
     throw e;
@@ -336,7 +338,8 @@ export async function handleYahaviChat(request, env) {
   try { body = await request.json(); }
   catch { return jsonResponse(400, { error: 'invalid_json' }); }
 
-  const message    = String(body.message || '').trim();
+  if (!validChatPayload(body)) return jsonResponse(400, { error: 'invalid_chat_payload' });
+  const message    = body.message.trim();
   const history    = Array.isArray(body.history) ? body.history : [];
   const sessionId  = String(body.session_id || '');
   if (!message) return jsonResponse(400, { error: 'message_required' });
@@ -373,6 +376,6 @@ export async function handleYahaviChat(request, env) {
 
 function jsonResponse(status, obj) {
   return new Response(JSON.stringify(obj), {
-    status, headers: { 'content-type': 'application/json; charset=utf-8' },
+    status, headers: secureHeaders({ 'content-type': 'application/json; charset=utf-8' }),
   });
 }

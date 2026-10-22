@@ -43,49 +43,39 @@ Browser (www.hackknow.com)
 
 ## Local Development
 
-Use **Node.js 22.12+ on the 22.x line** with npm as a dependency-engine-compatible
-starting point, not a tested or pinned toolchain. The locked Vite 7.3.0 and
-`@vitejs/plugin-react` require Node `^20.19.0 || >=22.12.0`. The repository has no
-`.nvmrc`, `.node-version`, `engines`, or `packageManager` pin; the Node 20 settings
-in the production-audit/blog workflows do not establish a frontend build version.
-
-From a clean clone:
+Use the tested **Node.js 24.19.0 / npm 11.9.0** toolchain. Root `.node-version`
+and `.nvmrc`, package engines and lockfiles describe the supported setup.
+`app/` and `ai-tool/` are separate npm packages: run installs inside each.
 
 ```bash
-git clone https://github.com/gaganchauhan1997/Yahavi2022.git
-cd Yahavi2022
 cd app
-node --version       # Check the runtime described above
-npm --version        # Record it; an exact npm version is not pinned
-npm ci              # Install from app/package-lock.json without updating it
-npm run dev          # Vite dev server
+npm ci --ignore-scripts --no-audit --no-fund
+npm run dev
 ```
 
-Run these separately from `app/` (stop the dev server first):
+Verification from `app/`:
 
 ```bash
-npm run lint         # ESLint; not an automated behavior test suite
-npm run build        # TypeScript check + Vite build + prerender
-npm run preview      # Preview the generated build after build completes
+npm run lint -- --max-warnings 0
+npm run build           # TypeScript + Vite + offline fixture prerender
+npm run test:coverage
+npx playwright install chromium
+npm run test:e2e        # Desktop/mobile browser tests; backend APIs mocked
+npm run preview
 ```
 
-**Build side effects:** `app/scripts/prerender.mjs` fetches live WordPress data
-and sends search-engine notifications. If `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ZONE_ID` are set, it also requests a full zone cache purge. Leave
-those credentials unset for local builds; the build is not an offline-only check.
-Local Vite serving alone does not provision WordPress or the production edge proxy.
+Local/preview builds use a deterministic fixture catalogue and never notify search
+engines or purge caches. They still need backend APIs for real interactive data;
+Vite does not provide the production WordPress proxy. `npm run build:production`
+explicitly fetches live catalogue metadata. Cloudflare production builds on `main`
+select live mode automatically and fail if required data is missing. Never upload
+fixture `dist/` to production. `.npmrc` disables dependency lifecycle scripts.
 
-**Package boundaries:** There is no root `package.json` or workspace configuration.
-`app/` and the separate `ai-tool/` each have their own npm `package-lock.json`
-(lockfile version 3); run `npm ci` within the package you need, not at the root.
-No Yarn or pnpm lockfile is tracked. Keep the committed lockfiles unchanged for
-clean-clone installs rather than generating a different package manager's lockfile.
-
-**Verification limits:** Neither package defines a `test` script, so `npm test`
-is not an available test command. The commands above are verified against tracked
-scripts and lockfile metadata only; install, dev, lint, build, and preview have
-not been executed for this documentation change. Successful installation/build,
-exact Node/npm compatibility, and backend-dependent local behavior remain unverified.
+The CI workflow also builds `ai-tool/` and runs PHP syntax/payment contract tests
+in an offline PHP container. Browser/API mocks and WP/WC stubs are not a live
+payment, email, database or capacity test. See
+[the implementation and deployment report](docs/FIX_IMPLEMENTATION_2026-10-22.md)
+for completed work, residual findings and the Hostinger deployment boundary.
 
 ## Deployment
 

@@ -308,6 +308,10 @@ function hk_free_order_create( WP_REST_Request $req ) {
         $total = (float) $order->get_total();
         if ( $total > 0.0001 ) {
             $order->update_status( 'cancelled', 'HackKnow free-order: total > 0 after calc (' . $total . '), aborting.' );
+            foreach ($reserved_pids as $reserved_pid) {
+                $wpdb->query($wpdb->prepare("DELETE FROM {$grants_table} WHERE user_id=%d AND product_id=%d AND order_id IS NULL", $uid, $reserved_pid));
+            }
+            if (isset($lock_key)) delete_transient($lock_key);
             return new WP_Error( 'price_drift',
                 'Cart total is not zero after calculation. Please refresh and try again.',
                 [ 'status' => 422 ] );

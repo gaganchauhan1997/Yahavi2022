@@ -46,6 +46,7 @@
  */
 
 if (!defined('ABSPATH')) exit;
+require_once __DIR__ . '/inc/hk-payment-safety.php';
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -100,22 +101,10 @@ function hk2_emails_for_uid($uid) {
 function hk2_orders_for_email($email) {
     if (!$email || !function_exists('wc_get_orders')) return [];
     $email = strtolower($email);
-    // Use direct SQL for speed — wc_get_orders billing_email param works but is slower.
-    global $wpdb;
-    $ids = $wpdb->get_col($wpdb->prepare(
-        "SELECT pm.post_id FROM {$wpdb->postmeta} pm
-         INNER JOIN {$wpdb->posts} p ON p.ID=pm.post_id
-         WHERE pm.meta_key=%s AND LOWER(pm.meta_value)=%s
-           AND p.post_type='shop_order'
-           AND p.post_status IN ('wc-completed','wc-processing')
-         ORDER BY p.post_date DESC LIMIT 200",
-        '_billing_email', $email
-    ));
-    $orders = [];
-    foreach ($ids as $oid) {
-        $o = wc_get_order((int)$oid);
-        if ($o) $orders[] = $o;
-    }
+    $orders = wc_get_orders([
+        'billing_email' => $email, 'status' => ['completed', 'processing'],
+        'limit' => 200, 'orderby' => 'date', 'order' => 'DESC',
+    ]);
     return $orders;
 }
 
@@ -139,7 +128,7 @@ add_action('woocommerce_order_status_completed', function ($order_id) {
     // Make sure WC has actually granted download permissions for this order
     // before we read them (it usually has, but be defensive on webhook path).
     if (function_exists('wc_downloadable_product_permissions')) {
-        wc_downloadable_product_permissions($order_id, true);
+        wc_downloadable_product_permissions($order_id, false);
     }
 
     $first = (string) $order->get_billing_first_name();
@@ -149,8 +138,7 @@ add_action('woocommerce_order_status_completed', function ($order_id) {
     $any  = false;
 
     // Prefer WC's get_downloadable_items() — these come with proper signed
-    // download_url values. Fall back to raw file URL only if WC didn't grant
-    // a permission row (rare).
+    // download_url values. Never fall back to a raw storage URL.
     $items = method_exists($order, 'get_downloadable_items') ? $order->get_downloadable_items() : [];
     if ($items) {
         foreach ($items as $it) {
@@ -186,7 +174,7 @@ add_action('woocommerce_order_status_completed', function ($order_id) {
              . '<p>' . esc_html($hello) . '</p>'
              . '<p>Your payment for order <strong>#' . esc_html($order->get_order_number()) . '</strong> has been confirmed. Below are your direct download links — click any link to save the file:</p>'
              . $list
-             . '<p style="margin-top:18px">You can always re-download from your <a href="' . $site . 'account/downloads" style="color:#0a58ca">Downloads page</a> using the email <strong>' . esc_html($email) . '</strong>. Files do not expire.</p>'
+             . '<p style="margin-top:18px">You can always re-download from your <a href="' . $site . 'account/downloads" style="color:#0a58ca">Downloads page</a> using the email <strong>' . esc_html($email) . '</strong>. Download availability follows the product and order terms.</p>'
              . '<hr style="border:none;border-top:1px solid #eee;margin:24px 0">'
              . '<p style="font-size:12px;color:#777">If you did not make this purchase, please reply to this email.</p>'
              . '</body></html>';
@@ -342,81 +330,15 @@ function hk2_razorpay_webhook(WP_REST_Request $req) {
         return ['ok' => true, 'matched' => false];
     }
 
-    // ── ATOMIC IDEMPOTENCY LOCK ──
-    // add_post_meta with $unique=true is an INSERT IGNORE at the SQL level.
-    // It returns false if the meta_key already exists, so two concurrent
-    // webhook hits (payment.captured + order.paid arriving milliseconds
-    // apart, or a reconcile job racing with the webhook) cannot
-    // double-process the same payment.
-    $lock_key = '_hk2_webhook_lock';
-    $lock_token = $rzp_pay_id . '|' . time();
-    $got_lock = (bool) add_post_meta($order->get_id(), $lock_key, $lock_token, true);
-    if (!$got_lock) {
-        // Self-heal: if existing lock is older than 10 min AND order is not yet
-        // completed, the previous attempt died mid-flight (e.g. fatal in payment_complete).
-        // Steal the lock so retries can succeed.
-        $existing = (string) get_post_meta($order->get_id(), $lock_key, true);
-        $parts = explode('|', $existing);
-        $existing_ts = isset($parts[1]) ? (int) $parts[1] : 0;
-        $age = $existing_ts > 0 ? (time() - $existing_ts) : 0;
-        $can_steal = ($age > 600) && !in_array($order->get_status(), ['completed', 'refunded', 'cancelled'], true);
-        if ($can_steal) {
-            update_post_meta($order->get_id(), $lock_key, $lock_token);
-            $got_lock = true;
-        }
-        if (!$got_lock) {
-            if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
-                'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
-                'wc_order_id' => $order->get_id(), 'sig_ok' => 1, 'action' => 'duplicate_skipped', 'body_hash' => $body_hash,
-            ]));
-            return ['ok' => true, 'duplicate' => true, 'wc_order' => $order->get_id()];
-        }
-    }
-
-    // Idempotency v2: if already completed AND already saw THIS payment id,
-    // confirm and return without re-firing emails.
-    $prev_pay = (string) get_post_meta($order->get_id(), '_razorpay_payment_id', true);
-    if (in_array($order->get_status(), ['completed'], true) && $prev_pay === $rzp_pay_id) {
-        if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
-            'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
-            'wc_order_id' => $order->get_id(), 'sig_ok' => 1, 'action' => 'already_completed', 'body_hash' => $body_hash,
-        ]));
-        return ['ok' => true, 'already' => true, 'wc_order' => $order->get_id()];
-    }
-
-    update_post_meta($order->get_id(), '_razorpay_payment_id', $rzp_pay_id);
-    if ($rzp_order_id) update_post_meta($order->get_id(), '_razorpay_order_id', $rzp_order_id);
-    update_post_meta($order->get_id(), '_hk2_webhook_event', $event);
-    update_post_meta($order->get_id(), '_hk2_webhook_amount_paise', $amount_paise);
-
-    if (method_exists($order, 'set_payment_method')) {
-        $order->set_payment_method('razorpay');
-        $order->set_payment_method_title('Razorpay (UPI / Card / NetBanking)');
-    }
-    $order->payment_complete($rzp_pay_id);
-    if (in_array($order->get_status(), ['processing', 'pending'], true)) {
-        $order->update_status('completed', 'Auto-completed via Razorpay webhook (' . $event . ').');
-    }
-    $order->add_order_note('Razorpay webhook ' . $event . ' rcvd; payment ' . $rzp_pay_id . ' verified.');
+    $completed = hk_payment_complete_once($order, $payment);
+    if (is_wp_error($completed)) return $completed;
+    if (!$completed['changed']) return ['ok' => true, 'already' => true, 'wc_order' => $order->get_id()];
+    $order = wc_get_order($order->get_id());
 
     if (function_exists('hk2_audit_log')) hk2_audit_log(array_merge($audit_base, [
         'event' => $event, 'razorpay_payment_id' => $rzp_pay_id, 'razorpay_order_id' => $rzp_order_id,
         'wc_order_id' => $order->get_id(), 'sig_ok' => 1, 'action' => 'payment_complete', 'body_hash' => $body_hash,
     ]));
-
-    // The completed-status hook above will send our delivery email.
-    // Also nudge the standard WC customer email for parity.
-    try {
-        if (function_exists('WC')) {
-            $mailer = WC()->mailer();
-            $emails = $mailer ? $mailer->get_emails() : [];
-            if (!empty($emails['WC_Email_Customer_Completed_Order'])) {
-                $emails['WC_Email_Customer_Completed_Order']->trigger($order->get_id(), $order);
-            }
-        }
-    } catch (\Throwable $e) {
-        hk2_log('webhook post-complete WC email failed: ' . $e->getMessage());
-    }
 
     return ['ok' => true, 'matched' => true, 'wc_order' => $order->get_id()];
 }
@@ -428,10 +350,6 @@ function hk2_my_downloads_payload_for_email($email) {
     $downloads = [];
     $seen      = [];
     foreach ($orders as $order) {
-        // Make sure permission rows exist so signed URLs work
-        if (function_exists('wc_downloadable_product_permissions')) {
-            wc_downloadable_product_permissions($order->get_id(), true);
-        }
         $items = method_exists($order, 'get_downloadable_items') ? $order->get_downloadable_items() : [];
         foreach ($items as $it) {
             $pid  = (int) ($it['product_id'] ?? 0);
@@ -444,7 +362,7 @@ function hk2_my_downloads_payload_for_email($email) {
                 'download_id'         => $did,
                 'product_id'          => $pid,
                 'product_name'        => (string) ($it['product_name'] ?? ''),
-                'file'                => ['name' => (string) ($it['download_name'] ?? ''), 'file' => (string) ($it['file']['file'] ?? '')],
+                'file'                => ['name' => (string) ($it['download_name'] ?? '')],
                 'download_url'        => (string) ($it['download_url'] ?? ''),  // SIGNED URL
                 'order_id'            => $order->get_id(),
                 'order_date'          => $order->get_date_created() ? $order->get_date_created()->format('c') : '',
@@ -1040,13 +958,13 @@ function hk2_audit_log($row) {
  */
 
 // Admin-permission helper: accepts either WP cookie auth (manage_woocommerce)
-// OR a Bearer token equal to the Razorpay webhook secret. Used so we can run
+// OR a dedicated administrative Bearer token. Used so we can run
 // reconcile/diagnose remotely (without a logged-in browser session) when a
 // customer is reporting "I paid but didn't get the file" and we need to act
 // in seconds. Includes IP throttle to prevent brute-force.
 function hk2_admin_auth_or_bearer(WP_REST_Request $req) {
     if (current_user_can('manage_woocommerce')) return true;
-    // Bearer token path. We support TWO secrets so the admin token is
+    // Bearer token path. Only the dedicated admin token is accepted,
     // independent of the Razorpay webhook_secret (which is shared with a
     // third party). On first install, if no dedicated admin token is set
     // we auto-generate a 64-char one and store it in wp_options. The owner
@@ -1061,20 +979,7 @@ function hk2_admin_auth_or_bearer(WP_REST_Request $req) {
         update_option('hk2_admin_token', $admin_token, false);
     }
 
-    // Legacy bearer fallback — accept the same Razorpay webhook secret that
-    // hk2_get_webhook_secret() returns (option key `hk_rzp_webhook_secret`).
-    // That is the secret the owner already configured for webhook signature
-    // verification, so it is a known-good shared secret. We also accept the
-    // older woocommerce_razorpay_settings.webhook_secret in case it is set.
-    $legacy_a = function_exists('hk2_get_webhook_secret') ? (string) hk2_get_webhook_secret() : '';
-    $rz       = get_option('woocommerce_razorpay_settings');
-    $legacy_b = (string) ($rz['webhook_secret'] ?? '');
-
-    $ok = false;
-    if (hash_equals($admin_token, $token)) $ok = true;
-    elseif ($legacy_a !== '' && hash_equals($legacy_a, $token)) $ok = true;
-    elseif ($legacy_b !== '' && hash_equals($legacy_b, $token)) $ok = true;
-    if (!$ok) return false;
+    if ($token === '' || !hash_equals($admin_token, $token)) return false;
 
     // Per-IP throttle: max 10 admin-bearer hits per minute
     $ip  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
@@ -1087,8 +992,8 @@ function hk2_admin_auth_or_bearer(WP_REST_Request $req) {
 
 // Read-only endpoint so the owner can fetch the auto-generated admin token
 // after authenticating ONCE with manage_woocommerce caps (i.e. via wp-admin
-// session cookie). The legacy webhook_secret bearer is also accepted during
-// transition. Returns the new dedicated token so it can be saved & rotated
+// session cookie). The webhook signing secret grants no admin access.
+// Returns the dedicated token so it can be saved & rotated
 // without sharing the Razorpay webhook secret.
 add_action('rest_api_init', function () {
     register_rest_route('hackknow/v1', '/admin/token', [
@@ -1138,7 +1043,8 @@ add_action('rest_api_init', function () {
                 $order = wc_get_order($wc_id);
                 if (!$order) { $skipped++; continue; }
                 if (!$order->is_paid()) {
-                    $order->payment_complete($rpid);
+                    $completion = hk_payment_complete_once($order, $p);
+                    if (is_wp_error($completion)) { $skipped++; continue; }
                     $order->add_order_note('Reconciled via /admin/reconcile-payments (Razorpay payment ' . $rpid . ').');
                     hk2_audit_log([
                         'event' => 'reconcile.captured',
@@ -1244,9 +1150,7 @@ add_action('rest_api_init', function () {
                 // These are WC's signed per-order URLs and work for guest orders.
                 $downloads = [];
                 try {
-                    if (function_exists('wc_downloadable_product_permissions')) {
-                        wc_downloadable_product_permissions($oid, true);
-                    }
+                    // Diagnostic reads must not reset download permissions or expiry.
                     if (method_exists($order, 'get_downloadable_items')) {
                         foreach ($order->get_downloadable_items() as $it) {
                             $downloads[] = [
@@ -1491,45 +1395,9 @@ function hk2_run_auto_reconcile() {
                 continue;
             }
 
-            // Atomic per-order lock — add_post_meta with $unique=true is INSERT IGNORE
-            // at SQL level, so two cron workers (or webhook + cron) cannot double-process.
-            $olock_key = '_hk2_recon_lock';
-            $lock_token = $rpid . '|' . time();
-            if (!add_post_meta($wc_id, $olock_key, $lock_token, true)) {
-                // Lock exists — check age, self-heal if older than 10 min.
-                $existing = (string) get_post_meta($wc_id, $olock_key, true);
-                $parts = explode('|', $existing);
-                $existing_ts = isset($parts[1]) ? (int) $parts[1] : 0;
-                if ($existing_ts > 0 && (time() - $existing_ts) > 600) {
-                    update_post_meta($wc_id, $olock_key, $lock_token);
-                } else {
-                    $skipped++; continue;
-                }
-            }
-
-            try {
-                update_post_meta($wc_id, '_razorpay_payment_id', $rpid);
-                if ($oid) update_post_meta($wc_id, '_razorpay_order_id', $oid);
-                $order->payment_complete($rpid);
-                if ($order->get_status() !== 'completed') {
-                    $order->update_status('completed', 'Auto-reconciled by HackKnow cron — Razorpay payment ' . $rpid . ' was captured but not webhook-matched.');
-                }
-                $order->add_order_note('Auto-reconcile cron matched Razorpay payment ' . $rpid . ' (' . ($p['method'] ?? 'unknown') . ', ₹' . round($amt / 100, 2) . ')');
-                hk2_audit_log([
-                    'event'               => 'cron.reconcile.captured',
-                    'razorpay_payment_id' => $rpid,
-                    'razorpay_order_id'   => $oid,
-                    'wc_order_id'         => $wc_id,
-                    'sig_ok'              => 1,
-                    'action'              => 'payment_complete',
-                ]);
-                $reconciled++;
-            } catch (\Throwable $e) {
-                $errors++;
-                if (function_exists('error_log')) {
-                    error_log('[hackknow] auto-reconcile failed for order ' . $wc_id . ': ' . $e->getMessage());
-                }
-            }
+            $completion = hk_payment_complete_once($order, $p);
+            if (is_wp_error($completion)) { $errors++; continue; }
+            if ($completion['changed']) $reconciled++; else $skipped++;
         }
         set_transient('hk2_recon_last', [
             'ok' => true, 'ts' => time(),

@@ -197,14 +197,21 @@
     <script>
       (function() {
         var gtmId = '%VITE_GTM_ID%';
-        if (!gtmId || gtmId === '%VITE_GTM_ID%' || gtmId.indexOf('GTM-') !== 0) return;
-        window.dataLayer = window.dataLayer || [];
-        window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
-        var f = document.getElementsByTagName('script')[0];
-        var j = document.createElement('script');
-        j.async = true;
-        j.src = 'https://www.googletagmanager.com/gtm.js?id=' + gtmId;
-        f.parentNode.insertBefore(j, f);
+        var loaded = false;
+        function loadAnalytics() {
+          if (loaded || !/^GTM-[A-Z0-9]+$/.test(gtmId)) return;
+          try { if (localStorage.getItem('hackknow-cookie-consent') !== 'accepted') return; }
+          catch (e) { return; }
+          loaded = true;
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
+          var j = document.createElement('script');
+          j.async = true;
+          j.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(gtmId);
+          document.head.appendChild(j);
+        }
+        window.addEventListener('hackknow:consent', loadAnalytics);
+        loadAnalytics();
       })();
     </script>
     <!-- End Google Tag Manager -->

@@ -1,3 +1,4 @@
+import { sanitizeHtml } from '@/lib/sanitize-html';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Clock, Lightbulb, Loader2, RefreshCw, XCircle } from 'lucide-react';
@@ -88,12 +89,13 @@ export default function BrainxerciseDetailPage() {
   useEffect(() => {
     if (!detail || !containerRef.current) return;
     let cancelled = false;
+    const container = containerRef.current;
 
     (async () => {
       try {
         // Lazy load library + CSS only on this page
         const [{ default: Spreadsheet }] = await Promise.all([
-          import('x-data-spreadsheet'),
+          import('@/lib/safe-spreadsheet'),
           import('x-data-spreadsheet/dist/xspreadsheet.css' as string),
         ]);
         if (cancelled || !containerRef.current) return;
@@ -126,7 +128,7 @@ export default function BrainxerciseDetailPage() {
 
     return () => {
       cancelled = true;
-      if (containerRef.current) containerRef.current.innerHTML = '';
+      container.innerHTML = '';
       xsRef.current = null;
     };
   }, [detail]);
@@ -336,7 +338,7 @@ export default function BrainxerciseDetailPage() {
                   </p>
                   <div
                     className="prose prose-sm max-w-none text-hack-black/80"
-                    dangerouslySetInnerHTML={{ __html: detail.description }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(detail.description) }}
                   />
                 </div>
               )}
