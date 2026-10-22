@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Code2, Compass, Heart, Mail, MapPin, Palette } from 'lucide-react';
+import { Code2, Compass, Heart, Instagram, Linkedin, Mail, MapPin, Palette } from 'lucide-react';
 import { useDocumentMeta } from '@/lib/useDocumentMeta';
 
 export default function AboutPage() {
@@ -49,6 +49,10 @@ export default function AboutPage() {
                 <p className="text-hack-black/75 leading-relaxed mt-4">The work that once happened quietly behind the scenes now has a name. As HackKnow’s founder, he guides its engineering and direction—from the React storefront and Cloudflare infrastructure to WooCommerce checkout, Razorpay integration and Yahavi AI. His focus is practical: useful products, thoughtful technology and a platform people can rely on.</p>
                 <p className="text-hack-black/75 leading-relaxed mt-4">Rooted in Delhi and shaped by a builder’s curiosity, Gagan carries the vision forward with care for the people who helped it begin.</p>
                 <a href="mailto:founder@hackknow.com" className="inline-flex items-center gap-2 mt-6 font-semibold text-hack-magenta underline underline-offset-4"><Mail className="w-4 h-4" /> founder@hackknow.com</a>
+                <div className="flex flex-wrap gap-5 mt-5 text-sm font-semibold">
+                  <a href="https://www.linkedin.com/in/gagan-yahavi-hackknow/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 underline underline-offset-4"><Linkedin className="w-4 h-4" /> Gagan on LinkedIn</a>
+                  <a href="https://www.instagram.com/i_kunalarious/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 underline underline-offset-4"><Instagram className="w-4 h-4" /> Gagan on Instagram</a>
+                </div>
               </div>
             </article>
             <article className="bg-white rounded-3xl border-[3px] border-hack-black shadow-[6px_6px_0_0_#1A1A1A] overflow-hidden">
