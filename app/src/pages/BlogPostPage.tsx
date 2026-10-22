@@ -1,3 +1,5 @@
+import { API_BASE } from '@/lib/api-base';
+import { sanitizeHtml } from '@/lib/sanitize-html';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -6,7 +8,7 @@ import {
 } from 'lucide-react';
 import { getFeaturedArticle, FEATURED_ARTICLES, type FeaturedArticle } from '@/content/featured-articles';
 
-const WP = 'https://shop.hackknow.com/wp-json/wp/v2';
+const WP = `${API_BASE}/wp-json/wp/v2`;
 const SITE = 'https://www.hackknow.com';
 
 type WpPost = {
@@ -205,11 +207,20 @@ function relatedFeatured(currentSlug: string, category: string): FeaturedArticle
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
-const BlogPostPage = () => {
-  const { slug } = useParams<{ slug: string }>();
-  const [post, setPost] = useState<RenderedPost | null>(null);
+function featuredPost(slug: string): RenderedPost | null {
+  const fa = getFeaturedArticle(slug);
+  return fa ? {
+    source: 'featured', title: fa.title, contentHtml: fa.contentHtml,
+    excerpt: fa.excerpt, category: fa.category, date: fa.publishDate,
+    modified: fa.modifiedDate || fa.publishDate, hero: { src: '', alt: fa.title },
+    heroGradient: fa.gradient, featured: fa,
+  } : null;
+}
+
+const BlogPostContent = ({ slug }: { slug: string }) => {
+  const [post, setPost] = useState<RenderedPost | null>(() => featuredPost(slug));
   const [related, setRelated] = useState<WpPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !featuredPost(slug));
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [showStickyCta, setShowStickyCta] = useState(false);
@@ -219,9 +230,6 @@ const BlogPostPage = () => {
   // ─── Data load (preserved logic) ─────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
-    setError(null);
-    setRelated([]);
-    setStickyDismissed(false);
 
     const fa = getFeaturedArticle(slug);
     if (fa) {
@@ -237,8 +245,6 @@ const BlogPostPage = () => {
         heroGradient: fa.gradient,
         featured: fa,
       };
-      setPost(rendered);
-      setLoading(false);
       try { document.title = fa.title + ' | HackKnow Blog'; } catch { /* ignore */ }
       try { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); } catch { window.scrollTo(0, 0); }
       injectArticleSchema(slug, rendered);
@@ -250,8 +256,6 @@ const BlogPostPage = () => {
     }
 
     let alive = true;
-    setLoading(true);
-    setPost(null);
     const ctrl = new AbortController();
     const url = `${WP}/posts?slug=${encodeURIComponent(slug)}&_embed=wp:featuredmedia,wp:term`;
     fetch(url, { signal: ctrl.signal })
@@ -469,7 +473,7 @@ const BlogPostPage = () => {
                           prose-ol:list-decimal prose-ul:list-disc">
             {segments.map((seg, i) => (
               <Fragment key={i}>
-                <div dangerouslySetInnerHTML={{ __html: seg }} />
+                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(seg) }} />
                 {/* Inject a conversion CTA card every 3 segments, but never as the very last block */}
                 {((i + 1) % 3 === 0) && i < segments.length - 1 && (
                   <CtaCard variant={CTA_VARIANTS[Math.floor(i / 3) % CTA_VARIANTS.length]} />
@@ -686,4 +690,7 @@ const CtaCard = ({ variant }: { variant: CtaVariant }) => (
   </div>
 );
 
-export default BlogPostPage;
+export default function BlogPostPage() {
+  const { slug = '' } = useParams<{ slug: string }>();
+  return <BlogPostContent key={slug} slug={slug} />;
+}
