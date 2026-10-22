@@ -21,6 +21,7 @@ import HomePage from './pages/HomePage';
 import RouteMetaManager from '@/components/RouteMetaManager';
 
 // All other pages load lazily (only when needed)
+const FreeExcelTemplatesPage = lazy(() => import('@/pages/FreeExcelTemplatesPage'));
 const ShopPage            = lazy(() => import('./pages/ShopPage'));
 const ProductPage         = lazy(() => import('./pages/ProductPage'));
 const CartPage            = lazy(() => import('./pages/CartPage'));
@@ -61,7 +62,7 @@ import NotFoundPage from '@/pages/NotFoundPage';
 
 function PageLoader() {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-hack-yellow border-t-transparent rounded-full animate-spin" />
     </div>
   );
@@ -133,10 +134,11 @@ function App() {
           <Header />
           <CategorySidebar />
           <CartDrawer />
-          <main className="min-h-[60vh] bg-hack-white">
+          <main id="main-content" tabIndex={-1} className="min-h-[60vh] bg-hack-white">
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/"                    element={<HomePage />} />
+                <Route path="/free-excel-templates" element={<FreeExcelTemplatesPage />} />
                 <Route path="/shop"                element={<ShopPage />} />
                 <Route path="/shop/:category"      element={<ShopPage />} />
                 <Route path="/product/:slug"       element={<ProductPage />} />
