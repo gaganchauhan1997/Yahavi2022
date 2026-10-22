@@ -2,8 +2,8 @@
 /**
  * Plugin Name: HackKnow DB Tools
  * Description: Inspect WordPress / WooCommerce database bloat and run safe cleanups.
- *              All write actions require ?token={HK_DB_TOKEN}. Read-only inspection
- *              is open (returns sizes, counts, top entries — no PII).
+ *              Read-only inspection requires an authenticated administrator.
+ *              Writes require X-HK-DB-Token or administrator capability.
  *
  * Endpoints (under /wp-json/hackknow-db/v1):
  *   GET  /summary                  — overall DB size, server vars, table count
@@ -16,13 +16,13 @@
  *   GET  /wc-sessions              — WooCommerce sessions table size
  *   GET  /orphans                  — orphaned postmeta / commentmeta / usermeta
  *
- *   POST /clean/transients?token=  — delete expired transients (safe)
- *   POST /clean/revisions?token=   — keep last 3 revisions per post (safe)
- *   POST /clean/actionscheduler?token=  — delete completed/failed AS logs >7d (safe)
- *   POST /clean/wc-sessions?token= — delete expired WC sessions (safe)
- *   POST /clean/spam-comments?token= — delete spam + trash comments (safe)
- *   POST /clean/optimize?token=    — OPTIMIZE TABLE on big tables (safe, reclaims space)
- *   POST /clean/all?token=         — runs all of the above in sequence
+ *   POST /clean/transients  — delete expired transients (safe)
+ *   POST /clean/revisions   — keep last 3 revisions per post (safe)
+ *   POST /clean/actionscheduler  — delete completed/failed AS logs >7d (safe)
+ *   POST /clean/wc-sessions — delete expired WC sessions (safe)
+ *   POST /clean/spam-comments — delete spam + trash comments (safe)
+ *   POST /clean/optimize    — OPTIMIZE TABLE on big tables (safe, reclaims space)
+ *   POST /clean/all         — runs all of the above in sequence
  */
 
 if (!defined('ABSPATH')) exit;
@@ -38,10 +38,9 @@ function hk_db_token() {
 }
 
 function hk_db_check_token(WP_REST_Request $r) {
-    // Accept token via header (preferred) or query param for backward compat.
+    // Header only: never put administrative tokens in URLs or access logs.
     $hdr = (string) $r->get_header('x_hk_db_token');
-    $qp  = (string) $r->get_param('token');
-    $supplied = $hdr !== '' ? $hdr : $qp;
+    $supplied = $hdr;
     if ($supplied !== '' && hash_equals(hk_db_token(), $supplied)) return true;
     // Fallback: an authenticated admin.
     return current_user_can('manage_options');
@@ -66,7 +65,7 @@ add_filter('rest_post_dispatch', function ($response, $server, $request) {
 
 add_action('rest_api_init', function () {
     $ns = 'hackknow-db/v1';
-    $public = ['permission_callback' => '__return_true'];
+    $public = ['permission_callback' => 'hk_db_check_token_read'];
     $auth   = ['permission_callback' => 'hk_db_check_token'];
 
     register_rest_route($ns, '/summary',         array_merge(['methods'=>'GET',  'callback'=>'hk_db_summary'],         $public));
