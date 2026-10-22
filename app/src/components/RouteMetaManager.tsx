@@ -28,12 +28,13 @@ type Meta = { title: string; description?: string };
 const STATIC_META: Record<string, Meta> = {
   '/':              { title: 'HackKnow — Premium Excel Templates, MIS Dashboards & Digital Products | India',
                       description: DEFAULT_DESC },
+  '/free-excel-templates': { title: 'Free Excel Templates for Commercial Use | HackKnow', description: 'Download MIT-licensed Excel workbooks for finance, career and business planning, with attribution and the original license included.' },
   '/shop':          { title: 'Shop — All Digital Templates & Tools · HackKnow',
                       description: 'Browse 233+ premium digital products: Excel dashboards, PowerPoint decks, website templates, courses, marketing kits, and more. Instant download.' },
   '/cart':          { title: 'Your Cart · HackKnow' },
   '/checkout':      { title: 'Checkout — Secure Razorpay Payment · HackKnow' },
   '/order-pending': { title: 'Order Pending · HackKnow' },
-  '/about':         { title: 'About HackKnow — India\'s Digital Marketplace for Creators',
+  '/about':         { title: 'About HackKnow — Gagan Chauhan, Founder | Delhi',
                       description: 'HackKnow is India\'s premium marketplace for digital templates, courses, and tools. Made in India. Built for the world.' },
   '/community':     { title: 'Community · HackKnow' },
   '/support':       { title: 'Support — Help Center · HackKnow' },
@@ -152,16 +153,19 @@ function upsertBreadcrumbLD(pathname: string) {
 export default function RouteMetaManager() {
   const { pathname } = useLocation();
   useEffect(() => {
-    let meta: Meta | null = STATIC_META[pathname] ?? null;
+    const routePath = pathname.replace(/\/+$/, '') || '/';
+    let meta: Meta | null = STATIC_META[routePath] ?? null;
     if (!meta) {
       for (const d of DYNAMIC) {
-        const m = pathname.match(d.match);
+        const m = routePath.match(d.match);
         if (m) { meta = d.build(m); break; }
       }
     }
-    const title = meta?.title ?? 'HackKnow — Premium Digital Products';
+    const isPrivate = /^\/(cart|checkout|order-pending|login|signup|forgot-password|reset-password|account|profile|my-account|wallet|auth|verify)(\/|$)/.test(routePath);
+    upsertMeta('meta[name="robots"]', 'name', 'robots', isPrivate || !meta ? 'noindex,follow' : 'index,follow,max-image-preview:large');
+    const title = meta?.title ?? 'Page Not Found | HackKnow';
     const description = meta?.description ?? DEFAULT_DESC;
-    const canonical = SITE + pathname;
+    const canonical = SITE + (routePath === '/' ? '/' : routePath + '/');
 
     document.title = title;
     upsertMeta('meta[name="description"]', 'name', 'description', description);
