@@ -131,19 +131,12 @@ export default function CheckoutPage() {
                   your file straight away.
                 </p>
                 <p className="text-sm">
-                  Still stuck? WhatsApp us at{" "}
-                  <a
-                    href={`https://wa.me/918588020662?text=${encodeURIComponent(
-                      `Hi HackKnow, my order is #${orderNumber} (email: ${buyerEmail}). I haven't received my file — please send it.`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline font-bold text-green-700"
-                  >
-                    +91 85880 20662
+                  Still need help? Email{' '}
+                  <a href={`mailto:team@hackknow.com?subject=${encodeURIComponent(`Help with order #${orderNumber}`)}`} className="underline font-bold">
+                    team@hackknow.com
                   </a>
-                  . Share your order number and email — we&apos;ll send the
-                  file within 5 minutes.
+                  {' '}with your order number and purchase email so we can help.
+
                 </p>
               </div>
             )}
