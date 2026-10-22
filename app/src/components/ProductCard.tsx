@@ -10,9 +10,10 @@ import RequestToDownloadModal from "@/components/RequestToDownloadModal";
 interface ProductCardProps {
   product: Product;
   className?: string;
+  priority?: boolean;
 }
 
-export default function ProductCard({ product, className = "" }: ProductCardProps) {
+export default function ProductCard({ product, className = "", priority = false }: ProductCardProps) {
   const { dispatch, toggleWishlist, state } = useStore();
   const isInWishlist = state.wishlist.includes(product.id);
   const productImage = product.image?.sourceUrl?.trim();
@@ -54,7 +55,11 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
           <img
             src={productImage}
             alt={product.name}
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding="async"
+            width={640}
+            height={480}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (() => {
