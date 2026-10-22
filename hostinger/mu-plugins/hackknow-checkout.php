@@ -65,6 +65,7 @@
  */
 
 if (!defined('ABSPATH')) { exit; }
+require_once __DIR__ . '/inc/hk-payment-safety.php';
 
 /* ── Token helpers ─────────────────────────────────────────────────────── */
 
@@ -76,8 +77,12 @@ function hackknow_b64url_decode($data) {
     if ($r) { $data .= str_repeat('=', 4 - $r); }
     return base64_decode(strtr($data, '-_', '+/'));
 }
+function hackknow_token_version($user_id) {
+    $user = get_user_by('id', (int)$user_id);
+    return $user ? hash_hmac('sha256', $user->user_pass, wp_salt('auth')) : '';
+}
 function hackknow_make_token($user_id) {
-    $payload = wp_json_encode(['uid' => (int)$user_id, 'iat' => time(), 'exp' => time() + 30 * DAY_IN_SECONDS]);
+    $payload = wp_json_encode(['uid' => (int)$user_id, 'iat' => time(), 'exp' => time() + 30 * DAY_IN_SECONDS, 'ver' => hackknow_token_version($user_id)]);
     $b64     = hackknow_b64url_encode($payload);
     $sig     = hash_hmac('sha256', $b64, wp_salt('auth'));
     return $b64 . '.' . $sig;
@@ -88,7 +93,9 @@ function hackknow_verify_token($token) {
     if (!hash_equals(hash_hmac('sha256', $b64, wp_salt('auth')), $sig)) return null;
     $payload = json_decode(hackknow_b64url_decode($b64), true);
     if (!is_array($payload) || empty($payload['uid'])) return null;
-    if (!empty($payload['exp']) && $payload['exp'] < time()) return null;
+    if (empty($payload['exp']) || (int)$payload['exp'] < time() || empty($payload['ver'])) return null;
+    $version = hackknow_token_version((int)$payload['uid']);
+    if ($version === '' || !hash_equals($version, (string)$payload['ver'])) return null;
     return (int)$payload['uid'];
 }
 function hackknow_user_payload(WP_User $user) {
@@ -116,7 +123,7 @@ function hackknow_extract_bearer(WP_REST_Request $req) {
 }
 function hackknow_authed_uid(WP_REST_Request $req) {
     $uid = hackknow_verify_token(hackknow_extract_bearer($req));
-    if (!$uid) return new WP_Error('unauthorized', 'Invalid or expired token', ['status' => 401]);
+    if (!$uid) return new WP_Error('invalid_user_token', 'Invalid or expired token', ['status' => 401]);
     return $uid;
 }
 
@@ -863,7 +870,8 @@ function hackknow_create_order(WP_REST_Request $req) {
     $body = json_decode(wp_remote_retrieve_body($resp), true);
     if (empty($body['id'])) return new WP_Error('rzp_no_id', 'Razorpay order creation failed', ['status' => 502]);
 
-    update_post_meta($order->get_id(), '_razorpay_order_id', sanitize_text_field($body['id']));
+    $order->update_meta_data('_razorpay_order_id', sanitize_text_field($body['id']));
+    $order->save();
     return [
         'wc_order_id'    => $order->get_id(),
         'razorpay_order' => $body['id'],
@@ -890,49 +898,32 @@ function hackknow_verify_payment(WP_REST_Request $req) {
     $order = wc_get_order($wc_order_id);
     if (!$order) return new WP_Error('no_order', 'Order not found', ['status' => 404]);
 
-    $stored = get_post_meta($wc_order_id, '_razorpay_order_id', true);
-    if ($stored && $stored !== $rzp_order_id) {
-        $order->update_status('failed', 'Order id mismatch');
+    $stored = (string) hk_payment_order_meta($order, '_razorpay_order_id');
+    if ($stored === '' || !hash_equals($stored, $rzp_order_id)) {
         return new WP_Error('order_mismatch', 'Order id mismatch', ['status' => 400]);
     }
-
-    list(, $key_secret) = hackknow_get_rzp_keys();
-    $expected = hash_hmac('sha256', $rzp_order_id . '|' . $rzp_payment_id, $key_secret);
+    list($key_id, $key_secret) = hackknow_get_rzp_keys();
+    if (!$key_id || !$key_secret) return new WP_Error('rzp_unconfigured', 'Payments unavailable.', ['status' => 503]);
+    $expected = hash_hmac('sha256', $stored . '|' . $rzp_payment_id, $key_secret);
     if (!hash_equals($expected, $rzp_signature)) {
-        $order->update_status('failed', 'Signature verification failed');
+        // An untrusted callback must never downgrade an existing order.
         return new WP_Error('bad_signature', 'Invalid payment signature', ['status' => 400]);
     }
-
-    update_post_meta($wc_order_id, '_razorpay_payment_id', $rzp_payment_id);
-    $order->payment_complete($rzp_payment_id);
-    $order->add_order_note('Razorpay payment ' . $rzp_payment_id . ' verified.');
-
-    // Force order to completed so WooCommerce sends download links email
-    if (in_array($order->get_status(), ['processing', 'pending'], true)) {
-        $order->update_status('completed', 'Auto-completed: digital download order.');
+    $resp = wp_remote_get('https://api.razorpay.com/v1/payments/' . rawurlencode($rzp_payment_id), [
+        'headers' => ['Authorization' => 'Basic ' . base64_encode($key_id . ':' . $key_secret)],
+        'timeout' => 20,
+    ]);
+    if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) {
+        return new WP_Error('payment_lookup_failed', 'Payment confirmation pending. Check order status.', ['status' => 502]);
     }
-
-    // Explicitly trigger the customer completed order email (contains download links).
-    // Wrapped in try/catch so a mailer hiccup never blocks the verify response —
-    // the order has already been marked paid + completed; email is best-effort.
-    // Use get_billing_email() (the canonical WC_Order API), not get_customer_email()
-    // which does not exist on Automattic\WooCommerce\Admin\Overrides\Order and
-    // raised a fatal in production (caused "Order Sync Pending" UX fallback).
-    try {
-        $billing_email = method_exists($order, 'get_billing_email') ? (string) $order->get_billing_email() : '';
-        if ($billing_email && function_exists('WC')) {
-            $mailer = WC()->mailer();
-            $emails = $mailer ? $mailer->get_emails() : [];
-            if (!empty($emails['WC_Email_Customer_Completed_Order'])) {
-                $emails['WC_Email_Customer_Completed_Order']->trigger($order->get_id(), $order);
-            }
-        }
-    } catch (\Throwable $e) {
-        if (function_exists('error_log')) {
-            error_log('[hackknow] post-verify email trigger failed for order ' . $wc_order_id . ': ' . $e->getMessage());
-        }
-        $order->add_order_note('Post-verify email trigger error: ' . $e->getMessage());
+    $payment = json_decode(wp_remote_retrieve_body($resp), true);
+    if (!is_array($payment) || ($payment['id'] ?? '') !== $rzp_payment_id) {
+        return new WP_Error('invalid_payment', 'Payment confirmation unavailable.', ['status' => 502]);
     }
+    $completed = hk_payment_complete_once($order, $payment);
+    if (is_wp_error($completed)) return $completed;
+    $order = wc_get_order($wc_order_id);
+    // WooCommerce completion hooks own delivery. Do not explicitly send a second email.
 
     // ── Inline download links (LAYER 3 of permanent payment fix) ──
     // Always return signed download URLs in the /verify response so the
@@ -940,10 +931,7 @@ function hackknow_verify_payment(WP_REST_Request $req) {
     // making us fully independent of email deliverability.
     $downloads = [];
     try {
-        if (function_exists('wc_downloadable_product_permissions')) {
-            // Make sure WC has granted the permission rows for this order.
-            wc_downloadable_product_permissions($order->get_id(), true);
-        }
+        // Completion hooks grant permissions once; a verify retry must not renew expiry.
         if (method_exists($order, 'get_downloadable_items')) {
             foreach ($order->get_downloadable_items() as $it) {
                 $downloads[] = [
