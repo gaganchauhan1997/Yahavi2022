@@ -372,7 +372,7 @@ function hk_content_register_rest_routes() {
     register_rest_route('hackknow/v1', '/news/all',               array_merge($public, ['methods' => 'GET', 'callback' => 'hk_content_rest_news_all']));
 
     /* ─── Verification (auth required, checked inside callback) ─── */
-    register_rest_route('hackknow/v1', '/verify',                 array_merge($public, ['methods' => 'POST', 'callback' => 'hk_content_rest_verify_submit']));
+    register_rest_route('hackknow/v1', '/identity/verification',                 array_merge($public, ['methods' => 'POST', 'callback' => 'hk_content_rest_verify_submit']));
     register_rest_route('hackknow/v1', '/verify/me',              array_merge($public, ['methods' => 'GET',  'callback' => 'hk_content_rest_verify_me']));
 }
 
