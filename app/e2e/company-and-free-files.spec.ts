@@ -8,6 +8,8 @@ test('shows the memorial and current leadership without departed team sections',
   await expect(page.getByRole('heading', { name: 'Gagan Chauhan', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Vinay Rajouria', exact: true })).toBeVisible();
   await expect(page.getByText(/From Nangli Razapur, Delhi/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Gagan on LinkedIn', exact: true })).toHaveAttribute('href', 'https://www.linkedin.com/in/gagan-yahavi-hackknow/');
+  await expect(page.getByRole('link', { name: 'Gagan on Instagram', exact: true })).toHaveAttribute('href', 'https://www.instagram.com/i_kunalarious/');
   await expect(page.locator('main')).not.toContainText(/Gourav|DeadMan|dead man/i);
   await expect(page.locator('a[href^="tel:"],a[href*="wa.me/"]')).toHaveCount(0);
 });
