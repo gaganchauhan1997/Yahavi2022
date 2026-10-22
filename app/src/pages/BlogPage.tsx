@@ -1,9 +1,10 @@
+import { API_BASE } from '@/lib/api-base';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Clock, Search, Star } from 'lucide-react';
 import { FEATURED_ARTICLES, type FeaturedArticle } from '@/content/featured-articles';
 
-const WP = 'https://shop.hackknow.com/wp-json/wp/v2';
+const WP = `${API_BASE}/wp-json/wp/v2`;
 
 type WpPost = {
   id: number;
@@ -114,9 +115,10 @@ const BlogPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [query, setQuery] = useState('');
 
+  const [previousInput, setPreviousInput] = useState(page);
+  if (previousInput !== page) { setPreviousInput(page); setLoading(true); setError(null); }
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     const ctrl = new AbortController();
     const url = `${WP}/posts?per_page=12&page=${page}&_embed=wp:featuredmedia,wp:term&_fields=id,slug,date,title,excerpt,featured_media,categories,_links,_embedded`;
     fetch(url, { signal: ctrl.signal })
