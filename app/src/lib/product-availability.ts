@@ -16,25 +16,30 @@ export interface AvailabilityEntry {
   file_count: number;
 }
 
-type AvailabilityMap = Record<string, AvailabilityEntry>;
+export type AvailabilityMap = Record<string, AvailabilityEntry>;
 
 let cache: AvailabilityMap | null = null;
+let cacheUntil = 0;
 let inflight: Promise<AvailabilityMap> | null = null;
 const subscribers = new Set<(m: AvailabilityMap) => void>();
 
 export async function loadAvailability(): Promise<AvailabilityMap> {
-  if (cache) return cache;
+  if (cache && Date.now() < cacheUntil) return cache;
   if (inflight) return inflight;
   inflight = (async () => {
     try {
       const r = await fetch(`${WP_REST_BASE}/product-availability`, {
         headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(10_000),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = (await r.json()) as { availability?: AvailabilityMap };
-      cache = data.availability || {};
+      if (!data.availability || typeof data.availability !== 'object' || Array.isArray(data.availability)) throw new Error('Invalid availability response');
+      cache = Object.fromEntries(Object.entries(data.availability).filter(([, entry]) => entry && typeof entry.has_file === 'boolean' && Number.isInteger(entry.file_count) && entry.file_count >= 0));
+      cacheUntil = Date.now() + 60_000;
     } catch {
       cache = {};
+      cacheUntil = Date.now() + 5_000;
     } finally {
       inflight = null;
     }
@@ -49,7 +54,7 @@ export function useProductAvailability(productId: string | number | undefined): 
   useEffect(() => {
     const fn = () => setTick((t) => t + 1);
     subscribers.add(fn);
-    if (!cache) void loadAvailability();
+    if (!cache || Date.now() >= cacheUntil) void loadAvailability();
     return () => { subscribers.delete(fn); };
   }, []);
   if (!productId || !cache) return null;
@@ -60,14 +65,14 @@ export function useProductAvailability(productId: string | number | undefined): 
  * Whole-map hook used by storefront listing pages (ShopPage, HomePage) so they
  * can completely HIDE products whose has_file === false instead of merely
  * showing a red dot. Returns null until the first fetch lands; treat null as
- * "still loading — do not filter yet".
+ * "not yet verified — do not offer for purchase".
  */
 export function useAvailabilityMap(): AvailabilityMap | null {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const fn = () => setTick((t) => t + 1);
     subscribers.add(fn);
-    if (!cache) void loadAvailability();
+    if (!cache || Date.now() >= cacheUntil) void loadAvailability();
     return () => { subscribers.delete(fn); };
   }, []);
   void tick;
@@ -76,16 +81,15 @@ export function useAvailabilityMap(): AvailabilityMap | null {
 
 /**
  * Predicate used by listing-page filters. While availability is still loading
- * we OPTIMISTICALLY return true so cards aren't blanked out on first paint;
- * the moment the map loads, NO-FILE products get filtered out on next render.
+ * unknown/loading/failed availability is not evidence of deliverability.
+ * Never offer an unverified product for purchase.
  */
 export function isProductDeliverable(
   productId: string | number | undefined,
   map: AvailabilityMap | null,
 ): boolean {
-  if (!productId) return true;
-  if (!map) return true;
+  if (!productId || !map) return false;
   const entry = map[String(productId)];
-  if (!entry) return true;
+  if (!entry) return false;
   return entry.has_file === true;
 }
