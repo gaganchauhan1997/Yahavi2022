@@ -81,7 +81,6 @@ export default function CouponBox({ context, onRedeemed, title, description }: P
         onRedeemed?.({ code: r.code, credited_yavi: r.credited_yavi, balance_yavi: r.balance_yavi });
       } catch (cbErr) {
         // Don't surface as a coupon error — the redeem itself succeeded.
-        // eslint-disable-next-line no-console
         console.error("[CouponBox] onRedeemed callback threw:", cbErr);
       }
     } catch (e) {
