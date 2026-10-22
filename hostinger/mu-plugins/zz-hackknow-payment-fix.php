@@ -128,7 +128,7 @@ add_action('woocommerce_order_status_completed', function ($order_id) {
     // Make sure WC has actually granted download permissions for this order
     // before we read them (it usually has, but be defensive on webhook path).
     if (function_exists('wc_downloadable_product_permissions')) {
-        wc_downloadable_product_permissions($order_id, true);
+        wc_downloadable_product_permissions($order_id, false);
     }
 
     $first = (string) $order->get_billing_first_name();
@@ -138,8 +138,7 @@ add_action('woocommerce_order_status_completed', function ($order_id) {
     $any  = false;
 
     // Prefer WC's get_downloadable_items() — these come with proper signed
-    // download_url values. Fall back to raw file URL only if WC didn't grant
-    // a permission row (rare).
+    // download_url values. Never fall back to a raw storage URL.
     $items = method_exists($order, 'get_downloadable_items') ? $order->get_downloadable_items() : [];
     if ($items) {
         foreach ($items as $it) {
@@ -175,7 +174,7 @@ add_action('woocommerce_order_status_completed', function ($order_id) {
              . '<p>' . esc_html($hello) . '</p>'
              . '<p>Your payment for order <strong>#' . esc_html($order->get_order_number()) . '</strong> has been confirmed. Below are your direct download links — click any link to save the file:</p>'
              . $list
-             . '<p style="margin-top:18px">You can always re-download from your <a href="' . $site . 'account/downloads" style="color:#0a58ca">Downloads page</a> using the email <strong>' . esc_html($email) . '</strong>. Files do not expire.</p>'
+             . '<p style="margin-top:18px">You can always re-download from your <a href="' . $site . 'account/downloads" style="color:#0a58ca">Downloads page</a> using the email <strong>' . esc_html($email) . '</strong>. Download availability follows the product and order terms.</p>'
              . '<hr style="border:none;border-top:1px solid #eee;margin:24px 0">'
              . '<p style="font-size:12px;color:#777">If you did not make this purchase, please reply to this email.</p>'
              . '</body></html>';
@@ -1151,9 +1150,7 @@ add_action('rest_api_init', function () {
                 // These are WC's signed per-order URLs and work for guest orders.
                 $downloads = [];
                 try {
-                    if (function_exists('wc_downloadable_product_permissions')) {
-                        wc_downloadable_product_permissions($oid, true);
-                    }
+                    // Diagnostic reads must not reset download permissions or expiry.
                     if (method_exists($order, 'get_downloadable_items')) {
                         foreach ($order->get_downloadable_items() as $it) {
                             $downloads[] = [
