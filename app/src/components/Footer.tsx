@@ -190,7 +190,7 @@ export default function Footer() {
               </li>
               <li>
                 <button
-                  onClick={() => scrollToTop('/shop?filter=free')}
+                  onClick={() => scrollToTop('/free-excel-templates')}
                   className="text-sm text-hack-white/60 hover:text-hack-yellow transition-colors text-left"
                 >
                   Free Resources
@@ -347,8 +347,8 @@ export default function Footer() {
             <span>✉</span> team@hackknow.com
           </a>
           <span className="hidden sm:block text-hack-white/20">|</span>
-          <a href="tel:+918796018700" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">
-            <span>📞</span> +91 87960 18700
+          <a href="mailto:founder@hackknow.com" className="text-xs text-hack-white/50 hover:text-hack-yellow transition-colors flex items-center gap-1.5">
+            <span aria-hidden="true">✉</span> founder@hackknow.com
           </a>
           <span className="hidden sm:block text-hack-white/20">|</span>
           <span className="text-xs text-hack-white/50 flex items-center gap-1.5">
