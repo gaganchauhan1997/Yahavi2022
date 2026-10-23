@@ -8,7 +8,7 @@ const faqs = [
     questions: [
       {
         q: 'What is HackKnow?',
-        a: 'HackKnow is India\'s premium digital marketplace where creators and professionals can buy and download high-quality digital products including Excel templates, MIS dashboards, PowerPoint decks, website templates, marketing kits, and self-paced courses. We offer 233+ premium products across 28 categories, trusted by 10,000+ Indian professionals.'
+        a: 'HackKnow is India\'s premium digital marketplace where creators and professionals can buy and download high-quality digital products including Excel templates, MIS dashboards, PowerPoint decks, website templates, marketing kits, and self-paced courses. We offer 233+ premium products across 28 categories, built for work and learning.'
       },
       {
         q: 'How do I create an account on HackKnow?',
@@ -16,7 +16,7 @@ const faqs = [
       },
       {
         q: 'Is HackKnow free to use?',
-        a: 'Yes — creating an account, browsing the entire catalogue, and downloading our 100+ free resources is completely free. You only pay when you choose to buy a premium template, dashboard, or course.'
+        a: 'Yes — creating an account, browsing the entire catalogue, and downloading our free Excel collection is completely free. You only pay when you choose to buy a premium template, dashboard, or course.'
       },
       {
         q: 'Where is HackKnow based?',
