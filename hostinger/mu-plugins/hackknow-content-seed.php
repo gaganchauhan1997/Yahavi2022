@@ -19,6 +19,14 @@ if (!defined('ABSPATH')) exit;
  */
 add_action('wp_loaded', 'hk_content_seed_v2', 20);
 function hk_content_seed_v2() {
+    // Production must never recreate sample content after a fresh-start cleanup.
+    // Local/development fixtures require a deliberate opt-in in wp-config.php.
+    if ( ! defined( 'HACKKNOW_ENABLE_SAMPLE_SEED' ) || HACKKNOW_ENABLE_SAMPLE_SEED !== true
+        || ! function_exists( 'wp_get_environment_type' )
+        || ! in_array( wp_get_environment_type(), array( 'local', 'development' ), true ) ) {
+        return;
+    }
+
     // Force-rerun via ?hk_reseed=1 (admin only).
     $force = isset($_GET['hk_reseed']) && current_user_can('manage_options');
     if (!$force && get_option('hk_content_seed_v2_done')) return;
@@ -139,6 +147,14 @@ function hk_ensure_coupon($code, $args) {
  * ════════════════════════════════════════════════════════════════════ */
 add_action('wp_loaded', 'hk_content_seed_v3', 30);
 function hk_content_seed_v3() {
+    // Production must never recreate sample content after a fresh-start cleanup.
+    // Local/development fixtures require a deliberate opt-in in wp-config.php.
+    if ( ! defined( 'HACKKNOW_ENABLE_SAMPLE_SEED' ) || HACKKNOW_ENABLE_SAMPLE_SEED !== true
+        || ! function_exists( 'wp_get_environment_type' )
+        || ! in_array( wp_get_environment_type(), array( 'local', 'development' ), true ) ) {
+        return;
+    }
+
     $force = isset($_GET['hk_reseed_v3']) && current_user_can('manage_options');
     if (!$force && get_option('hk_content_seed_v3_done')) return;
     if (!post_type_exists('hk_roadmap'))  return;
