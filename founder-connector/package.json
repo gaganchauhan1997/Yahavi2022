@@ -1,0 +1,13 @@
+{
+  "name": "hackknow-founder-connector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.mjs", "test": "node --test" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "express": "^5.1.0",
+    "zod": "^3.25.0"
+  },
+  "engines": { "node": ">=20" }
+}
