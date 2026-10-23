@@ -11,9 +11,11 @@
     "sourceCommit": "c952dd9c9dd87e19968fb1a2bb69d920b474f62a",
     "sourcePath": "financial-plan.xlsx",
     "workbookSha256": "5d720b7bd18511f9ef38d4128ed04bcc43235489b68c102ced85122826704684",
-    "sha256": "9347b669616a2c1304e090d1d7bbd745e1cbda20ddfaec16e599be5fdb425838",
-    "bytes": 434809,
-    "download": "/downloads/free-excel/financial-plan-9347b669616a.zip"
+    "sha256": "df44eeca6b6cd29c70bcdcafe56bd9e8f89e61672668b0bf40bf5aeca909caa8",
+    "bytes": 252508,
+    "download": "/downloads/free-excel/financial-plan-df44eeca6b6c.zip",
+    "brandedWorkbookSha256": "3665d51ecfcec1ac6961c52d57df9bdd8e5222ef18e1ac623d1750f57c642e0b",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   },
   {
     "slug": "personal-scorecard-psc",
@@ -27,9 +29,11 @@
     "sourceCommit": "8bb2d6f5e0fa7dec5786512cccd743fd6b78d8aa",
     "sourcePath": "templates/career/Personal Scorecard (PSC).xlsx",
     "workbookSha256": "b67442e5d67eead428e5a2600a905df85b91081df8fa039b699e7427ff4debfa",
-    "sha256": "5a25f5973f421ca2f60d7a02b55d1767d04672615f9a2a230fb0493a517e2b6b",
-    "bytes": 20986,
-    "download": "/downloads/free-excel/personal-scorecard-psc-5a25f5973f42.zip"
+    "sha256": "8a27b4b928bc3c5e7ab0ac2719a9465ee32e1c4319e83c4e493ee4012f4f107c",
+    "bytes": 22665,
+    "download": "/downloads/free-excel/personal-scorecard-psc-8a27b4b928bc.zip",
+    "brandedWorkbookSha256": "84272ba4cdeb5f6f234347df6a2231c25b5c4321236f85e545ea02d93d2e6800",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   },
   {
     "slug": "budget-investment-portfolio-bip",
@@ -43,9 +47,11 @@
     "sourceCommit": "8bb2d6f5e0fa7dec5786512cccd743fd6b78d8aa",
     "sourcePath": "templates/finance/Budget Investment Portfolio (BIP).xlsx",
     "workbookSha256": "63268dfa69ef31a382f881179e54e31cad8937ff920bfdf2b770279bfcf3c0ee",
-    "sha256": "bd7008f8c6f7570b3e40f3592a6642b90af150e476ffd90f2ac44fee6de1030f",
-    "bytes": 57052,
-    "download": "/downloads/free-excel/budget-investment-portfolio-bip-bd7008f8c6f7.zip"
+    "sha256": "cc217a5d73ef448d1a55269fdb5f354b79cd94450958feafe655cea71ff4a96d",
+    "bytes": 58771,
+    "download": "/downloads/free-excel/budget-investment-portfolio-bip-cc217a5d73ef.zip",
+    "brandedWorkbookSha256": "634c67c2e374ee76ae8659a273e98d0a222c1dbb7049f66fbd48b7c799f0369b",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   },
   {
     "slug": "personal-asset-management-tracker-pamt",
@@ -59,9 +65,11 @@
     "sourceCommit": "8bb2d6f5e0fa7dec5786512cccd743fd6b78d8aa",
     "sourcePath": "templates/finance/Personal Asset Management Tracker (PAMT).xlsx",
     "workbookSha256": "4e198130dd37d8ca499abc24612d9df300cd68bccdf76791b811011811208111",
-    "sha256": "44dd0ff0fa578c291e8bf524b243a94e715b79852f178ce2c1f4e115533d7184",
-    "bytes": 15540,
-    "download": "/downloads/free-excel/personal-asset-management-tracker-pamt-44dd0ff0fa57.zip"
+    "sha256": "c534d5b2a0e6157c3ede2f0c8717d581334b4bf84f9d5839e56c3622952fbb49",
+    "bytes": 17247,
+    "download": "/downloads/free-excel/personal-asset-management-tracker-pamt-c534d5b2a0e6.zip",
+    "brandedWorkbookSha256": "48566badf38f2164737a201c306c1b69baf3866429faca4db2416bfc053fd028",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   },
   {
     "slug": "personal-income-tracker-pit",
@@ -75,9 +83,11 @@
     "sourceCommit": "8bb2d6f5e0fa7dec5786512cccd743fd6b78d8aa",
     "sourcePath": "templates/finance/Personal Income Tracker (PIT).xlsx",
     "workbookSha256": "62dd04e864bd58bab5a681c46d9bda4cbaec86100a92129f7bea6ecc9e53af72",
-    "sha256": "1ca7693808cc5b3893235f25dedf17e5251345fcbd56758cd6ce618e444b92b7",
-    "bytes": 183215,
-    "download": "/downloads/free-excel/personal-income-tracker-pit-1ca7693808cc.zip"
+    "sha256": "68f493ff93d670be033a5e9fb91daa55081cca324738dc093fdc341d2794220b",
+    "bytes": 184937,
+    "download": "/downloads/free-excel/personal-income-tracker-pit-68f493ff93d6.zip",
+    "brandedWorkbookSha256": "9ae40bab1fd0839c29992ba7e766ec90fc0f99e1d17cb1ba1a9aae43ab933fb2",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   },
   {
     "slug": "personal-spending-tracker-pst",
@@ -91,9 +101,11 @@
     "sourceCommit": "8bb2d6f5e0fa7dec5786512cccd743fd6b78d8aa",
     "sourcePath": "templates/finance/Personal Spending Tracker (PST).xlsx",
     "workbookSha256": "d2f5ca877160ab4f603490d7e9a38df4ec76fd1fac178a30074f0b224dfbfbb2",
-    "sha256": "d09625d615e0c8fce5ceeaa767e070373db70a19b101fadacdcf468d50349d86",
-    "bytes": 19008,
-    "download": "/downloads/free-excel/personal-spending-tracker-pst-d09625d615e0.zip"
+    "sha256": "1e057e0b96fb0ad3b60af308564d878f520a42672e53e2bc7528d081fddf3585",
+    "bytes": 20750,
+    "download": "/downloads/free-excel/personal-spending-tracker-pst-1e057e0b96fb.zip",
+    "brandedWorkbookSha256": "3120df35711d2a53a9fea88a40424663e5505060e83c097667652de25ce74ae1",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   },
   {
     "slug": "subscription-management-tracker-smt",
@@ -107,9 +119,11 @@
     "sourceCommit": "8bb2d6f5e0fa7dec5786512cccd743fd6b78d8aa",
     "sourcePath": "templates/finance/Subscription Management Tracker (SMT).xlsx",
     "workbookSha256": "ff7d09c305f1a423c9409a1fe198ebdec3291ddc0e6d8cdecaa21f2492989c98",
-    "sha256": "5392bbdc29f427dcd7c5ade206210864af6f26ab92c43153fca858af17d089b0",
-    "bytes": 16482,
-    "download": "/downloads/free-excel/subscription-management-tracker-smt-5392bbdc29f4.zip"
+    "sha256": "2c036d855fa7182431088919966b80b31f4bbc43baf87da1dba5af3daf55d5a0",
+    "bytes": 18245,
+    "download": "/downloads/free-excel/subscription-management-tracker-smt-2c036d855fa7.zip",
+    "brandedWorkbookSha256": "41c95389ca2a865dd2f9bdea378286158eff3ddc7ff4c3a0789c2c45cc688929",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   },
   {
     "slug": "balance-scorecard-bsc",
@@ -123,9 +137,11 @@
     "sourceCommit": "8bb2d6f5e0fa7dec5786512cccd743fd6b78d8aa",
     "sourcePath": "templates/management/Balance Scorecard (BSC).xlsx",
     "workbookSha256": "3389db3e1490683f1233f886c939423111be3d909ad8cd5bdd0800b9a38f2f06",
-    "sha256": "19e69c2649ab1fded002fd8d67314498b29085081e4432d92216135932bcc0cd",
-    "bytes": 42909,
-    "download": "/downloads/free-excel/balance-scorecard-bsc-19e69c2649ab.zip"
+    "sha256": "724d61d8496542b04a9e6a8f0429efc058c99ca7ba239562c699f297ab33a141",
+    "bytes": 44605,
+    "download": "/downloads/free-excel/balance-scorecard-bsc-724d61d84965.zip",
+    "brandedWorkbookSha256": "661b6f2e690273a714bcb1f2505bf9532b7bf37890eab4c00ccbb95482c4b774",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   },
   {
     "slug": "vision-traction-organizer-vto",
@@ -139,8 +155,10 @@
     "sourceCommit": "8bb2d6f5e0fa7dec5786512cccd743fd6b78d8aa",
     "sourcePath": "templates/management/Vision Traction Organizer (VTO).xlsx",
     "workbookSha256": "e3ffd0c3046e6c570f1bd136eb9f821366754f7e5554c4d6d310b5b939e07f09",
-    "sha256": "52ab5bd1a1c1937c670bbbaac2ea457939ea555533792f17bb98a0e088ed0940",
-    "bytes": 47814,
-    "download": "/downloads/free-excel/vision-traction-organizer-vto-52ab5bd1a1c1.zip"
+    "sha256": "adf4639b726b4902982a7de2c38ca9b30cef6d655d296b0b7fe1efce17d3b5ce",
+    "bytes": 49520,
+    "download": "/downloads/free-excel/vision-traction-organizer-vto-adf4639b726b.zip",
+    "brandedWorkbookSha256": "b186f38f70e9fb8f5b759077c038b2ce01ccdcf005d05779b2c9a022babaa16b",
+    "branding": "HackKnow welcome tab, website/support links; original worksheets preserved"
   }
 ]
