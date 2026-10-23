@@ -155,7 +155,7 @@ const CTA_VARIANTS = [
   {
     eyebrow: '🔥 Save 10–20 hours every week',
     title: 'Stop building from scratch.',
-    body: 'Ready-made Excel dashboards, MIS reports, and planners — used by 10,000+ Indian SMEs.',
+    body: 'Ready-made Excel dashboards, MIS reports, and planners — for spreadsheet-based workflows.',
     label: 'Browse Templates',
     href: '/shop/excel-templates',
     bg: 'linear-gradient(135deg, #FFD60A 0%, #FF7700 100%)',
@@ -405,9 +405,9 @@ const BlogPostContent = ({ slug }: { slug: string }) => {
 
           {/* Social proof banner — above the title, immediately visible */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-5 text-xs text-hack-white/70">
-            <span className="inline-flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-hack-yellow" /> Used by 10,000+ Indian professionals</span>
+            <span className="inline-flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-hack-yellow" /> Resources for Indian professionals</span>
             <span className="inline-flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-hack-yellow" /> Saves 8–20 hrs/week</span>
-            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-hack-yellow" /> Trusted by SMEs across 28 cities</span>
+            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-hack-yellow" /> Built in Delhi, India</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-4">
