@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Twitter, Instagram, Youtube, Linkedin, Check, AlertCircle } from "lucide-react";
+import { Twitter, Instagram, Youtube, Linkedin } from "lucide-react";
 
 const socialLinks = [
   { href: "https://twitter.com/hackknow", icon: Twitter, label: "Twitter" },
@@ -8,99 +7,6 @@ const socialLinks = [
   { href: "https://youtube.com/hackknow", icon: Youtube, label: "YouTube" },
   { href: "https://linkedin.com/company/hackknow", icon: Linkedin, label: "LinkedIn" },
 ];
-
-type SubscribeStatus =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "success"; message: string }
-  | { kind: "error"; message: string };
-
-function NewsletterForm() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<SubscribeStatus>({ kind: "idle" });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim();
-    if (!trimmed) return;
-    setStatus({ kind: "loading" });
-    try {
-      const res = await fetch(
-        "https://www.hackknow.com/wp-json/hackknow/v1/newsletter/subscribe",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ email: trimmed, source: "footer" }),
-        }
-      );
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        message?: string;
-        code?: string;
-      };
-      if (res.ok && data.ok) {
-        setStatus({
-          kind: "success",
-          message: data.message || "You're in! Check your inbox for a welcome from HackKnow.",
-        });
-        setEmail("");
-      } else {
-        setStatus({
-          kind: "error",
-          message: data.message || "Could not subscribe right now. Please try again.",
-        });
-      }
-    } catch {
-      setStatus({
-        kind: "error",
-        message: "Network error. Please check your connection and try again.",
-      });
-    }
-  };
-
-  return (
-    <div className="w-full max-w-md">
-      <form className="flex w-full gap-3" onSubmit={handleSubmit}>
-        <input
-          type="email"
-          required
-          autoComplete="email"
-          aria-label="Email address"
-          placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={status.kind === "loading"}
-          className="flex-1 px-5 py-3 bg-white text-hack-black placeholder:text-hack-black/40 rounded-xl text-sm font-medium border-[2.5px] border-hack-white shadow-[4px_4px_0_0_#FFF055] focus:outline-none focus:translate-x-[1px] focus:translate-y-[1px] focus:shadow-[2px_2px_0_0_#FFF055] disabled:opacity-60 transition-all"
-        />
-        <button
-          type="submit"
-          disabled={status.kind === "loading"}
-          className="px-5 py-3 bg-hack-yellow text-hack-black rounded-xl text-sm font-black border-[2.5px] border-hack-white shadow-[4px_4px_0_0_#FF56F0] hover:shadow-[2px_2px_0_0_#FF56F0] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-60 disabled:cursor-not-allowed transition-all whitespace-nowrap"
-        >
-          {status.kind === "loading" ? "..." : "Subscribe"}
-        </button>
-      </form>
-      {status.kind === "success" && (
-        <div
-          role="status"
-          className="mt-3 flex items-center gap-2 px-3 py-2 bg-emerald-500/15 border-2 border-emerald-400 rounded-lg text-emerald-300 text-sm font-semibold"
-        >
-          <Check className="w-4 h-4 shrink-0" strokeWidth={3} />
-          <span>{status.message}</span>
-        </div>
-      )}
-      {status.kind === "error" && (
-        <div
-          role="alert"
-          className="mt-3 flex items-center gap-2 px-3 py-2 bg-red-500/15 border-2 border-red-400 rounded-lg text-red-300 text-sm font-semibold"
-        >
-          <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={3} />
-          <span>{status.message}</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function Footer() {
   const navigate = useNavigate();
@@ -112,20 +18,19 @@ export default function Footer() {
 
   return (
     <footer className="bg-hack-black text-hack-white">
-      {/* Newsletter Banner */}
+      {/* Direct downloads: no newsletter data collection. */}
       <div className="border-b border-hack-white/10">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="text-center lg:text-left">
               <h3 className="font-display font-bold text-2xl lg:text-3xl mb-2">
-                Get Free Resources Weekly
+                Free Excel resources
               </h3>
               <p className="text-hack-white/60 text-sm">
-                Join 10,000+ creators getting free templates, tips, and exclusive
-                deals.
+                Download practical workbooks. No sign-up, email address or payment required.
               </p>
             </div>
-            <NewsletterForm />
+            <Link to="/free-excel-templates/" className="px-6 py-3 bg-hack-yellow text-hack-black rounded-xl font-bold border-2 border-white">Browse free Excel templates</Link>
           </div>
         </div>
       </div>
