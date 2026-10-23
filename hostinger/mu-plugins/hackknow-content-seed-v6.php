@@ -99,6 +99,14 @@ function hk_seed_v6_tree_def() {
 }
 
 function hk_seed_v6_cats() {
+    // Production must never recreate sample content after a fresh-start cleanup.
+    // Local/development fixtures require a deliberate opt-in in wp-config.php.
+    if ( ! defined( 'HACKKNOW_ENABLE_SAMPLE_SEED' ) || HACKKNOW_ENABLE_SAMPLE_SEED !== true
+        || ! function_exists( 'wp_get_environment_type' )
+        || ! in_array( wp_get_environment_type(), array( 'local', 'development' ), true ) ) {
+        return;
+    }
+
     if ( get_option( 'hk_seed_v6_cats_done' ) ) return;
     if ( ! taxonomy_exists( 'product_cat' ) ) return; /* WC not loaded yet */
 
@@ -130,6 +138,14 @@ function hk_seed_v6_cats() {
 add_action( 'wp_loaded', 'hk_seed_v6_products', 90 );
 
 function hk_seed_v6_products() {
+    // Production must never recreate sample content after a fresh-start cleanup.
+    // Local/development fixtures require a deliberate opt-in in wp-config.php.
+    if ( ! defined( 'HACKKNOW_ENABLE_SAMPLE_SEED' ) || HACKKNOW_ENABLE_SAMPLE_SEED !== true
+        || ! function_exists( 'wp_get_environment_type' )
+        || ! in_array( wp_get_environment_type(), array( 'local', 'development' ), true ) ) {
+        return;
+    }
+
     update_option( 'hk_seed_v6_canary', time() ); /* DEBUG: prove function fired */
     if ( get_option( 'hk_seed_v6_products_done_v3' ) ) return;
 
