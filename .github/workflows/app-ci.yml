@@ -55,4 +55,4 @@ jobs:
       - uses: actions/checkout@v4
       - name: PHP syntax and payment contracts (offline, no credentials)
         run: |
-          docker run --rm --network none -v "$PWD:/repo:ro" -w /repo php:8.3-cli@sha256:60a100afa8efd88c0f556ce60e891c9bb8b1e8bca15721e4db07eca4fa79c07a sh -c 'find hostinger -name "*.php" -print0 | xargs -0 -n1 php -l && php tests/php/payment-safety.php'
+          docker run --rm --network none -v "$PWD:/repo:ro" -w /repo php:8.3-cli@sha256:60a100afa8efd88c0f556ce60e891c9bb8b1e8bca15721e4db07eca4fa79c07a sh -c 'find hostinger -name "*.php" -print0 | xargs -0 -n1 php -l && php tests/php/payment-safety.php && php tests/php/no-sample-seeding.php default && php tests/php/no-sample-seeding.php development-no-opt-in && php tests/php/no-sample-seeding.php production-enabled'

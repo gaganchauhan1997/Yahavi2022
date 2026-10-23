@@ -13,6 +13,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 add_action( 'wp_loaded', 'hk_seed_v4_run', 50 );
 
 function hk_seed_v4_run() {
+    // Production must never recreate sample content after a fresh-start cleanup.
+    // Local/development fixtures require a deliberate opt-in in wp-config.php.
+    if ( ! defined( 'HACKKNOW_ENABLE_SAMPLE_SEED' ) || HACKKNOW_ENABLE_SAMPLE_SEED !== true
+        || ! function_exists( 'wp_get_environment_type' )
+        || ! in_array( wp_get_environment_type(), array( 'local', 'development' ), true ) ) {
+        return;
+    }
+
     $force = isset( $_GET['hk_reseed_v4b'] ) && current_user_can( 'manage_options' );
     if ( ! $force && get_option( 'hk_seed_v4b_done' ) ) return;
 

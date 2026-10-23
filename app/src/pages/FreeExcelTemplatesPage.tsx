@@ -11,8 +11,8 @@ export default function FreeExcelTemplatesPage() {
       <header className="max-w-3xl mb-9">
         <p className="font-mono text-xs uppercase tracking-widest text-hack-magenta mb-3">Free resources · Commercial use permitted</p>
         <h1 className="font-display font-black text-4xl lg:text-5xl mb-5">Free Excel templates.<br />Useful from the first sheet.</h1>
-        <p className="text-hack-black/75 text-lg leading-relaxed">Practical workbooks for finance, career and business planning. No account or payment required. Every download includes the original Excel file, its MIT license and source attribution.</p>
-        <p className="mt-4 text-sm text-hack-black/70">Commercial use and redistribution are permitted under the included license. Keep the copyright and license notice when sharing. These are third-party templates, curated by HackKnow and supplied as-is; review sample values and formulas before using them for business or financial decisions.</p>
+        <p className="text-hack-black/75 text-lg leading-relaxed">Practical workbooks for finance, career and business planning. No account or payment required. Every download includes a HackKnow-branded Excel workbook with our website link, the original MIT license and source attribution.</p>
+        <p className="mt-4 text-sm text-hack-black/70">Commercial use and redistribution are permitted under the included license. Keep the copyright and license notice when sharing. These are third-party templates, adapted with a HackKnow welcome tab and supplied as-is; review sample values and formulas before using them for business or financial decisions.</p>
       </header>
       <div role="group" aria-label="Filter Excel templates by category" className="flex flex-wrap gap-3 mb-8">
         {categories.map(value => <button key={value} type="button" aria-pressed={category === value} onClick={() => setCategory(value)} className={`rounded-full border-2 border-hack-black px-5 py-2 text-sm font-bold ${category === value ? 'bg-hack-black text-white' : 'bg-white text-hack-black'}`}>{value}</button>)}
@@ -22,7 +22,7 @@ export default function FreeExcelTemplatesPage() {
         {templates.filter(file => category === 'All' || file.category === category).map(file => (
           <article key={file.slug} className="rounded-2xl bg-white border-[3px] border-hack-black shadow-[4px_4px_0_0_#1A1A1A] p-6 flex flex-col">
             <FileSpreadsheet className="w-8 h-8 text-hack-magenta mb-4" aria-hidden="true" />
-            <p className="text-xs font-mono uppercase text-hack-black/60 mb-2">{file.category}</p>
+            <p className="text-xs font-mono uppercase text-hack-black/60 mb-2">{file.category} · Free download</p>
             <h2 className="font-display font-bold text-xl mb-3">{file.title}</h2>
             <p className="text-sm text-hack-black/75 leading-relaxed mb-4">{file.description}</p>
             <p className="text-xs text-hack-black/60 mb-3">By {file.author} · MIT license · {Math.ceil(file.bytes / 1024)} KB</p>

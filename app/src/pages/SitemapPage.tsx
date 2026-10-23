@@ -96,7 +96,7 @@ const SECTIONS: Section[] = [
       { label: 'Sponsor a Cause',   to: '/sponsor',           desc: 'Sponsor a learner or contribute to free education for underprivileged students.', audience: 'Sponsors', tag: 'GIVE' },
       { label: 'Become a Vendor',   to: '/become-a-vendor',   desc: 'Sell your own digital templates on HackKnow. 70% revenue share.',         audience: 'Creators',  tag: 'SELL' },
       { label: 'Verify Certificate',to: '/verify',            desc: 'Verify a HackKnow course completion certificate.',                       audience: 'Recruiters', tag: 'TRUST' },
-      { label: 'Testimonials',      to: '/testimonials',      desc: 'Real reviews and success stories from 10,000+ customers.',               audience: 'Researchers' },
+      { label: 'Testimonials',      to: '/testimonials',      desc: 'Product feedback and support.',               audience: 'Researchers' },
     ],
   },
   {

@@ -21,7 +21,7 @@ import { useLocation } from 'react-router-dom';
 const SITE = 'https://www.hackknow.com';
 const DEFAULT_OG_IMAGE = `${SITE}/og-image.jpg`;
 const DEFAULT_DESC =
-  'Buy & download premium Excel dashboards, PowerPoint templates, marketing kits, and digital products. 233+ templates across 28 categories. Trusted by 10,000+ Indian professionals.';
+  'Buy & download premium Excel dashboards, PowerPoint templates, marketing kits, and digital products. Curated digital resources for work and learning.';
 
 type Meta = { title: string; description?: string };
 
@@ -51,7 +51,7 @@ const STATIC_META: Record<string, Meta> = {
   '/refund-policy': { title: 'Refund Policy · HackKnow — 7-Day Money Back' },
   '/terms':         { title: 'Terms & Conditions · HackKnow' },
   '/signup':        { title: 'Create your free HackKnow account',
-                      description: 'Sign up free to access 100+ free digital templates, save your favourites, track downloads, and get member-only deals.' },
+                      description: 'Sign up free to explore free digital templates, save your favourites, track downloads, and get member-only deals.' },
   '/login':         { title: 'Sign in to HackKnow' },
   '/forgot-password': { title: 'Reset your password · HackKnow' },
   '/reset-password':  { title: 'Reset your password · HackKnow' },
@@ -66,17 +66,17 @@ const STATIC_META: Record<string, Meta> = {
                       description: 'Live aggregated news from 60+ trusted security and tech sources. Auto-refreshing every 5 minutes. Multi-source citations on every story.' },
   '/verify':        { title: 'Verify Certificate · HackKnow' },
   '/brainxercise':  { title: 'Brainxercise — Daily Brain Training · HackKnow' },
-  '/sponsor':       { title: 'Sponsor HackKnow — Reach 10,000+ Indian Professionals',
+  '/sponsor':       { title: 'Sponsor HackKnow — Support Digital Resources & Learning',
                       description: 'Sponsor a category, course, or featured slot on HackKnow. Targeted reach to Indian professionals in MIS, finance, HR, marketing.' },
   '/become-a-vendor': { title: 'Become a Vendor — Sell on HackKnow',
-                      description: 'List your digital templates, courses, or tools on HackKnow. Reach 10,000+ buyers. 70% revenue share. No upfront cost.' },
+                      description: 'List your digital templates, courses, or tools on HackKnow. List products for digital creators. 70% revenue share. No upfront cost.' },
   '/testimonials':  { title: 'What Our Customers Say · HackKnow' },
   '/wallet':        { title: 'Wallet · HackKnow' },
 };
 
 const DYNAMIC: { match: RegExp; build: (m: RegExpMatchArray) => Meta }[] = [
   { match: /^\/shop\/(.+)$/,             build: m => ({ title: `${prettify(m[1])} — Templates · HackKnow Shop`,
-                                                        description: `Browse premium ${prettify(m[1]).toLowerCase()} on HackKnow. Instant download. Lifetime use license. Trusted by 10,000+ Indian professionals.` }) },
+                                                        description: `Browse premium ${prettify(m[1]).toLowerCase()} on HackKnow. Instant download. Lifetime use license. Curated digital resources for work and learning.` }) },
   { match: /^\/product\/(.+)$/,          build: m => ({ title: `${prettify(m[1])} · HackKnow`,
                                                         description: `${prettify(m[1])} — premium digital download from HackKnow. Instant access, lifetime license, secure Razorpay payment.` }) },
   { match: /^\/courses\/cat\/(.+)$/,    build: m => ({ title: `${prettify(m[1])} Courses · HackKnow`,

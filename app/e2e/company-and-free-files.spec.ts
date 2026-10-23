@@ -45,3 +45,33 @@ test('loads Google identity on auth pages without adding it to normal browsing',
   await page.getByRole('link', { name: 'HackKnow home', exact: true }).click();
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /^index/);
 });
+
+test('has no top Dead Man promotion, fabricated purchase timers or email capture', async ({ page }) => {
+  const fabricatedOrderRequests: string[] = [];
+  page.on('request', request => { if (request.url().includes('/wc/store/v1/products?per_page=24')) fabricatedOrderRequests.push(request.url()); });
+  await page.addInitScript(() => {
+    localStorage.setItem('hackknow-cookie-consent', 'declined');
+    localStorage.setItem('hk_local_leads_v1', JSON.stringify([{ email: 'retired-cache@example.invalid' }]));
+  });
+  await page.clock.install();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('hk_local_leads_v1'))).toBeNull();
+  await page.clock.fastForward(46000);
+  await expect(page.locator('header a[href*="tdm.hackknow.com"]')).toHaveCount(0);
+  await expect(page.getByText(/just bought|Verified order|50,000\+ Creators|10K\+/i)).toHaveCount(0);
+  await expect(page.locator('input[type="email"]')).toHaveCount(0);
+  await expect(page.locator('footer').getByRole('link', { name: 'Browse free Excel templates', exact: true })).toBeVisible();
+  expect(fabricatedOrderRequests).toEqual([]);
+});
+
+test('offers the free collection without membership, prices or checkout', async ({ page }) => {
+  await page.goto('/community/');
+  await expect(page.getByRole('heading', { name: 'Useful resources, open to everyone.' })).toBeVisible();
+  await page.locator('main').getByRole('link', { name: 'Browse free Excel templates', exact: true }).click();
+  await expect(page.locator('main article')).toHaveCount(9);
+  await expect(page.locator('main')).not.toContainText(/₹|\$\d|add to cart|buy now|subscribe/i);
+  await expect(page.locator('main input')).toHaveCount(0);
+  await expect(page.locator('main article').first()).toContainText('Free download');
+  await expect(page.locator('main')).toContainText('HackKnow-branded Excel workbook');
+});

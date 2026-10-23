@@ -9,7 +9,6 @@ export const STORAGE_KEYS = {
   // Conversion overlays
   EXIT_MODAL_SEEN:   'hk_exit_modal_seen_v1',     // sessionStorage: "1" once shown
   ANN_BAR_DISMISSED: 'hk_ann_bar_dismissed_v2',   // sessionStorage: "1" once dismissed
-  LEAD_FALLBACK:     'hk_local_leads_v1',         // localStorage: array<{email,source,ts}>
 } as const;
 
 /** True only if the user has explicitly accepted or declined cookies. */

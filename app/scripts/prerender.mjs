@@ -390,13 +390,13 @@ function sitemapIndexXml(segments) {
 async function prerenderHome(tmpl, { cats, products, navFooter }) {
   return writeRoute('/', applyMeta(tmpl, {
     title: 'HackKnow — Premium Excel Templates, MIS Dashboards & Digital Products | India',
-    description: `Buy & download premium Excel dashboards, PowerPoint templates, marketing kits, and digital products. ${products.length}+ templates across ${cats.length} categories. Trusted by 10,000+ Indian professionals.`,
+    description: `Buy & download premium Excel dashboards, PowerPoint templates, marketing kits, and digital products. ${products.length}+ templates across ${cats.length} categories. Curated digital resources for work and learning.`,
     canonical: `${SITE}/`,
     ogImage: `${SITE}/og-image.jpg`,
     jsonLd: [ORG_LD, WEBSITE_LD],
     noscriptBody: `
       <h1>HackKnow — Premium Digital Templates & Tools</h1>
-      <p>India's trusted marketplace for ${products.length}+ premium digital products across ${cats.length} categories. Excel dashboards, PowerPoint templates, website themes, courses, and more. Instant download. Lifetime license. Trusted by 10,000+ Indian professionals.</p>
+      <p>India's trusted marketplace for ${products.length}+ premium digital products across ${cats.length} categories. Excel dashboards, PowerPoint templates, website themes, courses, and more. Instant download. Lifetime license. Curated digital resources for work and learning.</p>
       <h2>Browse Top Categories</h2>
       <ul>${cats.filter((c) => !c.parent && c.count > 0).map((c) => `<li><a href="${SITE}/shop/${c.slug}">${escapeHtml(c.name)} (${c.count} products)</a></li>`).join('')}</ul>
       <h2>Quick Links</h2>
@@ -433,7 +433,7 @@ async function prerenderCategory(tmpl, cat, { catProducts, parent, navFooter }) 
   crumbs.push({ name: cat.name, url: `${SITE}/shop/${cat.slug}` });
 
   const desc = truncate(cat.description, 250) ||
-    `Browse premium ${cat.name.toLowerCase()} on HackKnow. ${cat.count} products. Instant download. Lifetime license. Trusted by 10,000+ Indian professionals.`;
+    `Browse premium ${cat.name.toLowerCase()} on HackKnow. ${cat.count} products. Instant download. Lifetime license. Curated digital resources for work and learning.`;
 
   return writeRoute(`/shop/${cat.slug}`, applyMeta(tmpl, {
     title: `Buy ${cat.name} — ${cat.count} Premium Templates | HackKnow`,
@@ -574,7 +574,7 @@ const STATIC_PAGES_META = {
     title: 'Free Excel Templates for Commercial Use | HackKnow',
     description: 'Download MIT-licensed Excel workbooks for finance, career and business planning, with attribution and the original license included.',
     h1: 'Free Excel Templates for Commercial Use',
-    body: () => `<p>No account or payment required. Each ZIP contains an unchanged Excel workbook, its original MIT license and source attribution. Commercial use and redistribution are permitted under the included license. Keep the copyright and license notice when sharing.</p>${FREE_EXCEL.map(f => `<section><h2>${escapeHtml(f.title)}</h2><p>${escapeHtml(f.category)} — ${escapeHtml(f.description)}</p><p>By ${escapeHtml(f.author)}. MIT license. Supplied as-is; review sample values and formulas before business or financial decisions.</p><a href="${escapeHtml(f.download)}">Download Excel and license (ZIP)</a> · <a href="${escapeHtml(f.source)}">Original source</a> · <a href="${escapeHtml(f.licenseSource)}">License</a></section>`).join('')}`,
+    body: () => `<p>No account or payment required. Each free ZIP contains an Excel workbook with a HackKnow welcome tab and website link, the original MIT license and source attribution. Commercial use and redistribution are permitted under the included license. Keep the copyright and license notice when sharing.</p>${FREE_EXCEL.map(f => `<section><h2>${escapeHtml(f.title)}</h2><p>${escapeHtml(f.category)} — ${escapeHtml(f.description)}</p><p>By ${escapeHtml(f.author)}. MIT license. HackKnow branding added; original worksheets preserved. Supplied as-is; review sample values and formulas before business or financial decisions.</p><a href="${escapeHtml(f.download)}">Download Excel and license (ZIP)</a> · <a href="${escapeHtml(f.source)}">Original source</a> · <a href="${escapeHtml(f.licenseSource)}">License</a></section>`).join('')}`,
     ld: () => ({ '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Free Excel Templates', url: SITE + '/free-excel-templates/', mainEntity: { '@type': 'ItemList', itemListElement: FREE_EXCEL.map((f, i) => ({ '@type': 'ListItem', position: i + 1, item: { '@type': 'CreativeWork', name: f.title, license: 'https://opensource.org/license/mit/', author: { '@type': 'Person', name: f.author }, encoding: { '@type': 'MediaObject', contentUrl: SITE + f.download, encodingFormat: 'application/zip' } } })) } }),
   },
   '/about': {
@@ -706,19 +706,10 @@ const STATIC_PAGES_META = {
     }),
   },
   '/community': {
-    title: 'HackKnow Community — Join Indian Excel, MIS & Tech Builders',
-    description: 'Join the HackKnow community of 10,000+ Indian Excel power users, MIS analysts, and aspiring developers. Share dashboards, ask questions, get peer reviews, learn from industry experts.',
-    h1: 'HackKnow Community',
-    body: () => `
-      <p>Connect with 10,000+ Indian Excel power users, MIS analysts, freelance designers, and aspiring developers. Share what you&apos;re building, get peer code reviews, and learn from working professionals.</p>
-      <h2>Where we hang out</h2>
-      <ul>
-        <li><a href="https://www.youtube.com/@hackknow">YouTube channel</a> — tutorials, build-alongs, dashboard breakdowns</li>
-        <li><a href="https://www.instagram.com/hackknow">Instagram</a> — bite-size Excel tips, daily product highlights</li>
-        <li><a href="${SITE}/blog">Blog</a> — long-form tutorials &amp; case studies</li>
-        <li><a href="${SITE}/courses">Premium courses</a> — career-grade learning tracks</li>
-      </ul>
-      <p>Have a community feature you want? <a href="mailto:hello@hackknow.com">Tell us</a>.</p>`,
+    title: 'HackKnow Community & Free Resources',
+    description: 'Explore free Excel workbooks and connect with HackKnow. No membership, review or social follow is required to download.',
+    h1: 'Useful resources, open to everyone.',
+    body: () => `<p>Free workbooks for finance, career and business planning. No account, email address, review, social follow or payment is required.</p><p><a href="${SITE}/free-excel-templates/">Browse free Excel templates</a></p><p>Feedback: <a href="mailto:team@hackknow.com">team@hackknow.com</a></p><p><a href="https://www.linkedin.com/in/gagan-yahavi-hackknow/">Gagan on LinkedIn</a> · <a href="https://www.instagram.com/i_kunalarious/">Gagan on Instagram</a></p>`,
   },
   '/affiliate': {
     title: 'HackKnow Affiliate Program — Earn 30% on Every Sale',
@@ -831,11 +822,11 @@ const STATIC_PAGES_META = {
     },
   },
   '/sponsor': {
-    title: 'Sponsor HackKnow — Reach 10,000+ Indian Tech Professionals',
-    description: 'Sponsor HackKnow and reach 10,000+ Indian Excel power users, MIS analysts, freelancers, and developers. Newsletter, banner, and product placement opportunities.',
+    title: 'Sponsor HackKnow — Support Digital Resources & Learning',
+    description: 'Sponsor HackKnow and support resources for Indian Excel power users, MIS analysts, freelancers, and developers. Newsletter, banner, and product placement opportunities.',
     h1: 'Sponsor HackKnow',
     body: () => `
-      <p>Reach <strong>10,000+ Indian tech professionals</strong> \u2014 Excel power users, MIS analysts, MSME founders, freelancers, aspiring developers \u2014 via HackKnow sponsorships.</p>
+      <p>Reach <strong>Indian tech professionals</strong> \u2014 Excel power users, MIS analysts, MSME founders, freelancers, aspiring developers \u2014 via HackKnow sponsorships.</p>
       <h2>Sponsor opportunities</h2>
       <ul>
         <li>Newsletter sponsorship (weekly, opt-in audience)</li>
@@ -876,17 +867,17 @@ const STATIC_PAGES_META = {
       <p>New puzzles published regularly. <a href="${SITE}/community">Join the community</a> to share solutions.</p>`,
   },
   '/testimonials': {
-    title: 'HackKnow Testimonials — What Customers Say',
-    description: 'Real testimonials from HackKnow customers \u2014 Indian Excel users, MIS analysts, MSME founders, and developers who shipped faster with our templates and courses.',
-    h1: 'Customer Testimonials',
-    body: () => `<p>Real reviews from HackKnow customers across India. Browse <a href="${SITE}/shop">our products</a> to see ratings on individual product pages.</p>`,
+    title: 'Customer Feedback | HackKnow',
+    description: 'Share feedback about HackKnow resources. Product reviews are shown on the relevant product page.',
+    h1: 'Customer feedback',
+    body: () => `<p>Visit a product page to read available feedback or leave a review. For file support and suggestions, email <a href="mailto:team@hackknow.com">team@hackknow.com</a>.</p><p><a href="${SITE}/shop/">Browse products</a> · <a href="${SITE}/free-excel-templates/">Try a free Excel workbook</a></p>`,
   },
   '/become-a-vendor': {
     title: 'Sell on HackKnow — Become a Template Vendor',
     description: 'List your Excel, PowerPoint, or template product on HackKnow. India-focused INR pricing, Razorpay payouts, lifetime license model. Apply to become a vendor.',
     h1: 'Become a HackKnow Vendor',
     body: () => `
-      <p>Have a high-quality Excel template, PowerPoint deck, or digital product? Sell it on HackKnow and reach 10,000+ Indian buyers.</p>
+      <p>Have a high-quality Excel template, PowerPoint deck, or digital product? Sell it on HackKnow and connect with digital product buyers.</p>
       <h2>Vendor terms</h2>
       <ul>
         <li>70/30 revenue share (you keep 70%)</li>

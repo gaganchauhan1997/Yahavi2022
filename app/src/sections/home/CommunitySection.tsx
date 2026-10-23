@@ -60,7 +60,7 @@ export default function CommunitySection() {
             {/* Content */}
             <div className="text-center lg:text-left">
               <span className="inline-block text-xs font-mono uppercase tracking-widest text-hack-yellow mb-4">
-                Join 50,000+ Creators
+                Explore · Learn · Build
               </span>
               <h2 className="font-display font-bold text-3xl lg:text-5xl text-hack-white tracking-tight mb-6">
                 The Hackknow
@@ -68,52 +68,24 @@ export default function CommunitySection() {
                 Community
               </h2>
               <p className="text-hack-white/60 text-base lg:text-lg max-w-lg mb-8 leading-relaxed">
-                Connect with fellow creators, share your work, get feedback, and
-                access exclusive free resources. Our vibrant community is the
-                heart of Hackknow.
+                Explore free workbooks and share suggestions with the HackKnow team. No membership or review is required to download the free collection.
               </p>
               <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
                 <a
-                  href="#"
+                  href="/community/"
                   className="inline-flex items-center gap-2 px-7 py-4 bg-hack-yellow text-hack-black rounded-full text-sm font-bold hover:bg-hack-yellow/90 transition-colors"
                 >
-                  Join Community
+                  Explore Community
                 </a>
                 <a
-                  href="#"
+                  href="/free-excel-templates/"
                   className="inline-flex items-center gap-2 px-7 py-4 border border-hack-white/20 text-hack-white rounded-full text-sm font-medium hover:border-hack-yellow hover:text-hack-yellow transition-colors"
                 >
                   Explore Freebies
                 </a>
               </div>
 
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-8 mt-12">
-                <div>
-                  <p className="font-display font-bold text-2xl lg:text-3xl text-hack-yellow">
-                    50K+
-                  </p>
-                  <p className="text-xs text-hack-white/50 font-mono mt-1">
-                    Members
-                  </p>
-                </div>
-                <div>
-                  <p className="font-display font-bold text-2xl lg:text-3xl text-hack-magenta">
-                    2.5K+
-                  </p>
-                  <p className="text-xs text-hack-white/50 font-mono mt-1">
-                    Free Resources
-                  </p>
-                </div>
-                <div>
-                  <p className="font-display font-bold text-2xl lg:text-3xl text-hack-orange">
-                    100+
-                  </p>
-                  <p className="text-xs text-hack-white/50 font-mono mt-1">
-                    Weekly Uploads
-                  </p>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>

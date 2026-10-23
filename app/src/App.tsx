@@ -10,9 +10,7 @@ import MobileBottomBar from './components/MobileBottomBar';
 import YahaviAI from './components/YahaviAI';
 import CookieConsent from './components/CookieConsent';
 import AnnouncementBar from './components/AnnouncementBar';
-import SocialProofToast from './components/SocialProofToast';
 import StickyCheckoutBar from './components/StickyCheckoutBar';
-import ExitIntentModal from './components/ExitIntentModal';
 import { StoreProvider } from './context/StoreContext';
 import { installFetchInterceptor } from './lib/fetch-interceptor';
 
@@ -121,6 +119,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
 function App() {
   useEffect(() => {
     installFetchInterceptor();
+    // Remove the retired exit-popup email cache from returning browsers.
+    try { localStorage.removeItem("hk_local_leads_v1"); } catch { /* Storage may be unavailable. */ }
   }, []);
 
   return (
@@ -200,9 +200,7 @@ function App() {
           </main>
           <Footer />
           <MobileBottomBar />
-          <SocialProofToast />
           <StickyCheckoutBar />
-          <ExitIntentModal />
         </Router>
         <Toaster richColors position="top-right" />
         <CookieConsent />

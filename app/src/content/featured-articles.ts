@@ -301,13 +301,13 @@ export const FEATURED_ARTICLES: FeaturedArticle[] = [
 <h2>Final word</h2>
 <p>Free templates are great for one-off, personal, or learning use. Paid templates make sense the moment you have a recurring business need, an India-specific use case, or a deadline. The single biggest mistake people make is spending 8 hours building from scratch what they could have bought for ₹500.</p>
 
-<p>Browse our full catalogue at <a href="/shop">/shop</a>, our 100+ free resources at <a href="/shop/free-resources">/shop/free-resources</a>, or jump straight to <a href="/shop/excel-templates">Excel templates</a> if you know what you need.</p>
+<p>Browse our full catalogue at <a href="/shop">/shop</a>, our free Excel collection at <a href="/free-excel-templates/">/free-excel-templates/</a>, or jump straight to <a href="/shop/excel-templates">Excel templates</a> if you know what you need.</p>
 `,
     faq: [
       { q: 'Are HackKnow templates editable?',
         a: 'Yes. Every template ships in fully editable native format (.xlsx, .pptx, .docx). You can adapt them freely for personal or commercial use under our standard licence.' },
       { q: 'Do you offer free Excel templates?',
-        a: 'Yes — we maintain a curated library of 100+ free resources at /shop/free-resources. These are good starting points; the paid catalogue covers India-specific and integrated dashboards.' },
+        a: 'Yes — we maintain a curated free Excel collection at /free-excel-templates/. These are good starting points; the paid catalogue covers India-specific and integrated dashboards.' },
       { q: 'What if a paid template does not work for me?',
         a: 'If the template is materially different from its description or has a technical defect, contact team@hackknow.com within 7 days for a refund or replacement. See /refund-policy for details.' }
     ],
@@ -1115,7 +1115,7 @@ export const FEATURED_ARTICLES: FeaturedArticle[] = [
 
 <h2>Tools and platforms that make this realistic</h2>
 
-<p>For new creators, the easiest path is to plug into an existing storefront with built-in traffic. The HackKnow <a href="/become-a-vendor">vendor program</a> is set up exactly for this — you bring the products, HackKnow handles payments, hosting, downloads, refunds, and discoverability, and you keep 70% of every sale. Most successful vendors hit their first ₹50,000 month within 90 days because the buyer traffic is already there.</p>
+<p>For new creators, the easiest path is to plug into an existing storefront with built-in traffic. The HackKnow <a href="/become-a-vendor">vendor program</a> is set up exactly for this — you bring the products, HackKnow handles payments, hosting, downloads, refunds, and discoverability, and you keep 70% of every sale. Results depend on product quality, pricing and distribution; no income is guaranteed.</p>
 
 <p>For owners-operators who want full control, our <a href="/courses">digital business launch course</a> walks through setting up your own Shopify or Stan store, payment processors, email automation, and the first 60 days of marketing.</p>
 

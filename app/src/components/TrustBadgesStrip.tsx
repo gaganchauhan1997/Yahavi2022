@@ -1,11 +1,11 @@
-import { Award, Download, Globe2, RefreshCcw, ShieldCheck, Users } from 'lucide-react';
+import { FileSpreadsheet, Download, Globe2, Mail, ShieldCheck, ExternalLink } from 'lucide-react';
 
 const BADGES = [
-  { icon: ShieldCheck, label: 'Razorpay Secure',   sub: 'Bank-grade payments' },
-  { icon: Download,    label: 'Instant Download',  sub: 'Files ready in seconds' },
-  { icon: RefreshCcw,  label: '7-Day Refund',      sub: 'No-questions-asked'   },
-  { icon: Users,       label: '10,000+ Customers', sub: 'Trusted in India + 60 countries' },
-  { icon: Award,       label: 'Premium Quality',   sub: 'Hand-curated' },
+  { icon: ShieldCheck, label: 'License included', sub: 'Read the usage terms' },
+  { icon: Download, label: 'Direct downloads', sub: 'Free Excel collection' },
+  { icon: Mail, label: 'Email support', sub: 'team@hackknow.com' },
+  { icon: ExternalLink, label: 'Source attribution', sub: 'Original authors credited' },
+  { icon: FileSpreadsheet, label: 'Excel workbooks', sub: 'Editable files' },
   { icon: Globe2,      label: 'Made in India',     sub: 'Built for the World' },
 ];
 
@@ -21,7 +21,7 @@ export default function TrustBadgesStrip({ compact = false }: { compact?: boolea
               </span>
               <div className="min-w-0">
                 <div className="font-display font-bold text-xs sm:text-sm text-hack-black leading-tight truncate">{label}</div>
-                {!compact && <div className="text-[10px] sm:text-xs text-hack-black/55 leading-tight truncate">{sub}</div>}
+                {!compact && <div className="text-[10px] sm:text-xs text-hack-black/70 leading-tight truncate">{sub}</div>}
               </div>
             </li>
           ))}
