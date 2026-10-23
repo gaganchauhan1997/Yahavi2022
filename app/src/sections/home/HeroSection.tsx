@@ -45,7 +45,7 @@ export default function HeroSection() {
             </picture>
             {/* Floating Badge - neo-brutal, static */}
             <div className="absolute -bottom-5 -right-6 bg-hack-yellow text-hack-black px-4 py-2 rounded-xl font-display font-bold text-sm border-[3px] border-hack-black shadow-[5px_5px_0_0_#1A1A1A]">
-              10K+ Happy Customers
+              MIT Free workbooks
             </div>
           </div>
         </div>
@@ -88,7 +88,7 @@ export default function HeroSection() {
                 />
               </picture>
               <div className="absolute -bottom-3 -left-3 bg-hack-yellow text-hack-black px-2.5 py-1 rounded-lg font-display font-bold text-[10px] whitespace-nowrap border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A]">
-                10K+ Customers
+                MIT Customers
               </div>
             </div>
           </div>
@@ -113,7 +113,7 @@ export default function HeroSection() {
               <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
             </Link>
             <Link
-              to="/shop/free-resources"
+              to="/free-excel-templates/"
               className="inline-flex items-center gap-2 px-6 py-3.5 sm:px-7 sm:py-4 bg-white/95 text-hack-black rounded-xl text-sm font-bold border-[3px] border-hack-black shadow-[5px_5px_0_0_#1A1A1A] hover:shadow-[2px_2px_0_0_#1A1A1A] hover:translate-x-[3px] hover:translate-y-[3px] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none transition-all duration-150"
             >
               Browse Free Resources
@@ -125,28 +125,28 @@ export default function HeroSection() {
             <div className="flex flex-col items-start gap-1 px-2.5 py-2.5 sm:px-3 sm:py-3 bg-white rounded-xl border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A]">
               <Users className="w-4 h-4 sm:w-5 sm:h-5 text-hack-magenta" strokeWidth={2.5} />
               <span className="font-display font-black text-lg sm:text-2xl lg:text-3xl text-hack-black leading-none">
-                10K+
+                Excel
               </span>
               <p className="text-[10px] sm:text-xs text-hack-black/70 font-mono font-semibold leading-tight">
-                Happy Customers
+                Free workbooks
               </p>
             </div>
             <div className="flex flex-col items-start gap-1 px-2.5 py-2.5 sm:px-3 sm:py-3 bg-white rounded-xl border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A]">
               <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-hack-orange" strokeWidth={2.5} />
               <span className="font-display font-black text-lg sm:text-2xl lg:text-3xl text-hack-black leading-none">
-                10K+
+                MIT
               </span>
               <p className="text-[10px] sm:text-xs text-hack-black/70 font-mono font-semibold leading-tight">
-                Premium Assets
+                Licensed collection
               </p>
             </div>
             <div className="flex flex-col items-start gap-1 px-2.5 py-2.5 sm:px-3 sm:py-3 bg-white rounded-xl border-[2.5px] border-hack-black shadow-[3px_3px_0_0_#1A1A1A]">
               <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" strokeWidth={2.5} />
               <span className="font-display font-black text-lg sm:text-2xl lg:text-3xl text-hack-black leading-none">
-                100%
+                Delhi
               </span>
               <p className="text-[10px] sm:text-xs text-hack-black/70 font-mono font-semibold leading-tight">
-                Secure Payments
+                Built in India
               </p>
             </div>
           </div>
